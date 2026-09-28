@@ -12,6 +12,12 @@ const state = { session: null, recording: false, stream: null, audioContext: nul
   uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0 };
 const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
 
+$('mobile-settings').addEventListener('click', () => {
+  const expanded = document.querySelector('.sidebar').classList.toggle('expanded');
+  $('mobile-settings').setAttribute('aria-expanded', String(expanded));
+  $('mobile-settings').textContent = expanded ? '收起设置 ▴' : '课堂设置 ▾';
+});
+
 async function api(path, options = {}) {
   const response = await fetch(path, options);
   let body;
@@ -241,7 +247,9 @@ async function startRecording() {
   ui.record.classList.add('recording'); ui.record.lastElementChild.textContent = '结束听课';
   ui.indicator.classList.add('active'); ui.indicator.lastChild.textContent = '正在听课';
   ui.model.disabled = true; ui.source.disabled = true;
-  notice('正在录音。每约 8 秒生成一段译文；首次使用时模型下载会等待较久。');
+  notice(matchMedia('(max-width: 750px)').matches
+    ? '正在录音。手机请保持页面在前台并避免锁屏；译文按停顿或约 8 秒更新。'
+    : '正在录音。每约 8 秒生成一段译文；首次使用时模型下载会等待较久。');
 }
 
 async function stopRecording() {

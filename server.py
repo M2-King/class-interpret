@@ -389,7 +389,8 @@ def main() -> None:
     address = f"http://{HOST}:{PORT}/"
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"课堂同传已启动：{address}")
-    threading.Timer(0.8, lambda: webbrowser.open(address)).start()
+    if os.environ.get("CLASS_INTERPRET_NO_BROWSER") != "1":
+        threading.Timer(0.8, lambda: webbrowser.open(address)).start()
     try:
         server.serve_forever()
     except KeyboardInterrupt:
