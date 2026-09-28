@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>听课搭子 · 本地同声传译</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="shell">
+    <aside class="sidebar">
+      <div class="brand"><span class="brand-mark">聴</span><div><strong>听课搭子</strong><small>CLASS INTERPRETER</small></div></div>
+      <div class="side-label">课堂设置</div>
+      <label class="field"><span>课程名称</span><input id="class-title" maxlength="80" placeholder="例如：Business Analytics"></label>
+      <label class="field"><span>声音来源</span><select id="source"><option value="mic">麦克风 · 线下课堂</option><option value="screen">共享标签页/屏幕音频 · 网课</option></select></label>
+      <label class="field"><span>识别精度</span><select id="model"><option value="small">流畅 · Small</option><option value="medium" selected>更准确 · Medium</option><option value="large-v3">最高精度 · Large v3</option></select></label>
+      <label class="field"><span>课程术语提示</span><textarea id="glossary" rows="3" maxlength="500" placeholder="例：regression, hypothesis testing, ANOVA"></textarea><small>输入老师常用的英文专业词，有助于识别。</small></label>
+      <label class="check"><input id="speak" type="checkbox"><span>朗读中文译文</span></label>
+      <div class="side-label history-title">最近课堂 <button id="new-session" class="text-button" title="新建课堂">＋ 新建</button></div>
+      <div id="history" class="history"><span class="muted">尚无课堂记录</span></div>
+      <div class="side-foot">语音在此电脑处理 · 无付费接口</div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar"><span class="eyebrow">LIVE STUDY ASSISTANT</span><span id="local-status" class="status-pill">正在检查本地模型…</span></header>
+      <section class="hero">
+        <div class="hero-copy"><div class="eyebrow accent">FOR YOUR NEXT CLASS</div><h1>听懂每一句，<br><em>跟上每一堂课。</em></h1><p>英语原文与中文译文同步呈现。带口音的课堂对话也能回看、修正，再一键整理成课后笔记。</p></div>
+        <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="sound-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>EN</span><b>→</b><span>中</span></div>
+      </section>
+
+      <section class="workspace">
+        <div class="workspace-head"><div><span class="eyebrow">CURRENT CLASS</span><h2 id="session-heading">准备开始听课</h2><p id="session-meta">选择声音来源，开始后将自动保存课堂记录。</p></div><div id="record-indicator" class="record-indicator"><span></span>未录音</div></div>
+        <div class="action-row"><button id="record-button" class="button primary"><span class="button-icon">●</span><span>开始同传</span></button><button id="summary-button" class="button secondary">✦ 生成课后总结</button><button id="export-button" class="button ghost">↓ 导出笔记</button></div>
+        <div id="notice" class="notice" role="status" aria-live="polite">第一次识别会下载免费语音模型，需保持联网；下载完成后可离线使用。</div>
+        <div class="section-head"><div><span class="eyebrow">TRANSCRIPT</span><h3>实时课堂记录</h3></div><span id="entry-count" class="count">0 条</span></div>
+        <div id="transcript" class="transcript"><div class="empty"><div class="empty-icon">◌</div><strong>准备好听课了</strong><p>点击“开始同传”，允许浏览器访问麦克风。</p></div></div>
+      </section>
+
+      <section id="summary-section" class="summary-section"><div class="section-head"><div><span class="eyebrow">AFTER CLASS</span><h3>课后总结</h3></div><span id="summary-source" class="summary-source">尚未生成</span></div><div id="summary-content" class="summary-content muted">点击上方“生成课后总结”，随时整理已经记录的内容。</div></section>
+      <footer>识别结果可能因口音、距离和噪声而出错；重要作业和截止时间请核对英文原文。</footer>
+    </main>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
