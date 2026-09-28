@@ -1,5 +1,10 @@
 $ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
+$address = 'http://127.0.0.1:8765/'
+try {
+    $running = Invoke-RestMethod -Uri ($address + 'api/status') -TimeoutSec 1
+    if ($null -ne $running.translation) { Start-Process $address; return }
+} catch { }
 if (-not (Test-Path -LiteralPath '.venv\Scripts\python.exe')) {
     $python = Get-Command py -ErrorAction SilentlyContinue
     if ($python) { & py -3 -m venv .venv }
