@@ -1,12 +1,12 @@
-$ErrorActionPreference = 'Stop'
+﻿$ErrorActionPreference = 'Stop'
 Set-Location -LiteralPath $PSScriptRoot
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $env:PYTHONUTF8 = '1'
 
 $VersionFile = Join-Path $PSScriptRoot 'VERSION'
-$Version = '0.2.3'
+$Version = '0.2.4'
 if (Test-Path -LiteralPath $VersionFile) {
-    $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1).Trim()
+    $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1 -Encoding UTF8).Trim()
 }
 $Address = 'http://127.0.0.1:8765/'
 $Port = 8765
@@ -52,10 +52,10 @@ function Install-WithPip {
     )
     & $PythonExe -m pip --retries 1 --timeout 30 @PipArgs
     if ($LASTEXITCODE -eq 0) { return }
-    Write-Host 'pip 证书校验失败，改用 trusted-host 重试……'
+    Write-Host 'pip SSL failed, retrying with trusted-host...'
     & $PythonExe -m pip --retries 1 --timeout 30 --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org @PipArgs
     if ($LASTEXITCODE -ne 0) {
-        throw '依赖安装失败。校园网请换手机热点后重试。'
+        throw 'pip install failed. Switch to a phone hotspot and try again.'
     }
 }
 
@@ -79,7 +79,7 @@ function Find-Python {
         & $exe -c 'import sys, venv; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)' 2>$null
         if ($LASTEXITCODE -eq 0) { return $exe }
     }
-    throw '未找到 Python 3.10–3.12。请从 python.org 安装，并勾选 Add python.exe to PATH。'
+    throw 'Python 3.10-3.12 not found. Install it from python.org and check Add python.exe to PATH.'
 }
 
 $status = Get-AppStatus
@@ -88,21 +88,21 @@ if ($status -and $status.version -eq $Version) {
     return
 }
 if ($status) {
-    Write-Host '发现旧版听课搭子，正在替换为新版……'
+    Write-Host 'Old Class Interpreter is running. Replacing it...'
     Stop-Listener
 }
 
 $venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $venvPython)) {
     $python = Find-Python
-    Write-Host "使用 Python：$python"
+    Write-Host ("Using Python: " + $python)
     & $python -m venv .venv
     if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $venvPython)) {
-        throw '创建 Python 环境失败。请安装 Python 3.10–3.12，并勾选 Add python.exe to PATH。'
+        throw 'Failed to create .venv. Install Python 3.10-3.12 and check Add python.exe to PATH.'
     }
 }
 
-Write-Host '正在安装依赖（首次需要联网，可能要几分钟）……'
+Write-Host 'Installing packages (first run needs internet, a few minutes)...'
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '--upgrade', 'pip')
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', 'certifi')
 $cert = & $venvPython -c 'import certifi; print(certifi.where())'
@@ -114,8 +114,8 @@ if ($LASTEXITCODE -eq 0 -and $cert) {
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '-r', 'requirements.txt')
 & $venvPython setup_models.py
 if ($LASTEXITCODE -ne 0) {
-    Write-Warning '翻译模型暂未安装。打开页面后点黄色条「现在安装中文翻译模型」。校园网请换手机热点。'
+    Write-Warning 'Translation model not installed yet. Use the yellow button in the webpage. If campus Wi-Fi fails, use a phone hotspot.'
 }
 
-Write-Host '正在启动听课搭子。看到黄色条就点下载按钮；校园网请换手机热点。'
+Write-Host 'Starting. In the webpage, use the yellow buttons to download models. Use a phone hotspot on campus Wi-Fi.'
 & $venvPython server.py
