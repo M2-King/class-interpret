@@ -23,6 +23,7 @@ assert "deepseek" in data
 with urllib.request.urlopen(base + "/") as response:
     html = response.read().decode()
 assert "现在安装中文翻译模型" in html
+assert 'id="quit-app"' in html
 assert "退出听课搭子" in html
 
 with urllib.request.urlopen(base + "/app.js") as response:
