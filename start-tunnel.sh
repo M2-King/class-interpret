@@ -4,34 +4,37 @@ cd "$(dirname "$0")"
 
 ADDRESS="http://127.0.0.1:8765/"
 
-if ! command -v cloudflared >/dev/null 2>&1; then
-  echo "未找到 cloudflared。Mac 请先安装 Homebrew，再运行：brew install cloudflared" >&2
-  echo "Windows / Linux 可从 https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/install-and-setup/installation/ 安装。" >&2
-  exit 1
-fi
+# shellcheck source=bootstrap.sh
+source ./bootstrap.sh
+ensure_cloudflared
 
-if ! python3 -c "import urllib.request; urllib.request.urlopen('${ADDRESS}api/status', timeout=1)" >/dev/null 2>&1; then
-  echo "本地同传尚未运行，正在启动（首次安装依赖可能需要几分钟）……"
+service_up() {
+  curl -fsS --max-time 1 "${ADDRESS}api/status" >/dev/null 2>&1
+}
+
+if ! service_up; then
+  echo "本地同传尚未运行，正在检测系统并安装依赖（首次可能需要几分钟）……"
   CLASS_INTERPRET_NO_BROWSER=1 bash start.sh >/tmp/class-interpret-start.log 2>&1 &
   ready=0
   for _ in $(seq 1 180); do
-    if python3 -c "import urllib.request; urllib.request.urlopen('${ADDRESS}api/status', timeout=1)" >/dev/null 2>&1; then
+    if service_up; then
       ready=1
       break
     fi
     sleep 2
   done
   if [[ "$ready" -ne 1 ]]; then
-    echo "本地服务未能在时限内启动。请查看 /tmp/class-interpret-start.log 或先运行 bash start.sh。" >&2
+    echo "本地服务未能在时限内启动。请查看 /tmp/class-interpret-start.log 或先双击 启动同传.command。" >&2
     exit 1
   fi
   echo "本地服务已就绪。"
 fi
 
 echo
-echo "即将生成一个 https 地址。手机浏览器打开该地址即可录音（麦克风需要 HTTPS）。"
-echo "识别仍在这台电脑上；电脑关机或结束此命令后手机不能继续用。"
-echo "该地址在隧道开启期间任何人打开都能访问，课程结束后按 Ctrl+C 关闭。"
+echo "Mac 终端里接下来会打印一个 https 地址。"
+echo "把该地址发到手机，用 Safari 或 Chrome 打开即可（不要用微信）。"
+echo "识别仍在这台电脑上；下课后在本窗口按 Ctrl+C。"
+echo "该地址在隧道开启期间任何人打开都能访问。"
 echo
 
 exec cloudflared tunnel --url http://127.0.0.1:8765

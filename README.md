@@ -17,26 +17,17 @@ powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 
 ## 第一次使用（Mac）
 
-Mac 走同一套本地识别：页面和接口都由本机 `server.py` 提供，录音不会送到 Firebase / GitHub Pages。只把 `index.html` 挂到第三方静态托管时，手机能打开页面，但无法识别（没有本机 API）。苹果芯片用 CPU 推理，课堂里建议选 **Small** 或 **Medium**。上课期间 Mac 必须保持开机。
+双击 `启动同传.command` 即可。脚本会检测系统（macOS / 芯片），若缺少 Python 3.10–3.12、Homebrew 或应用依赖，会自动安装。第一次需要联网，可能要几分钟，并可能弹出窗口让你输入 **Mac 登录密码**。装好后会打开 `http://127.0.0.1:8765/`。
 
-1. 安装 [Python 3.10–3.12](https://www.python.org/downloads/macos/)（不要用系统自带的过旧 Python）。安装时勾选 **Add Python to PATH**。
-2. 把本仓库放到一个固定目录，例如 `~/class-interpret`。
-3. 双击 `启动同传.command`。若提示无法打开：右键 → 打开，或在「终端」执行：
+若提示无法打开：右键该文件 → 打开。或在「终端」进入项目目录后运行 `bash start.sh`。
 
-```bash
-cd ~/class-interpret
-bash start.sh
-```
+苹果芯片用 CPU 推理，课堂里建议选 **Small** 或 **Medium**。上课期间 Mac 必须保持开机。用完后在弹出的终端窗口按 `Ctrl+C`。
 
-4. 第一次会下载依赖和英语→中文翻译模型，需要联网。完成后浏览器打开 `http://127.0.0.1:8765/`。
-5. 输入课程名，选择「麦克风」或「共享标签页/屏幕音频」，点击 **开始同传**。网课共享时勾选浏览器的 **共享音频**。
-6. 用完后在终端按 `Ctrl+C` 结束。再次启动会复用已在跑的服务。
+本机 DeepSeek 总结（可选）：安装 [Ollama for Mac](https://ollama.com/download/mac)，终端执行 `ollama pull deepseek-r1:1.5b`，保持 Ollama 运行后再点「生成课后总结」。
 
-本机 DeepSeek 总结：安装 [Ollama for Mac](https://ollama.com/download/mac)，终端执行 `ollama pull deepseek-r1:1.5b`，保持 Ollama 运行后再点「生成课后总结」。
+**在 Mac 上听课：** 只用上面这一步，不必 SSH。
 
-**在 Mac 上听课：** 直接用上面的本机地址即可，不必 SSH，也不必第三方。
-
-**手机听课、识别仍在这台 Mac：** 不要只 host 前端。用下一节的 Cloudflare 隧道（给本机加 HTTPS），或再下面的 SSH 转发。Mac 关机后手机不能识别。
+**手机听课：** 手机没有终端。在 Mac 上再双击 `手机访问.command`（同样会自动检测并安装 `cloudflared`），把窗口里的 `https://` 链接用手机 Safari / Chrome 打开。Mac 关机后手机不能识别。
 
 ## 课后总结与 DeepSeek
 
@@ -76,7 +67,7 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 第三方只负责把本机的 **页面 + API** 变成 HTTPS，识别仍在 Mac 上。Firebase / GitHub Pages 只能放静态前端，不能跑 Whisper。
 
-**在 Mac 上做（一次）：** 安装 [Homebrew](https://brew.sh)，再运行 `brew install cloudflared`。
+**在 Mac 上做（一次或自动）：** 双击 `手机访问.command` 时会检测系统；没有 Homebrew / `cloudflared` 会自动装。也可以在 Mac 终端运行 `bash start-tunnel.sh`。
 
 **每次上课，在 Mac 上：** 双击 `手机访问.command`（不会用双击时，在 Mac 的「终端」里执行 `bash start-tunnel.sh`）。Mac 的终端里会出现一行 `https://….trycloudflare.com`，把它发给手机（隔空投送、信息、备忘录均可）。下课后在 **Mac 终端** 按 `Ctrl+C` 关掉。隧道开着时，知道链接的人都能访问。
 
@@ -98,4 +89,4 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 技术结构
 
-`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` / `启动同传.command` 用于 Mac 与 Linux；`start-tunnel.sh` / `手机访问.command` 用 Cloudflare 把本机服务以 HTTPS 提供给手机。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
+`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`bootstrap.sh` 检测系统并安装 Python / 依赖；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` / `启动同传.command` 用于 Mac 与 Linux；`start-tunnel.sh` / `手机访问.command` 用 Cloudflare 把本机服务以 HTTPS 提供给手机。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
