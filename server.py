@@ -18,6 +18,10 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
+import ssl_certs
+
+ssl_certs.apply()
+
 ROOT = Path(__file__).resolve().parent
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -29,6 +33,7 @@ SESSION_ID = re.compile(r"^[a-f0-9]{32}$")
 LOCK = threading.RLock()
 MODEL_LOCK = threading.Lock()
 TRANSLATE_LOCK = threading.Lock()
+TRANSLATE_INSTALL_LOCK = threading.Lock()
 MODEL_CACHE: dict[str, object] = {}
 MODEL_DEVICE: dict[str, str] = {}
 CUDA_DLL_HANDLES: list[object] = []
@@ -58,6 +63,16 @@ def save_session(session: dict) -> None:
     os.replace(temporary, path)
 
 
+def install_translation_model() -> None:
+    import setup_models
+
+    try:
+        setup_models.main()
+    except SystemExit as exc:
+        if exc.code not in (0, None):
+            raise RuntimeError(str(exc) or "翻译模型安装失败") from exc
+
+
 def translation_available() -> bool:
     try:
         import argostranslate.translate
@@ -76,10 +91,10 @@ def translate(text: str) -> str:
 
         languages = {item.code: item for item in argostranslate.translate.get_installed_languages()}
         if "en" not in languages or "zh" not in languages:
-            raise RuntimeError("英语 → 中文翻译模型未安装，请运行 setup_models.py")
+            raise RuntimeError("英语 → 中文翻译模型未安装")
         translator = languages["en"].get_translation(languages["zh"])
         if not translator:
-            raise RuntimeError("英语 → 中文翻译模型未安装，请运行 setup_models.py")
+            raise RuntimeError("英语 → 中文翻译模型未安装")
         return translator.translate(text).strip()
 
 
@@ -284,6 +299,23 @@ class Handler(BaseHTTPRequestHandler):
             return self.serve_file(path[1:], "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8")
         if method == "GET" and path == "/api/status":
             return self.respond(200, {"translation": translation_available(), "deepseek": installed_deepseek()})
+        if method == "POST" and path == "/api/translation/install":
+            if translation_available():
+                return self.respond(200, {"translation": True, "message": "英语 → 中文模型已经安装。"})
+            if not TRANSLATE_INSTALL_LOCK.acquire(blocking=False):
+                return self.respond(202, {"translation": False, "message": "正在下载翻译模型，请稍候。"})
+            try:
+                install_translation_model()
+            except Exception as exc:
+                return self.respond(500, {"error": str(exc), "translation": False})
+            finally:
+                TRANSLATE_INSTALL_LOCK.release()
+            if not translation_available():
+                return self.respond(500, {"error": "翻译模型没有装上，请检查网络后重试。", "translation": False})
+            return self.respond(200, {"translation": True, "message": "英语 → 中文模型已安装。"})
+        if method == "POST" and path == "/api/shutdown":
+            threading.Thread(target=self.server.shutdown, daemon=True).start()
+            return self.respond(200, {"ok": True})
         if method == "GET" and path == "/api/sessions":
             sessions = []
             for file in DATA.glob("*.json"):

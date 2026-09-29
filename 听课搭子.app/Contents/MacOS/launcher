@@ -10,9 +10,10 @@ SUPPORT="$HOME/Library/Application Support/ClassInterpret"
 LOG_DIR="$HOME/Library/Logs"
 LOG="$LOG_DIR/class-interpret.log"
 ADDRESS="http://127.0.0.1:8765/"
+PID_FILE="$SUPPORT/server.pid"
+LOCK="$SUPPORT/launch.lock"
 
 mkdir -p "$SUPPORT/data" "$LOG_DIR"
-exec >>"$LOG" 2>&1
 
 notify() {
   osascript -e "display notification \"$1\" with title \"听课搭子\"" >/dev/null 2>&1 || true
@@ -40,38 +41,65 @@ if service_up; then
   exit 0
 fi
 
+if [[ -f "$LOCK" ]]; then
+  notify "听课搭子正在启动，请等浏览器打开。"
+  for _ in $(seq 1 180); do
+    if service_up; then
+      open_app
+      exit 0
+    fi
+    sleep 1
+  done
+fi
+
+echo $$ > "$LOCK"
+cleanup_lock() { rm -f "$LOCK"; }
+trap cleanup_lock EXIT
+
 notify "正在准备听课搭子（首次需联网下载模型）…"
-osascript -e 'display dialog "正在安装听课搭子。第一次需要联网，可能要几分钟。如果弹出密码窗口，请输入你的 Mac 登录密码。不会打开终端。" with title "听课搭子" buttons {"好"} default button 1 giving up after 8' >/dev/null 2>&1 || true
+
+exec >>"$LOG" 2>&1
 
 cd "$APP"
 export CLASS_INTERPRET_VENV="$SUPPORT/venv"
 export CLASS_INTERPRET_DATA="$SUPPORT/data"
+export CLASS_INTERPRET_CERTS="$SUPPORT/certs.pem"
 export CLASS_INTERPRET_NO_BROWSER=1
 
 # shellcheck source=/dev/null
 source "$APP/bootstrap.sh"
 if ! ensure_runtime; then
-  alert "安装失败。请检查网络后重试。详细日志：~/Library/Logs/class-interpret.log"
+  alert "安装失败，多半是网络证书问题。请换用手机热点后再双击打开。详细日志：访达 → 前往文件夹 → ~/Library/Logs/class-interpret.log"
   exit 1
 fi
 
-"$CLASS_INTERPRET_VENV/bin/python" "$APP/server.py" &
-SERVER_PID=$!
-cleanup() { kill "$SERVER_PID" 2>/dev/null || true; }
-trap cleanup EXIT INT TERM
+if service_up; then
+  open_app
+  notify "听课搭子已打开。"
+  exit 0
+fi
+
+if [[ -f "$PID_FILE" ]]; then
+  kill "$(cat "$PID_FILE")" 2>/dev/null || true
+  rm -f "$PID_FILE"
+fi
+
+# Detach so macOS does not keep a bouncing Dock icon; Python keeps serving.
+nohup "$CLASS_INTERPRET_VENV/bin/python" "$APP/server.py" >/dev/null 2>>"$LOG" &
+echo $! > "$PID_FILE"
+disown || true
 
 ready=0
-for _ in $(seq 1 60); do
+for _ in $(seq 1 90); do
   if service_up; then ready=1; break; fi
-  if ! kill -0 "$SERVER_PID" 2>/dev/null; then break; fi
   sleep 1
 done
 
 if [[ "$ready" -ne 1 ]]; then
-  alert "服务没有启动。请查看 ~/Library/Logs/class-interpret.log"
+  alert "服务没有启动。请查看访达 → 前往文件夹 → ~/Library/Logs/class-interpret.log"
   exit 1
 fi
 
 open_app
-notify "听课搭子已打开。下课后在程序坞退出应用即可。"
-wait "$SERVER_PID"
+notify "听课搭子已在浏览器打开。下课后在页面点「退出听课搭子」。"
+exit 0

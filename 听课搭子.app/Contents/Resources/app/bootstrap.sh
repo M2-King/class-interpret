@@ -121,6 +121,50 @@ ensure_python() {
   return 1
 }
 
+export_macos_certs() {
+  [[ "$(uname -s)" == Darwin ]] || return 0
+  local bundle="${CLASS_INTERPRET_CERTS:-}"
+  if [[ -z "$bundle" ]]; then
+    if [[ -n "${CLASS_INTERPRET_VENV:-}" ]]; then
+      bundle="$(dirname "$CLASS_INTERPRET_VENV")/certs.pem"
+    else
+      bundle="$(pwd)/certs.pem"
+    fi
+  fi
+  mkdir -p "$(dirname "$bundle")"
+  : > "$bundle"
+  local kc
+  for kc in \
+    "/System/Library/Keychains/SystemRootCertificates.keychain" \
+    "/Library/Keychains/System.keychain" \
+    "$HOME/Library/Keychains/login.keychain-db" \
+    "$HOME/Library/Keychains/login.keychain"; do
+    if [[ -e "$kc" ]]; then
+      security find-certificate -a -p "$kc" >> "$bundle" 2>/dev/null || true
+    fi
+  done
+  if [[ ! -s "$bundle" && -f /etc/ssl/cert.pem ]]; then
+    cat /etc/ssl/cert.pem > "$bundle"
+  fi
+  if [[ -s "$bundle" ]]; then
+    export SSL_CERT_FILE="$bundle"
+    export REQUESTS_CA_BUNDLE="$bundle"
+    export CURL_CA_BUNDLE="$bundle"
+    export PIP_CERT="$bundle"
+    echo "已使用 macOS 钥匙串证书：$bundle"
+  fi
+}
+
+pip_with_ssl_fallback() {
+  local py=$1
+  shift
+  if "$py" -m pip --retries 1 --timeout 30 "$@"; then
+    return 0
+  fi
+  echo "pip 证书校验失败，改用 trusted-host 重试……"
+  "$py" -m pip --retries 1 --timeout 30 --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org "$@"
+}
+
 ensure_venv_module() {
   if "$PYTHON" -c 'import ensurepip, venv' >/dev/null 2>&1; then
     return 0
@@ -149,6 +193,7 @@ ensure_runtime() {
   echo "检测到系统：$(uname -s) $(uname -m)"
   ensure_python
   echo "使用 Python：$PYTHON"
+  export_macos_certs
   ensure_venv_module
   if [[ ! -x "$venv/bin/python" ]] || ! python_ok "$venv/bin/python"; then
     echo "正在创建本地 Python 环境……"
@@ -156,8 +201,10 @@ ensure_runtime() {
     "$PYTHON" -m venv "$venv"
   fi
   echo "正在安装应用依赖（首次需要联网，可能要几分钟）……"
-  "$venv/bin/python" -m pip install --upgrade pip
-  "$venv/bin/python" -m pip install -r requirements.txt
+  export PIP_DEFAULT_TIMEOUT="${PIP_DEFAULT_TIMEOUT:-30}"
+  pip_with_ssl_fallback "$venv/bin/python" install --upgrade pip
+  pip_with_ssl_fallback "$venv/bin/python" install certifi
+  pip_with_ssl_fallback "$venv/bin/python" install -r requirements.txt
   if ! "$venv/bin/python" setup_models.py; then
     echo "翻译模型暂未安装；识别仍可使用，安装模型后会显示中文译文。" >&2
   fi

@@ -12,7 +12,8 @@ const ui = {
   micHealth: $('mic-health'), audioHealth: $('audio-health'), engineHealth: $('engine-health'),
   summaryPage: $('summary-page-content'), exportList: $('export-list'),
   exportPreview: $('export-preview'), exportTitle: $('export-title'),
-  greeting: $('home-greeting'), currentModel: $('current-model-label')
+  greeting: $('home-greeting'), currentModel: $('current-model-label'),
+  installTranslation: $('install-translation'), quitApp: $('quit-app')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
@@ -127,6 +128,12 @@ async function api(path, options = {}) {
 function notice(message, error = false) {
   ui.notice.textContent = message;
   ui.notice.classList.toggle('error', error);
+}
+
+function applyStatus(status) {
+  ui.status.textContent = `${status.translation ? '离线翻译就绪' : '翻译模型待安装'} · ${status.deepseek ? 'DeepSeek 就绪' : '基础总结就绪'}`;
+  if (ui.engineHealth) ui.engineHealth.textContent = status.translation ? '正常运行' : '模型待安装';
+  if (ui.installTranslation) ui.installTranslation.hidden = !!status.translation;
 }
 
 function formatTime(seconds) {
@@ -463,9 +470,39 @@ async function init() {
   drawSession();
   try {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
-    ui.status.textContent = `${status.translation ? '离线翻译就绪' : '翻译模型待安装'} · ${status.deepseek ? 'DeepSeek 就绪' : '基础总结就绪'}`;
-    ui.engineHealth.textContent = status.translation ? '正常运行' : '模型待安装';
-    if (!status.translation) notice('英语 → 中文模型尚未安装。运行 setup_models.py 后即可显示中文译文。', true);
+    applyStatus(status);
+    if (!status.translation) {
+      notice('中文翻译模型还没装好。点下方按钮自动下载（需联网，大约一两分钟）。不用打开终端。', true);
+    }
   } catch (error) { notice(`无法连接本地服务：${error.message}`, true); ui.status.textContent = '服务未就绪'; }
 }
+
+if (ui.installTranslation) {
+  ui.installTranslation.addEventListener('click', async () => {
+    ui.installTranslation.disabled = true;
+    notice('正在下载英语 → 中文模型，请保持联网…');
+    try {
+      const body = await api('/api/translation/install', {
+        method: 'POST',
+        signal: AbortSignal.timeout(360000)
+      });
+      const status = await api('/api/status');
+      applyStatus(status);
+      notice(body.message || '翻译模型已安装。现在可以开始同传。');
+    } catch (error) {
+      notice(`翻译模型安装失败：${error.message}。可改用手机热点后重试。`, true);
+      ui.installTranslation.disabled = false;
+    }
+  });
+}
+
+if (ui.quitApp) {
+  ui.quitApp.addEventListener('click', async () => {
+    try { await api('/api/shutdown', { method: 'POST' }); }
+    catch { /* service may already be gone */ }
+    notice('听课搭子已退出。可以关闭这个标签页。');
+    ui.status.textContent = '服务已退出';
+  });
+}
+
 init();

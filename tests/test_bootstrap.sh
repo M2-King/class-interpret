@@ -16,4 +16,9 @@ PYTHON="$found"
 ensure_python
 [[ "$PYTHON" == "$found" ]]
 
+type pip_with_ssl_fallback >/dev/null
+export_macos_certs
+
+"$found" tests/test_ssl.py
+
 echo "bootstrap ok: os=$os python=$PYTHON"

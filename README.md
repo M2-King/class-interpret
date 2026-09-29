@@ -17,13 +17,15 @@ powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 
 ## 第一次使用（Mac）
 
-从 [Releases](https://github.com/M2-King/class-interpret/releases) 下载 **听课搭子.app**（zip 里只有这一个应用）。解压后双击即可，**不用输入任何终端命令**。
+从 [Releases](https://github.com/M2-King/class-interpret/releases) 下载最新的 **听课搭子.app**（zip 里只有这一个应用）。解压后双击即可，**不用输入任何终端命令**。
 
-- 第一次会弹出提示，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
-- 装好后自动用浏览器打开课堂页面。
+- 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
+- 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
 - 可以把整个 `听课搭子.app` 拖到「应用程序」文件夹。
 - 若提示身份不明：右键 → **打开**。
-- 下课后在程序坞退出「听课搭子」。上课期间请让 Mac 保持清醒。
+- 下课后在页面左侧点 **退出听课搭子**，不要只关浏览器标签。上课期间请让 Mac 保持清醒。
+
+如果页面提示「中文翻译模型还没装好」，点 **现在安装中文翻译模型**（需联网）。校园网如果出现 `SSLCertVerificationError` / `unable to get local issuer certificate`，请改用手机热点后再打开一次应用。
 
 苹果芯片用 CPU，课堂里建议选 **Small** 或 **Medium**。日志在 `~/Library/Logs/class-interpret.log`。
 
@@ -59,7 +61,7 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 - 课堂文字保存在 `data/`，仅在本机监听 `127.0.0.1`。音频只用于当前识别，不持久保存。
 - 首次下载模型时可能等待较久。课程中若显示“待处理”过多，切换较小识别模型，或改善麦克风收音。
-- 没有中文译文时，先联网重新运行 `启动同传.bat` 以安装 Argos 翻译模型。
+- 没有中文译文时，先联网重新打开应用，并在页面点「现在安装中文翻译模型」。校园网证书错误时请换手机热点。
 - 只有英文口音的课堂已被预设为英语识别；若老师主要讲马来语，当前版本不适用。
 - 课后总结只根据已识别的文字生成；作业、考试和日期请核对原文或课程平台。
 

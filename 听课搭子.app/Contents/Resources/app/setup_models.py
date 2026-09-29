@@ -1,7 +1,12 @@
 """Download the free offline English-to-Chinese translation model once."""
 
+from __future__ import annotations
 
-def main():
+import ssl_certs
+
+
+def main() -> None:
+    ssl_certs.apply()
     try:
         import argostranslate.package
         import argostranslate.translate

@@ -211,6 +211,14 @@ button:disabled { cursor: not-allowed; opacity: .5; }
   font-size: 13px;
 }
 .notice.error { background: #fde8e8; color: #8a1f1f; }
+#install-translation { margin: -4px 0 14px; }
+.side-promo .button {
+  margin-top: 14px;
+  width: 100%;
+  background: rgba(255,255,255,.18);
+  color: #fff;
+  border-color: rgba(255,255,255,.35);
+}
 .transcript-bar {
   display: flex;
   align-items: flex-end;

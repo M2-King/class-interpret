@@ -21,6 +21,11 @@ if service_up; then
   exit 0
 fi
 
+if [[ "$(uname -s)" == Darwin ]]; then
+  export CLASS_INTERPRET_CERTS="${CLASS_INTERPRET_CERTS:-$HOME/Library/Application Support/ClassInterpret/certs.pem}"
+  mkdir -p "$(dirname "$CLASS_INTERPRET_CERTS")" "$HOME/Library/Application Support/ClassInterpret/data"
+fi
+
 # shellcheck source=bootstrap.sh
 source ./bootstrap.sh
 ensure_runtime
