@@ -105,10 +105,34 @@ ensure_python() {
   return 1
 }
 
+ensure_venv_module() {
+  if "$PYTHON" -c 'import ensurepip, venv' >/dev/null 2>&1; then
+    return 0
+  fi
+  if [[ "$(uname -s)" != "Linux" ]] || ! command -v apt-get >/dev/null 2>&1; then
+    echo "当前 Python 无法创建虚拟环境。请安装 venv（Debian/Ubuntu：python3-venv）。" >&2
+    return 1
+  fi
+  local series
+  series="$("$PYTHON" -c 'import sys; print(f"{sys.version_info[0]}.{sys.version_info[1]}")')"
+  echo "正在安装 python${series}-venv（创建虚拟环境需要它）……"
+  if [[ "$(id -u)" -eq 0 ]]; then
+    apt-get update
+    apt-get install -y "python${series}-venv" python3-venv || apt-get install -y python3-venv
+  elif command -v sudo >/dev/null 2>&1; then
+    sudo apt-get update
+    sudo apt-get install -y "python${series}-venv" python3-venv || sudo apt-get install -y python3-venv
+  else
+    echo "请先安装 python${series}-venv。" >&2
+    return 1
+  fi
+}
+
 ensure_runtime() {
   echo "检测到系统：$(uname -s) $(uname -m)"
   ensure_python
   echo "使用 Python：$PYTHON"
+  ensure_venv_module
   if [[ ! -x .venv/bin/python ]] || ! python_ok .venv/bin/python; then
     echo "正在创建本地 Python 环境……"
     rm -rf .venv
