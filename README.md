@@ -15,6 +15,17 @@
 powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 ```
 
+## 第一次使用（Mac）
+
+Mac 走同一套本地识别，不需要 Windows，也不把录音送到云端。电脑上课期间需要保持开机、本应用保持运行；苹果芯片用 CPU 推理（不用 NVIDIA），一般选 **Small** 或 **Medium**。
+
+1. 安装 [Python 3.10–3.12](https://www.python.org/downloads/macos/)（不要用系统自带的过旧 Python）。安装时勾选 **Add Python to PATH**。推荐 Safari、Chrome 或 Edge。
+2. 双击 `启动同传.command`。若系统提示无法打开，可右键选择打开，或在终端进入项目目录后运行 `bash start.sh`。
+3. 第一次会安装免费依赖和英语→中文翻译模型，需要联网。完成后会打开 `http://127.0.0.1:8765/`。
+4. 用法与 Windows 相同：选麦克风或共享标签页/屏幕音频，点击 **开始同传**。网课共享时要勾选浏览器的 **共享音频**。
+
+若希望手机在教室录音、Mac 在宿舍或家里跑识别：保持这台 Mac 开机并运行本应用，按下文「手机使用（SSH）」做端口转发。Mac 关机后手机无法继续识别。
+
 ## 课后总结与 DeepSeek
 
 **生成课后总结** 是独立功能，直接点击就能使用。未安装 DeepSeek 时，会给出忠于课堂记录的摘录，不会编造概念或截止时间。如果希望使用免费的本机 DeepSeek 归纳：
@@ -61,4 +72,4 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 技术结构
 
-`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` 用于 Linux。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
+`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` / `启动同传.command` 用于 Mac 与 Linux。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
