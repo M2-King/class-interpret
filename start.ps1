@@ -5,7 +5,7 @@ $env:PYTHONUTF8 = '1'
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
 $VersionFile = Join-Path $PSScriptRoot 'VERSION'
-$Version = '0.2.6'
+$Version = '0.2.7'
 if (Test-Path -LiteralPath $VersionFile) {
     $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1 -Encoding UTF8).Trim()
 }
@@ -61,7 +61,7 @@ function Save-Url {
             $curlArgs = @('-fL', '--retry', '2', '--connect-timeout', '20', '-o', $OutFile)
             if ($extra) { $curlArgs += $extra }
             $curlArgs += $Url
-            & curl.exe @curlArgs
+            & curl.exe @curlArgs 2>$null
             if (($LASTEXITCODE -eq 0) -and (Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 1000000)) {
                 return $true
             }
@@ -90,13 +90,28 @@ function Test-PythonExe {
     $saved = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     if ($NeedVenv) {
-        & $Exe -c 'import sys, venv; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)' 2>$null
+        & $Exe -c 'import sys, venv; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)' >$null 2>$null
     } else {
-        & $Exe -c 'import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)' 2>$null
+        & $Exe -c 'import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)' >$null 2>$null
     }
     $ok = ($LASTEXITCODE -eq 0)
     $ErrorActionPreference = $saved
     return $ok
+}
+
+function ConvertTo-PythonPath {
+    param($Value)
+    $parts = New-Object System.Collections.Generic.List[string]
+    foreach ($item in @($Value)) {
+        if ($null -eq $item) { continue }
+        $parts.Add([string]$item)
+    }
+    $blob = [string]::Join("`n", $parts.ToArray())
+    $regex = '(?i)((?:[A-Za-z]:\\|\\\\)[^:*?"<>|\r\n]*python\.exe)'
+    $match = [regex]::Match($blob, $regex)
+    if ($match.Success) { return $match.Groups[1].Value.Trim() }
+    if (Test-Path -LiteralPath $PrivatePython) { return $PrivatePython }
+    return $null
 }
 
 function Find-Python {
@@ -207,7 +222,7 @@ function Install-EmbeddablePython {
     if (-not $got) { return }
     if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue }
     New-Item -ItemType Directory -Force -Path $dest | Out-Null
-    Expand-Archive -LiteralPath $zipPath -DestinationPath $dest -Force
+    Expand-Archive -LiteralPath $zipPath -DestinationPath $dest -Force | Out-Null
     Enable-EmbeddableSite -Dest $dest
     $getPip = Join-Path $RuntimeDir 'get-pip.py'
     $pipUrls = @(
@@ -226,7 +241,7 @@ function Install-EmbeddablePython {
     }
     if (Test-Path -LiteralPath $getPip) {
         Write-Host 'Installing pip into the local Python...'
-        & $PrivatePython $getPip --no-warn-script-location
+        & $PrivatePython $getPip --no-warn-script-location 2>&1 | ForEach-Object { Write-Host $_ }
     }
 }
 
@@ -282,11 +297,11 @@ function Install-PrivatePython {
 }
 
 function Ensure-Python {
-    $found = Find-Python
+    $found = ConvertTo-PythonPath (Find-Python)
     if ($found) { return $found }
     Write-Host 'Python 3.10-3.12 not found on PATH. This is OK; downloading a private copy...'
-    Install-PrivatePython
-    $found = Find-Python
+    $null = Install-PrivatePython
+    $found = ConvertTo-PythonPath (Find-Python)
     if ($found) { return $found }
     try { Start-Process 'https://www.python.org/downloads/windows/' } catch { }
     throw 'Could not install Python 3.12. Switch to a phone hotspot and double-click Start.bat again. Or install Python 3.12 from python.org and check Add python.exe to PATH.'
@@ -294,13 +309,16 @@ function Ensure-Python {
 
 function Install-WithPip {
     param(
-        [Parameter(Mandatory = $true)][string]$PythonExe,
+        [Parameter(Mandatory = $true)]$PythonExe,
         [Parameter(Mandatory = $true)][string[]]$PipArgs
     )
-    & $PythonExe -m pip --retries 1 --timeout 30 @PipArgs
+    $exe = ConvertTo-PythonPath $PythonExe
+    if (-not $exe) { throw 'Python path missing after install. Double-click Start.bat again.' }
+    Write-Host ("pip using " + $exe)
+    & $exe -m pip --retries 1 --timeout 30 @PipArgs 2>&1 | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -eq 0) { return }
     Write-Host 'pip SSL failed, retrying with trusted-host...'
-    & $PythonExe -m pip --retries 1 --timeout 30 --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org @PipArgs
+    & $exe -m pip --retries 1 --timeout 30 --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org @PipArgs 2>&1 | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) {
         throw 'pip install failed. Switch to a phone hotspot and try again.'
     }
@@ -318,11 +336,12 @@ if ($status) {
 
 $venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
 if (-not (Test-Path -LiteralPath $venvPython)) {
-    $python = Ensure-Python
+    $python = ConvertTo-PythonPath (Ensure-Python)
+    if (-not $python) { throw 'Python 3.12 was downloaded but the exe path was not found. Double-click Start.bat again.' }
     Write-Host ("Using Python: " + $python)
     $hasVenv = Test-PythonExe -Exe $python -NeedVenv
     if ($hasVenv) {
-        & $python -m venv .venv
+        & $python -m venv .venv >$null 2>$null
         if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $venvPython)) {
             Write-Host 'venv create failed; installing packages into the local Python instead.'
             $venvPython = $python
@@ -332,6 +351,8 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
         $venvPython = $python
     }
 }
+$venvPython = ConvertTo-PythonPath $venvPython
+if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.2.7.zip again.' }
 
 Write-Host 'Installing packages (first run needs internet, a few minutes)...'
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '--upgrade', 'pip')

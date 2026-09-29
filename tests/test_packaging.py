@@ -8,7 +8,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 version = (root / "VERSION").read_text(encoding="utf-8").strip()
-assert version == "0.2.6", version
+assert version == "0.2.7", version
 
 
 def unix_mode(info: zipfile.ZipInfo) -> int:
@@ -55,7 +55,7 @@ with zipfile.ZipFile(win_zip) as zf:
     assert f"{inner}/HOW-TO-START.txt" in names
     readme = zf.read("READ-ME-FIRST.txt")
     assert all(byte < 128 for byte in readme)
-    assert b"0.2.6" in readme
+    assert b"0.2.7" in readme
     assert b"0.2.5" in readme
     start_ps1 = zf.read(f"{inner}/start.ps1")
     assert start_ps1.startswith(b"\xef\xbb\xbf")
@@ -64,7 +64,7 @@ with zipfile.ZipFile(win_zip) as zf:
     start_bat = zf.read(f"{inner}/Start.bat")
     assert all(byte < 128 for byte in start_bat)
     assert b"ExecutionPolicy Bypass" in start_bat
-    assert b"0.2.6" in start_bat
+    assert b"0.2.7" in start_bat
     got = zf.read(f"{inner}/VERSION").decode().strip()
     assert got == version, got
 

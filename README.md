@@ -6,12 +6,12 @@
 
 你刚才那张图还是 **0.2.5**，而且 Chrome 里是 `.crdownload`（没下完）。请不要再点 `ClassInterpreter-windows (1)`。
 
-1. 等下载结束，文件名必须是 **ClassInterpreter-windows-0.2.6.zip**（没有 `.crdownload`）。
+1. 等下载结束，文件名必须是 **ClassInterpreter-windows-0.2.7.zip**（没有 `.crdownload`）。
 2. 删掉旧文件夹，包括 `ClassInterpreter-windows` 和 `ClassInterpreter-windows (1)`。
-3. 下载 [ClassInterpreter-windows-0.2.6.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows-0.2.6.zip)。
-4. 解压后进入 **ClassInterpreter-0.2.6**，双击 **Start.bat**。黑窗口第一行必须是 **Class Interpreter 0.2.6**。
+3. 下载 [ClassInterpreter-windows-0.2.7.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows-0.2.7.zip)。
+4. 解压后进入 **ClassInterpreter-0.2.7**，双击 **Start.bat**。黑窗口第一行必须是 **Class Interpreter 0.2.7**。
 5. 第一次会自动下载 Python 3.12（不用先装 Python）。请保持黑窗口打开。校园网失败就换手机热点再点一次 Start.bat。
-6. 浏览器左上角必须是 **0.2.6**，再用黄色按钮下载模型（建议 Small）。
+6. 浏览器左上角必须是 **0.2.7**，再用黄色按钮下载模型（建议 Small）。
 
 如果 Windows 提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
 
@@ -19,11 +19,11 @@
 
 三步，不用终端：
 
-1. 下载 [ClassInterpreter-mac-0.2.6.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac-0.2.6.zip)。
-2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.2.6** 文件夹。
+1. 下载 [ClassInterpreter-mac-0.2.7.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac-0.2.7.zip)。
+2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.2.7** 文件夹。
 3. **不要只点「听课搭子」图标**（会提示无法打开）。请双击 **Open.command**。
 4. 若仍无法打开：按住 Control 点 Open.command → 打开。或到系统设置 → 隐私与安全性 → 仍要打开。
-5. 左上角应为 **Class Interpreter · 0.2.6**。黄色条下载模型；校园网请换手机热点。
+5. 左上角应为 **Class Interpreter · 0.2.7**。黄色条下载模型；校园网请换手机热点。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
