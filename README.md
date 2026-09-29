@@ -17,14 +17,26 @@ powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 
 ## 第一次使用（Mac）
 
-Mac 走同一套本地识别，不需要 Windows，也不把录音送到云端。电脑上课期间需要保持开机、本应用保持运行；苹果芯片用 CPU 推理（不用 NVIDIA），一般选 **Small** 或 **Medium**。
+Mac 走同一套本地识别：页面和接口都由本机 `server.py` 提供，录音不会送到 Firebase / GitHub Pages。只把 `index.html` 挂到第三方静态托管时，手机能打开页面，但无法识别（没有本机 API）。苹果芯片用 CPU 推理，课堂里建议选 **Small** 或 **Medium**。上课期间 Mac 必须保持开机。
 
-1. 安装 [Python 3.10–3.12](https://www.python.org/downloads/macos/)（不要用系统自带的过旧 Python）。安装时勾选 **Add Python to PATH**。推荐 Safari、Chrome 或 Edge。
-2. 双击 `启动同传.command`。若系统提示无法打开，可右键选择打开，或在终端进入项目目录后运行 `bash start.sh`。
-3. 第一次会安装免费依赖和英语→中文翻译模型，需要联网。完成后会打开 `http://127.0.0.1:8765/`。
-4. 用法与 Windows 相同：选麦克风或共享标签页/屏幕音频，点击 **开始同传**。网课共享时要勾选浏览器的 **共享音频**。
+1. 安装 [Python 3.10–3.12](https://www.python.org/downloads/macos/)（不要用系统自带的过旧 Python）。安装时勾选 **Add Python to PATH**。
+2. 把本仓库放到一个固定目录，例如 `~/class-interpret`。
+3. 双击 `启动同传.command`。若提示无法打开：右键 → 打开，或在「终端」执行：
 
-若希望手机在教室录音、Mac 在宿舍或家里跑识别：保持这台 Mac 开机并运行本应用，按下文「手机使用（SSH）」做端口转发。Mac 关机后手机无法继续识别。
+```bash
+cd ~/class-interpret
+bash start.sh
+```
+
+4. 第一次会下载依赖和英语→中文翻译模型，需要联网。完成后浏览器打开 `http://127.0.0.1:8765/`。
+5. 输入课程名，选择「麦克风」或「共享标签页/屏幕音频」，点击 **开始同传**。网课共享时勾选浏览器的 **共享音频**。
+6. 用完后在终端按 `Ctrl+C` 结束。再次启动会复用已在跑的服务。
+
+本机 DeepSeek 总结：安装 [Ollama for Mac](https://ollama.com/download/mac)，终端执行 `ollama pull deepseek-r1:1.5b`，保持 Ollama 运行后再点「生成课后总结」。
+
+**在 Mac 上听课：** 直接用上面的本机地址即可，不必 SSH，也不必第三方。
+
+**手机听课、识别仍在这台 Mac：** 不要只 host 前端。用下一节的 Cloudflare 隧道（给本机加 HTTPS），或再下面的 SSH 转发。Mac 关机后手机不能识别。
 
 ## 课后总结与 DeepSeek
 
@@ -58,9 +70,19 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 - 只有英文口音的课堂已被预设为英语识别；若老师主要讲马来语，当前版本不适用。
 - 课后总结只根据已识别的文字生成；作业、考试和日期请核对原文或课程平台。
 
+## 手机使用（Cloudflare，无需 SSH）
+
+第三方只负责把本机的 **页面 + API** 变成 `https://`，识别仍在 Mac / 电脑上。Firebase Hosting、GitHub Pages 只能放静态前端，不能跑 Whisper，所以不走那条路。
+
+1. Mac 上安装 [Homebrew](https://brew.sh)，再安装隧道工具：`brew install cloudflared`。
+2. 先按上文启动同传，或直接双击 `手机访问.command`（内部会调用 `bash start-tunnel.sh`）。
+3. 终端里会出现一个 `https://….trycloudflare.com` 地址。用**手机浏览器**打开这个地址（不要用微信内置浏览器）。
+4. 允许麦克风后即可同传。隧道开启期间该链接任何人都能访问，下课后在终端 `Ctrl+C` 关掉。
+5. 每次启动临时隧道，地址可能会变；需要固定域名时再在 Cloudflare 创建 Named Tunnel。
+
 ## 手机使用（SSH）
 
-手机页面已适配窄屏，麦克风录音可由手机浏览器发起，识别与翻译仍在运行 `server.py` 的电脑或服务器完成。手机里的 `127.0.0.1` 是手机本身；不能直接打开电脑上显示的本机地址。浏览器麦克风需要 HTTPS 或本机回环地址，因此建议通过 SSH 客户端的 **本地端口转发**，再在手机浏览器打开 `http://127.0.0.1:8765/`。
+若不想用 Cloudflare：手机页面已适配窄屏，麦克风录音可由手机浏览器发起，识别与翻译仍在运行 `server.py` 的电脑或服务器完成。手机里的 `127.0.0.1` 是手机本身；不能直接打开电脑上显示的本机地址。浏览器麦克风需要 HTTPS 或本机回环地址，因此也可以通过 SSH 客户端的 **本地端口转发**，再在手机浏览器打开 `http://127.0.0.1:8765/`。
 
 **若应用运行在你的 Linux SSH 服务器：** 在服务器克隆此仓库，运行 `bash start.sh`（建议在 `tmux` 内保持运行）；在手机 SSH 客户端连接该服务器，添加本地转发 `127.0.0.1:8765 → 服务器 127.0.0.1:8765`。服务器若没有 GPU，Medium 模型可能明显落后于课堂进度，可选 Small。
 
@@ -72,4 +94,4 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 技术结构
 
-`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` / `启动同传.command` 用于 Mac 与 Linux。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
+`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` / `启动同传.command` 用于 Mac 与 Linux；`start-tunnel.sh` / `手机访问.command` 用 Cloudflare 把本机服务以 HTTPS 提供给手机。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
