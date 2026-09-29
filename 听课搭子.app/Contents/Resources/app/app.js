@@ -135,7 +135,7 @@ function notice(message, error = false) {
 }
 
 function applyStatus(status) {
-  ui.status.textContent = `${status.translation ? '离线翻译就绪' : '翻译模型待安装'} · ${status.deepseek ? 'DeepSeek 就绪' : '基础总结就绪'}`;
+  ui.status.textContent = `v${status.version || '?'} · ${status.translation ? '离线翻译就绪' : '翻译模型待安装'} · ${status.deepseek ? 'DeepSeek 就绪' : '基础总结就绪'}`;
   if (ui.engineHealth) ui.engineHealth.textContent = status.translation ? '正常运行' : '模型待安装';
   if (ui.modelBanner) ui.modelBanner.classList.toggle('show', !status.translation);
   if (ui.installTranslation) ui.installTranslation.disabled = !!status.translation;

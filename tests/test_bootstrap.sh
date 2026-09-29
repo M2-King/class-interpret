@@ -16,8 +16,10 @@ PYTHON="$found"
 ensure_python
 [[ "$PYTHON" == "$found" ]]
 
+type service_up >/dev/null
+type stop_existing_server >/dev/null
 type pip_with_ssl_fallback >/dev/null
-export_macos_certs
+[[ "$(app_version VERSION)" == "0.2.2" ]]
 
 "$found" tests/test_ssl.py
 

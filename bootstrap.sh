@@ -1,6 +1,48 @@
 #!/usr/bin/env bash
 # Shared by start.sh and start-tunnel.sh. Detects OS and installs missing runtimes.
 
+CLASS_INTERPRET_PORT="${CLASS_INTERPRET_PORT:-8765}"
+
+service_up() {
+  local address="${1:-http://127.0.0.1:${CLASS_INTERPRET_PORT}/}"
+  curl -fsS --max-time 1 "${address}api/status" >/dev/null 2>&1
+}
+
+app_version() {
+  local file=${1:-}
+  if [[ -n "$file" && -f "$file" ]]; then
+    tr -d '[:space:]' < "$file"
+  elif [[ -f VERSION ]]; then
+    tr -d '[:space:]' < VERSION
+  else
+    printf '%s' "0.2.2"
+  fi
+}
+
+version_matches() {
+  local wanted=$1
+  local address="${2:-http://127.0.0.1:${CLASS_INTERPRET_PORT}/}"
+  local body
+  body="$(curl -fsS --max-time 1 "${address}api/status" 2>/dev/null || true)"
+  [[ -n "$wanted" && "$body" == *"\"version\": \"$wanted\""* ]]
+}
+
+stop_existing_server() {
+  local port="${1:-$CLASS_INTERPRET_PORT}"
+  local pids=""
+  if command -v lsof >/dev/null 2>&1; then
+    pids="$(lsof -tiTCP:"$port" -sTCP:LISTEN 2>/dev/null || true)"
+  fi
+  if [[ -n "$pids" ]]; then
+    echo "正在停止旧的听课搭子进程（端口 $port）……"
+    # shellcheck disable=SC2086
+    kill $pids 2>/dev/null || true
+    sleep 1
+    # shellcheck disable=SC2086
+    kill -9 $pids 2>/dev/null || true
+  fi
+}
+
 python_ok() {
   local bin=$1
   [[ -n "$bin" && -x "$bin" ]] || return 1

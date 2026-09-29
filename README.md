@@ -19,9 +19,11 @@ powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 
 三步，不用终端：
 
-1. 下载 [ClassInterpreter-mac.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac.zip)（不要用旧的 Release v0.2.0）。
-2. 在访达里双击 zip **解压**，得到 `听课搭子.app`。
-3. 双击 `听课搭子.app`。若提示身份不明：右键图标 → **打开**。
+1. 下载 [ClassInterpreter-mac.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac.zip)（不要用旧的 Release v0.2.0，也不要只用浏览器刷新）。
+2. **先关掉所有「终端」窗口**（尤其是 `启动同传.command`），否则会继续显示旧页面。
+3. 在访达里双击 zip **解压**，得到 `听课搭子.app`。
+4. 双击 **新解压出来的** `听课搭子.app`。若提示身份不明：右键图标 → **打开**。
+5. 看左上角是否写着 **0.2.2**，以及搜索框下面有没有 **黄色条** 和按钮 **现在安装中文翻译模型**。如果还是「运行 setup_models.py」，说明旧服务还在，请关掉终端后再打开一次。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。

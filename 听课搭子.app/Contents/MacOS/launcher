@@ -24,32 +24,39 @@ alert() {
 }
 
 open_app() {
-  open "$ADDRESS"
-}
-
-service_up() {
-  curl -fsS --max-time 1 "${ADDRESS}api/status" >/dev/null 2>&1
+  open "${ADDRESS}?v=$(app_version "$APP/VERSION")"
 }
 
 if [[ ! -f "$APP/server.py" ]]; then
-  alert "安装包不完整。请从 GitHub Releases 重新下载 听课搭子.app。"
+  alert "安装包不完整。请重新下载 听课搭子.app。"
   exit 1
 fi
 
-if service_up; then
+# shellcheck source=/dev/null
+source "$APP/bootstrap.sh"
+APP_VERSION="$(app_version "$APP/VERSION")"
+
+if service_up && version_matches "$APP_VERSION"; then
   open_app
   exit 0
 fi
 
+if service_up; then
+  notify "发现旧版听课搭子，正在替换为新版…"
+  stop_existing_server
+fi
+
 if [[ -f "$LOCK" ]]; then
   notify "听课搭子正在启动，请等浏览器打开。"
-  for _ in $(seq 1 180); do
-    if service_up; then
+  for _ in $(seq 1 20); do
+    if service_up && version_matches "$APP_VERSION"; then
       open_app
       exit 0
     fi
     sleep 1
   done
+  rm -f "$LOCK"
+  stop_existing_server
 fi
 
 echo $$ > "$LOCK"
@@ -66,14 +73,16 @@ export CLASS_INTERPRET_DATA="$SUPPORT/data"
 export CLASS_INTERPRET_CERTS="$SUPPORT/certs.pem"
 export CLASS_INTERPRET_NO_BROWSER=1
 
-# shellcheck source=/dev/null
-source "$APP/bootstrap.sh"
 if ! ensure_runtime; then
   alert "安装失败，多半是网络证书问题。请换用手机热点后再双击打开。详细日志：访达 → 前往文件夹 → ~/Library/Logs/class-interpret.log"
   exit 1
 fi
 
-if service_up; then
+if service_up && ! version_matches "$APP_VERSION"; then
+  stop_existing_server
+fi
+
+if service_up && version_matches "$APP_VERSION"; then
   open_app
   notify "听课搭子已打开。"
   exit 0
@@ -91,7 +100,7 @@ disown || true
 
 ready=0
 for _ in $(seq 1 90); do
-  if service_up; then ready=1; break; fi
+  if service_up && version_matches "$APP_VERSION"; then ready=1; break; fi
   sleep 1
 done
 
@@ -101,5 +110,5 @@ if [[ "$ready" -ne 1 ]]; then
 fi
 
 open_app
-notify "听课搭子已在浏览器打开。下课后在页面点「退出听课搭子」。"
+notify "听课搭子已在浏览器打开。看到黄色提示就点「现在安装中文翻译模型」。"
 exit 0

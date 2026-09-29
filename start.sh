@@ -5,20 +5,26 @@ cd "$(dirname "$0")"
 ADDRESS="http://127.0.0.1:8765/"
 
 open_local() {
+  local version
+  version="$(app_version VERSION)"
   if [[ "$(uname -s)" == "Darwin" ]]; then
-    open "$ADDRESS"
+    open "${ADDRESS}?v=${version}"
   elif command -v xdg-open >/dev/null 2>&1; then
-    xdg-open "$ADDRESS" >/dev/null 2>&1 || true
+    xdg-open "${ADDRESS}?v=${version}" >/dev/null 2>&1 || true
   fi
 }
 
-service_up() {
-  curl -fsS --max-time 1 "${ADDRESS}api/status" >/dev/null 2>&1
-}
+# shellcheck source=bootstrap.sh
+source ./bootstrap.sh
 
-if service_up; then
+if service_up && version_matches "$(app_version VERSION)"; then
   open_local
   exit 0
+fi
+
+if service_up; then
+  echo "发现旧版听课搭子，正在替换为新版……"
+  stop_existing_server
 fi
 
 if [[ "$(uname -s)" == Darwin ]]; then
@@ -26,8 +32,6 @@ if [[ "$(uname -s)" == Darwin ]]; then
   mkdir -p "$(dirname "$CLASS_INTERPRET_CERTS")" "$HOME/Library/Application Support/ClassInterpret/data"
 fi
 
-# shellcheck source=bootstrap.sh
-source ./bootstrap.sh
 ensure_runtime
 
 if [[ -z "${DISPLAY:-}" && "$(uname -s)" != "Darwin" ]]; then

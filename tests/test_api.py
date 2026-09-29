@@ -17,18 +17,22 @@ base = f"http://{host}:{port}"
 
 with urllib.request.urlopen(base + "/api/status") as response:
     data = json.loads(response.read().decode())
+assert data.get("version") == "0.2.2"
 assert "translation" in data
 assert "deepseek" in data
 
 with urllib.request.urlopen(base + "/") as response:
     html = response.read().decode()
+    assert "no-store" in (response.headers.get("Cache-Control") or "")
+assert "setup_models.py" not in html
+assert "0.2.2" in html
 assert 'id="model-banner"' in html
 assert "现在安装中文翻译模型" in html
 assert 'id="quit-app"' in html
 assert "退出听课搭子" in html
 assert "fff4cc" in Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
 
-with urllib.request.urlopen(base + "/app.js") as response:
+with urllib.request.urlopen(base + "/app.js?v=0.2.2") as response:
     script = response.read().decode()
 assert "/api/translation/install" in script
 assert "/api/shutdown" in script

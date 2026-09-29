@@ -23,6 +23,7 @@ import ssl_certs
 ssl_certs.apply()
 
 ROOT = Path(__file__).resolve().parent
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.2.2"
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
@@ -264,7 +265,7 @@ def make_summary(session: dict) -> tuple[str, str]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClassInterpret/1.0"
+    server_version = "ClassInterpret/0.2.2"
 
     def log_message(self, format: str, *args) -> None:
         print("[%s] %s" % (self.log_date_time_string(), format % args))
@@ -298,7 +299,11 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and path in ("/app.js", "/style.css"):
             return self.serve_file(path[1:], "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8")
         if method == "GET" and path == "/api/status":
-            return self.respond(200, {"translation": translation_available(), "deepseek": installed_deepseek()})
+            return self.respond(200, {
+                "translation": translation_available(),
+                "deepseek": installed_deepseek(),
+                "version": VERSION,
+            })
         if method == "POST" and path == "/api/translation/install":
             if translation_available():
                 return self.respond(200, {"translation": True, "message": "英语 → 中文模型已经安装。"})
@@ -393,6 +398,8 @@ class Handler(BaseHTTPRequestHandler):
         self.send_response(200)
         self.send_header("Content-Type", content_type)
         self.send_header("Content-Length", str(len(payload)))
+        self.send_header("Cache-Control", "no-store, max-age=0")
+        self.send_header("Pragma", "no-cache")
         self.end_headers()
         self.wfile.write(payload)
 
