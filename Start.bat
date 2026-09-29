@@ -32,8 +32,8 @@ powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1"
 if errorlevel 1 (
   echo.
   echo Launch failed.
-  echo 1. If this laptop already worked, close this and open the old folder.
-  echo 2. Otherwise switch to a phone hotspot and double-click Start.bat again.
+  echo 1. Switch to a phone hotspot and double-click Start.bat again.
+  echo 2. Keep this window open; first run downloads Python 3.12 automatically.
   echo 3. Do not double-click start.ps1.
   echo.
   pause

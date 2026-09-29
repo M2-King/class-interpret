@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$ROOT"
+ROOT_Q=$(printf '%q' "$ROOT")
+osascript <<EOF
+tell application "Terminal"
+  activate
+  do script "cd ${ROOT_Q} && echo '把终端里的 https 链接发到手机，用 Safari 或 Chrome 打开。' && bash start-tunnel.sh"
+end tell
+EOF

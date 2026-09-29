@@ -2,18 +2,44 @@
 
 这是一个运行在自己电脑上的英语课堂同传应用。用浏览器采集麦克风或网课标签页的声音，约每 3–8 秒给出英文原文及中文译文；可选中文朗读、修正识别结果、自动保存、导出笔记，并有独立的 **“生成课后总结”** 按钮。
 
-## 第一次使用（Windows）
+## 已经能用的电脑（例如 R9000P）
 
-1. 安装 [Python 3.10–3.12](https://www.python.org/downloads/)；安装时勾选 **Add Python to PATH**。推荐使用 Chrome 或 Edge。
-2. 双击 `启动同传.bat`。第一次会安装免费依赖和英语→中文翻译模型，需要联网。安装结束会打开 `http://127.0.0.1:8765/`。
-3. 输入课程名和常见英文术语，选择“麦克风”或“共享标签页/屏幕音频”，点击 **开始同传**，允许浏览器访问声音。网课共享时要勾选浏览器的 **共享音频**。
-4. 首次识别还会下载所选的免费 Whisper 模型。等下载完成后，之后可离线识别和翻译。
+**不要换成 Downloads 里的新 zip。** 原来那个文件夹里的 `.venv`、模型和显卡加速都还在，延迟才会小。新 zip 是空的安装包，会再下一份 CPU 版 Python，所以又慢又容易坏。
 
-如果双击无法启动，在 PowerShell 运行：
+继续用原来的目录双击 `Start.bat` / `启动同传.bat`。
 
-```powershell
-powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
-```
+## 第一次使用（Windows，没有旧文件夹时）
+
+1. 下载 [ClassInterpreter-windows-0.2.9.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows-0.2.9.zip)。
+2. 解压后进入 **ClassInterpreter-0.2.9**，双击 **Start.bat**。第一行必须是 **Class Interpreter 0.2.9**。
+3. 没有系统 Python 时会在本文件夹安装。校园网失败请换手机热点再点一次。
+4. 浏览器左上角必须是 **0.2.9**，再用黄色按钮下载模型（建议 Small）。
+
+如果 Windows 提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
+
+## 第一次使用（Mac）
+
+三步，不用终端：
+
+1. 下载 [ClassInterpreter-mac-0.2.9.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac-0.2.9.zip)。
+2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.2.9** 文件夹。
+3. **不要只点「听课搭子」图标**（会提示无法打开）。请双击 **Open.command**。
+4. 若仍无法打开：按住 Control 点 Open.command → 打开。或到系统设置 → 隐私与安全性 → 仍要打开。
+5. 左上角应为 **Class Interpreter · 0.2.9**。黄色条下载模型；校园网请换手机热点。
+
+- 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
+- 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
+- 可以把整个 `听课搭子.app` 拖到「应用程序」文件夹。
+- 若提示身份不明：右键 → **打开**。
+- 下课后在页面左侧点 **退出听课搭子**，不要只关浏览器标签。上课期间请让 Mac 保持清醒。
+
+如果页面提示「中文翻译模型还没装好」，点 **现在安装中文翻译模型**（需联网）。校园网如果出现 `SSLCertVerificationError` / `unable to get local issuer certificate`，请改用手机热点后再打开一次应用。
+
+苹果芯片用 CPU，课堂里建议选 **Small** 或 **Medium**。日志在 `~/Library/Logs/class-interpret.log`。
+
+本机 DeepSeek 总结（可选）：安装 [Ollama for Mac](https://ollama.com/download/mac) 后，在 Ollama 里拉取 `deepseek-r1:1.5b`。
+
+**手机：** 先在 Mac 上打开听课搭子，再双击 `听课搭子手机.app`，把弹出的 https 链接用 Safari / Chrome 打开。
 
 ## 课后总结与 DeepSeek
 
@@ -43,13 +69,27 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 - 课堂文字保存在 `data/`，仅在本机监听 `127.0.0.1`。音频只用于当前识别，不持久保存。
 - 首次下载模型时可能等待较久。课程中若显示“待处理”过多，切换较小识别模型，或改善麦克风收音。
-- 没有中文译文时，先联网重新运行 `启动同传.bat` 以安装 Argos 翻译模型。
+- 没有中文译文时，先联网重新打开应用，并在页面点「现在安装中文翻译模型」。校园网证书错误时请换手机热点。
 - 只有英文口音的课堂已被预设为英语识别；若老师主要讲马来语，当前版本不适用。
 - 课后总结只根据已识别的文字生成；作业、考试和日期请核对原文或课程平台。
 
+## 手机使用（Cloudflare，无需 SSH）
+
+**手机不需要终端，也不需要 SSH App。** 只要 Safari / Chrome 打开一个 `https://` 链接。终端只出现在 **Mac** 上（双击 `.command` 时系统会自动弹出「终端」窗口）。
+
+第三方只负责把本机的 **页面 + API** 变成 HTTPS，识别仍在 Mac 上。Firebase / GitHub Pages 只能放静态前端，不能跑 Whisper。
+
+**在 Mac 上做（一次或自动）：** 双击 `手机访问.command` 时会检测系统；没有 Homebrew / `cloudflared` 会自动装。也可以在 Mac 终端运行 `bash start-tunnel.sh`。
+
+**每次上课，在 Mac 上：** 双击 `手机访问.command`（不会用双击时，在 Mac 的「终端」里执行 `bash start-tunnel.sh`）。Mac 的终端里会出现一行 `https://….trycloudflare.com`，把它发给手机（隔空投送、信息、备忘录均可）。下课后在 **Mac 终端** 按 `Ctrl+C` 关掉。隧道开着时，知道链接的人都能访问。
+
+**在手机上做：** 用系统浏览器打开那条 `https://` 链接（不要用微信内置浏览器）→ 允许麦克风 → 开始同传。没有终端、没有命令可敲。
+
+临时隧道每次启动地址可能不同；需要固定域名时再在 Cloudflare 做 Named Tunnel。
+
 ## 手机使用（SSH）
 
-手机页面已适配窄屏，麦克风录音可由手机浏览器发起，识别与翻译仍在运行 `server.py` 的电脑或服务器完成。手机里的 `127.0.0.1` 是手机本身；不能直接打开电脑上显示的本机地址。浏览器麦克风需要 HTTPS 或本机回环地址，因此建议通过 SSH 客户端的 **本地端口转发**，再在手机浏览器打开 `http://127.0.0.1:8765/`。
+若不想用 Cloudflare：手机页面已适配窄屏，麦克风录音可由手机浏览器发起，识别与翻译仍在运行 `server.py` 的电脑或服务器完成。手机里的 `127.0.0.1` 是手机本身；不能直接打开电脑上显示的本机地址。浏览器麦克风需要 HTTPS 或本机回环地址，因此也可以通过 SSH 客户端的 **本地端口转发**，再在手机浏览器打开 `http://127.0.0.1:8765/`。
 
 **若应用运行在你的 Linux SSH 服务器：** 在服务器克隆此仓库，运行 `bash start.sh`（建议在 `tmux` 内保持运行）；在手机 SSH 客户端连接该服务器，添加本地转发 `127.0.0.1:8765 → 服务器 127.0.0.1:8765`。服务器若没有 GPU，Medium 模型可能明显落后于课堂进度，可选 Small。
 
@@ -61,4 +101,4 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 技术结构
 
-`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` 用于 Linux。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
+`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`bootstrap.sh` 检测系统并安装 Python / 依赖。Mac 安装包请双击 `Open.command`。Windows 请双击 `Start.bat`。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。

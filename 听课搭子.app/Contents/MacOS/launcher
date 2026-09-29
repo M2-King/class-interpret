@@ -1,0 +1,118 @@
+#!/bin/bash
+# Double-clickable Mac app: no Terminal. Source lives inside this bundle.
+set -euo pipefail
+
+export PATH="/Library/Frameworks/Python.framework/Versions/3.12/bin:/Library/Frameworks/Python.framework/Versions/3.11/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+APP_BUNDLE="$(cd "$(dirname "$0")/../.." && pwd)"
+APP="$APP_BUNDLE/Contents/Resources/app"
+SUPPORT="$HOME/Library/Application Support/ClassInterpret"
+LOG_DIR="$HOME/Library/Logs"
+LOG="$LOG_DIR/class-interpret.log"
+ADDRESS="http://127.0.0.1:8765/"
+PID_FILE="$SUPPORT/server.pid"
+LOCK="$SUPPORT/launch.lock"
+
+mkdir -p "$SUPPORT/data" "$LOG_DIR"
+
+notify() {
+  osascript -e "display notification \"$1\" with title \"听课搭子\"" >/dev/null 2>&1 || true
+}
+
+alert() {
+  osascript -e "display dialog \"$1\" with title \"听课搭子\" buttons {\"好\"} default button 1" >/dev/null 2>&1 || true
+}
+
+open_app() {
+  open "${ADDRESS}?v=$(app_version "$APP/VERSION")"
+}
+
+if [[ ! -f "$APP/server.py" ]]; then
+  alert "安装包不完整。请重新下载 听课搭子.app。"
+  exit 1
+fi
+
+# shellcheck source=/dev/null
+source "$APP/bootstrap.sh"
+APP_VERSION="$(app_version "$APP/VERSION")"
+
+if service_up && version_matches "$APP_VERSION"; then
+  open_app
+  exit 0
+fi
+
+if service_up; then
+  notify "发现旧版听课搭子，正在替换为新版…"
+  stop_existing_server
+fi
+
+if [[ -f "$LOCK" ]]; then
+  notify "听课搭子正在启动，请等浏览器打开。"
+  for _ in $(seq 1 20); do
+    if service_up && version_matches "$APP_VERSION"; then
+      open_app
+      exit 0
+    fi
+    sleep 1
+  done
+  rm -f "$LOCK"
+  stop_existing_server
+fi
+
+echo $$ > "$LOCK"
+cleanup_lock() { rm -f "$LOCK"; }
+trap cleanup_lock EXIT
+
+notify "正在准备听课搭子（首次需联网下载模型）…"
+
+exec >>"$LOG" 2>&1
+
+cd "$APP"
+export CLASS_INTERPRET_VENV="$SUPPORT/venv"
+export CLASS_INTERPRET_DATA="$SUPPORT/data"
+export CLASS_INTERPRET_CERTS="$SUPPORT/certs.pem"
+export CLASS_INTERPRET_NO_BROWSER=1
+export CLASS_INTERPRET_MODELS="$SUPPORT/models"
+export CLASS_INTERPRET_HF="$SUPPORT/hf"
+export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
+export HF_HUB_DOWNLOAD_TIMEOUT="${HF_HUB_DOWNLOAD_TIMEOUT:-180}"
+
+if ! ensure_runtime; then
+  alert "安装失败，多半是网络证书问题。请换用手机热点后再双击打开。详细日志：访达 → 前往文件夹 → ~/Library/Logs/class-interpret.log"
+  exit 1
+fi
+
+if service_up && ! version_matches "$APP_VERSION"; then
+  stop_existing_server
+fi
+
+if service_up && version_matches "$APP_VERSION"; then
+  open_app
+  notify "听课搭子已打开。"
+  exit 0
+fi
+
+if [[ -f "$PID_FILE" ]]; then
+  kill "$(cat "$PID_FILE")" 2>/dev/null || true
+  rm -f "$PID_FILE"
+fi
+
+# Detach so macOS does not keep a bouncing Dock icon; Python keeps serving.
+nohup "$CLASS_INTERPRET_VENV/bin/python" "$APP/server.py" >/dev/null 2>>"$LOG" &
+echo $! > "$PID_FILE"
+disown || true
+
+ready=0
+for _ in $(seq 1 90); do
+  if service_up && version_matches "$APP_VERSION"; then ready=1; break; fi
+  sleep 1
+done
+
+if [[ "$ready" -ne 1 ]]; then
+  alert "服务没有启动。请查看访达 → 前往文件夹 → ~/Library/Logs/class-interpret.log"
+  exit 1
+fi
+
+open_app
+notify "听课搭子已在浏览器打开。看到黄色提示就点「现在安装中文翻译模型」。"
+exit 0
