@@ -1,12 +1,16 @@
 Class Interpreter 0.2.6 for Windows
 ===================================
 
+The zip name must be ClassInterpreter-windows-0.2.6.zip
+Wait until Chrome finishes. Do not open a .crdownload file.
+Do not open a folder named ClassInterpreter-windows (1).
+
 1. Delete any old unzipped folder from a previous download.
 
-2. Unzip ClassInterpreter-windows.zip and open the ClassInterpreter folder.
+2. Unzip, then open the ClassInterpreter-0.2.6 folder.
 
 3. Double-click Start.bat
-   You can also double-click the Chinese-named .bat in this folder.
+   The first line must say Class Interpreter 0.2.6
    Do NOT double-click start.ps1
 
 4. First run downloads official Python 3.12 into this folder.
@@ -20,6 +24,5 @@ Class Interpreter 0.2.6 for Windows
 
 If Windows says Windows protected your PC: More info -> Run anyway.
 
-If the black window says Unexpected token, Missing closing, or
-Python 3.10-3.12 not found WITHOUT Downloading official Python:
-you are still using an old zip. Delete it and download again.
+If the black window says 0.2.5, Unexpected token, or Python not found
+WITHOUT Downloading official Python: you opened an old folder.

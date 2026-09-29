@@ -7,6 +7,8 @@ import zipfile
 from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
+version = (root / "VERSION").read_text(encoding="utf-8").strip()
+assert version == "0.2.6", version
 
 
 def unix_mode(info: zipfile.ZipInfo) -> int:
@@ -23,11 +25,14 @@ assert "xattr" in text
 pkginfo = root / "听课搭子.app/Contents/PkgInfo"
 assert pkginfo.read_bytes() == b"APPL????"
 
-mac_zip = root / "ClassInterpreter-mac.zip"
-assert mac_zip.is_file(), "rebuild ClassInterpreter-mac.zip"
+mac_zip = root / f"ClassInterpreter-mac-{version}.zip"
+assert mac_zip.is_file(), f"rebuild {mac_zip.name}"
+assert (root / "ClassInterpreter-mac.zip").is_file()
 with zipfile.ZipFile(mac_zip) as zf:
     names = zf.namelist()
+    prefix = f"ClassInterpreter-mac-{version}/"
     assert any(name.endswith("Open.command") for name in names), names
+    assert any(name.startswith(prefix) for name in names), names
     assert any("听课搭子.app/Contents/MacOS/launcher" in name for name in names)
     assert any(name.endswith("PkgInfo") for name in names)
     for info in zf.infolist():
@@ -38,20 +43,29 @@ with zipfile.ZipFile(mac_zip) as zf:
             if info.filename.endswith("Open.command"):
                 assert b"launcher" in data
 
-win_zip = root / "ClassInterpreter-windows.zip"
-assert win_zip.is_file(), "rebuild ClassInterpreter-windows.zip"
+inner = f"ClassInterpreter-{version}"
+win_zip = root / f"ClassInterpreter-windows-{version}.zip"
+assert win_zip.is_file(), f"rebuild {win_zip.name}"
+assert (root / "ClassInterpreter-windows.zip").is_file()
 with zipfile.ZipFile(win_zip) as zf:
     names = zf.namelist()
-    assert "ClassInterpreter/Start.bat" in names, names
-    assert "ClassInterpreter/start.ps1" in names
-    assert "ClassInterpreter/HOW-TO-START.txt" in names
-    start_ps1 = zf.read("ClassInterpreter/start.ps1")
+    assert "READ-ME-FIRST.txt" in names, names
+    assert f"{inner}/Start.bat" in names, names
+    assert f"{inner}/start.ps1" in names
+    assert f"{inner}/HOW-TO-START.txt" in names
+    readme = zf.read("READ-ME-FIRST.txt")
+    assert all(byte < 128 for byte in readme)
+    assert b"0.2.6" in readme
+    assert b"0.2.5" in readme
+    start_ps1 = zf.read(f"{inner}/start.ps1")
     assert start_ps1.startswith(b"\xef\xbb\xbf")
     assert all(byte < 128 for byte in start_ps1[3:])
-    start_bat = zf.read("ClassInterpreter/Start.bat")
+    assert b"Downloading official Python" in start_ps1
+    start_bat = zf.read(f"{inner}/Start.bat")
     assert all(byte < 128 for byte in start_bat)
     assert b"ExecutionPolicy Bypass" in start_bat
-    version = zf.read("ClassInterpreter/VERSION").decode().strip()
-    assert version == "0.2.6", version
+    assert b"0.2.6" in start_bat
+    got = zf.read(f"{inner}/VERSION").decode().strip()
+    assert got == version, got
 
 print("packaging ok")

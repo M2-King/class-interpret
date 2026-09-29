@@ -9,8 +9,10 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 APP = ROOT / "听课搭子.app"
-OUT = ROOT / "ClassInterpreter-mac.zip"
-PREFIX = "ClassInterpreter-mac"
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
+PREFIX = f"ClassInterpreter-mac-{VERSION}"
+OUT = ROOT / f"ClassInterpreter-mac-{VERSION}.zip"
+STABLE = ROOT / "ClassInterpreter-mac.zip"
 
 
 def unix_attr(path: Path) -> int:
@@ -49,7 +51,9 @@ def main() -> None:
         for path in APP.rglob("*"):
             rel = path.relative_to(APP)
             add(zf, path, f"{PREFIX}/听课搭子.app/{rel.as_posix()}")
+    STABLE.write_bytes(OUT.read_bytes())
     print(f"Wrote {OUT}")
+    print(f"Wrote {STABLE}")
 
 
 if __name__ == "__main__":

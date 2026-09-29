@@ -47,5 +47,6 @@ howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
 assert all(byte < 128 for byte in howto)
 assert b"Start.bat" in howto
 assert b"0.2.6" in howto
+assert b"ClassInterpreter-windows-0.2.6.zip" in howto or b"0.2.6" in howto
 
 print("start.ps1 ok")
