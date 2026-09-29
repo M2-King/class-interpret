@@ -72,13 +72,17 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 手机使用（Cloudflare，无需 SSH）
 
-第三方只负责把本机的 **页面 + API** 变成 `https://`，识别仍在 Mac / 电脑上。Firebase Hosting、GitHub Pages 只能放静态前端，不能跑 Whisper，所以不走那条路。
+**手机不需要终端，也不需要 SSH App。** 只要 Safari / Chrome 打开一个 `https://` 链接。终端只出现在 **Mac** 上（双击 `.command` 时系统会自动弹出「终端」窗口）。
 
-1. Mac 上安装 [Homebrew](https://brew.sh)，再安装隧道工具：`brew install cloudflared`。
-2. 先按上文启动同传，或直接双击 `手机访问.command`（内部会调用 `bash start-tunnel.sh`）。
-3. 终端里会出现一个 `https://….trycloudflare.com` 地址。用**手机浏览器**打开这个地址（不要用微信内置浏览器）。
-4. 允许麦克风后即可同传。隧道开启期间该链接任何人都能访问，下课后在终端 `Ctrl+C` 关掉。
-5. 每次启动临时隧道，地址可能会变；需要固定域名时再在 Cloudflare 创建 Named Tunnel。
+第三方只负责把本机的 **页面 + API** 变成 HTTPS，识别仍在 Mac 上。Firebase / GitHub Pages 只能放静态前端，不能跑 Whisper。
+
+**在 Mac 上做（一次）：** 安装 [Homebrew](https://brew.sh)，再运行 `brew install cloudflared`。
+
+**每次上课，在 Mac 上：** 双击 `手机访问.command`（不会用双击时，在 Mac 的「终端」里执行 `bash start-tunnel.sh`）。Mac 的终端里会出现一行 `https://….trycloudflare.com`，把它发给手机（隔空投送、信息、备忘录均可）。下课后在 **Mac 终端** 按 `Ctrl+C` 关掉。隧道开着时，知道链接的人都能访问。
+
+**在手机上做：** 用系统浏览器打开那条 `https://` 链接（不要用微信内置浏览器）→ 允许麦克风 → 开始同传。没有终端、没有命令可敲。
+
+临时隧道每次启动地址可能不同；需要固定域名时再在 Cloudflare 做 Named Tunnel。
 
 ## 手机使用（SSH）
 
