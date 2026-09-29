@@ -8,9 +8,12 @@ DEST="$STAGE/$DEST_NAME"
 export DEST
 mkdir -p "$DEST"
 for f in Start.bat 启动同传.bat start.ps1 server.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
-         requirements.txt index.html app.js style.css VERSION README.md; do
+         deepseek_api.py secret_box.py requirements.txt index.html app.js style.css VERSION README.md; do
   cp "$ROOT/$f" "$DEST/"
 done
+if [[ -f "$ROOT/deepseek_api.enc" ]]; then
+  cp "$ROOT/deepseek_api.enc" "$DEST/"
+fi
 cp "$ROOT/packaging/windows/HOW-TO-START.txt" "$DEST/"
 cp "$ROOT/packaging/windows/使用说明.txt" "$DEST/"
 cp "$ROOT/packaging/windows/READ-ME-FIRST.txt" "$STAGE/READ-ME-FIRST.txt"

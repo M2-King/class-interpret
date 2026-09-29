@@ -142,15 +142,20 @@ function notice(message, error = false) {
 function applyStatus(status) {
   lastStatus = status;
   const whisperReady = !!(status.whisper_models?.[ui.model?.value || 'small'] ?? status.whisper);
-  const deepseekReady = !!(status.deepseek_ready || status.deepseek);
-  const deepseekLabel = status.deepseek || '待安装';
+  const cloud = !!status.deepseek_cloud;
+  const deepseekReady = cloud || !!(status.deepseek_ready || status.deepseek);
+  const deepseekLabel = cloud ? (status.deepseek || '云接口') : (status.deepseek || '待安装');
   ui.status.textContent = `v${status.version || '?'} · ${status.translation ? '离线翻译就绪' : '翻译待安装'} · ${whisperReady ? '语音就绪' : '语音模型待下载'} · DeepSeek ${deepseekReady ? deepseekLabel : '待安装'}`;
   if (ui.engineHealth) ui.engineHealth.textContent = whisperReady ? '正常运行' : '语音模型待下载';
   if (ui.deepseekHealth) ui.deepseekHealth.textContent = deepseekReady ? deepseekLabel : '未安装';
   if (ui.deepseekStatusText) {
-    ui.deepseekStatusText.textContent = deepseekReady
-      ? `本机 DeepSeek 已就绪：${deepseekLabel}。点生成课后总结时会自动使用。`
-      : '还没有本机 DeepSeek。点「安装 DeepSeek」下载免费的 1.5b 模型（约 1.1GB）。校园网请换手机热点。没装也能生成摘录。';
+    if (cloud) {
+      ui.deepseekStatusText.textContent = 'DeepSeek 云接口已就绪。点生成课后总结即可使用，不用再装 Ollama。';
+    } else {
+      ui.deepseekStatusText.textContent = deepseekReady
+        ? `本机 DeepSeek 已就绪：${deepseekLabel}。点生成课后总结时会自动使用。`
+        : '还没有 DeepSeek。可把 API key 放进 secrets/deepseek.api，或点「安装 DeepSeek」用本机模型。没装也能生成摘录。';
+    }
   }
   const needTranslation = !status.translation;
   const needWhisper = !whisperReady;

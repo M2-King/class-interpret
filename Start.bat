@@ -2,7 +2,7 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-echo Class Interpreter 0.3.0
+echo Class Interpreter 0.3.1
 echo Folder: %CD%
 echo If this laptop already ran Class Interpreter, use THAT old folder.
 echo Do not replace a working copy with a new unzip from Downloads.

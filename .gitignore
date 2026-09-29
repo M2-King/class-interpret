@@ -5,3 +5,5 @@ hf/
 ollama-models/
 __pycache__/
 *.pyc
+secrets/deepseek.api
+.env
