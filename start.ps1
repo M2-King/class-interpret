@@ -2,10 +2,11 @@
 Set-Location -LiteralPath $PSScriptRoot
 try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $env:PYTHONUTF8 = '1'
+$script:LastNativeExit = 0
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
 $VersionFile = Join-Path $PSScriptRoot 'VERSION'
-$Version = '0.2.7'
+$Version = '0.2.8'
 if (Test-Path -LiteralPath $VersionFile) {
     $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1 -Encoding UTF8).Trim()
 }
@@ -48,6 +49,37 @@ function Stop-Listener {
     }
 }
 
+function Invoke-Native {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList
+    )
+    $saved = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    if ($ArgumentList -and $ArgumentList.Count -gt 0) {
+        & $FilePath @ArgumentList | ForEach-Object { Write-Host $_ }
+    } else {
+        & $FilePath | ForEach-Object { Write-Host $_ }
+    }
+    $script:LastNativeExit = $LASTEXITCODE
+    $ErrorActionPreference = $saved
+    if ($null -eq $script:LastNativeExit) { $script:LastNativeExit = 0 }
+}
+
+function Invoke-NativeText {
+    param(
+        [Parameter(Mandatory = $true)][string]$FilePath,
+        [string[]]$ArgumentList
+    )
+    $saved = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    $text = & $FilePath @ArgumentList 2>$null | Out-String
+    $script:LastNativeExit = $LASTEXITCODE
+    $ErrorActionPreference = $saved
+    if ($null -eq $script:LastNativeExit) { $script:LastNativeExit = 0 }
+    return ([string]$text).Trim()
+}
+
 function Save-Url {
     param(
         [Parameter(Mandatory = $true)][string]$Url,
@@ -58,21 +90,24 @@ function Save-Url {
     }
     if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
         foreach ($extra in @('', '--ssl-no-revoke')) {
-            $curlArgs = @('-fL', '--retry', '2', '--connect-timeout', '20', '-o', $OutFile)
+            $curlArgs = @('-sS', '-fL', '--retry', '2', '--connect-timeout', '20', '-o', $OutFile)
             if ($extra) { $curlArgs += $extra }
             $curlArgs += $Url
-            & curl.exe @curlArgs 2>$null
-            if (($LASTEXITCODE -eq 0) -and (Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 1000000)) {
+            Invoke-Native -FilePath 'curl.exe' -ArgumentList $curlArgs
+            if (($script:LastNativeExit -eq 0) -and (Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 1000000)) {
                 return $true
             }
         }
     }
+    $saved = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
     try {
         Invoke-WebRequest -Uri $Url -OutFile $OutFile -UseBasicParsing -TimeoutSec 180
-        if ((Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 1000000)) {
-            return $true
-        }
     } catch { }
+    $ErrorActionPreference = $saved
+    if ((Test-Path -LiteralPath $OutFile) -and ((Get-Item -LiteralPath $OutFile).Length -gt 1000000)) {
+        return $true
+    }
     return $false
 }
 
@@ -90,11 +125,11 @@ function Test-PythonExe {
     $saved = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     if ($NeedVenv) {
-        & $Exe -c 'import sys, venv; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)' >$null 2>$null
+        Invoke-Native -FilePath $Exe -ArgumentList @('-c', 'import sys, venv; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)')
     } else {
-        & $Exe -c 'import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)' >$null 2>$null
+        Invoke-Native -FilePath $Exe -ArgumentList @('-c', 'import sys; raise SystemExit(0 if (3, 10) <= sys.version_info[:2] <= (3, 12) else 1)')
     }
-    $ok = ($LASTEXITCODE -eq 0)
+    $ok = ($script:LastNativeExit -eq 0)
     $ErrorActionPreference = $saved
     return $ok
 }
@@ -132,15 +167,15 @@ function Find-Python {
     }
     if ($pyCmd) {
         foreach ($item in @('3.12', '3.11', '3.10')) {
-            $exe = & $pyCmd "-$item" -c 'import sys; print(sys.executable)' 2>$null
-            if ($LASTEXITCODE -eq 0 -and $exe) { $candidates += $exe.Trim() }
+            $exe = Invoke-NativeText -FilePath $pyCmd -ArgumentList @("-$item", '-c', 'import sys; print(sys.executable)')
+            if ($script:LastNativeExit -eq 0 -and $exe) { $candidates += $exe }
         }
     }
 
     $pythonCmd = Get-Command python -ErrorAction SilentlyContinue
     if ($pythonCmd -and $pythonCmd.Source -and ($pythonCmd.Source -notmatch 'WindowsApps')) {
-        $exe = & python -c 'import sys; print(sys.executable)' 2>$null
-        if ($LASTEXITCODE -eq 0 -and $exe) { $candidates += $exe.Trim() }
+        $exe = Invoke-NativeText -FilePath 'python' -ArgumentList @('-c', 'import sys; print(sys.executable)')
+        if ($script:LastNativeExit -eq 0 -and $exe) { $candidates += $exe }
     }
 
     $folders = @(
@@ -235,13 +270,13 @@ function Install-EmbeddablePython {
             if ((Test-Path -LiteralPath $getPip) -and ((Get-Item -LiteralPath $getPip).Length -gt 10000)) { break }
         } catch { }
         if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
-            & curl.exe -fL --retry 2 -o $getPip $url
+            Invoke-Native -FilePath 'curl.exe' -ArgumentList @('-sS', '-fL', '--retry', '2', '-o', $getPip, $url)
             if ((Test-Path -LiteralPath $getPip) -and ((Get-Item -LiteralPath $getPip).Length -gt 10000)) { break }
         }
     }
     if (Test-Path -LiteralPath $getPip) {
         Write-Host 'Installing pip into the local Python...'
-        & $PrivatePython $getPip --no-warn-script-location 2>&1 | ForEach-Object { Write-Host $_ }
+        Invoke-Native -FilePath $PrivatePython -ArgumentList @($getPip, '--no-warn-script-location')
     }
 }
 
@@ -315,11 +350,13 @@ function Install-WithPip {
     $exe = ConvertTo-PythonPath $PythonExe
     if (-not $exe) { throw 'Python path missing after install. Double-click Start.bat again.' }
     Write-Host ("pip using " + $exe)
-    & $exe -m pip --retries 1 --timeout 30 @PipArgs 2>&1 | ForEach-Object { Write-Host $_ }
-    if ($LASTEXITCODE -eq 0) { return }
+    $pipArgs = @('-m', 'pip', '--retries', '1', '--timeout', '30') + $PipArgs
+    Invoke-Native -FilePath $exe -ArgumentList $pipArgs
+    if ($script:LastNativeExit -eq 0) { return }
     Write-Host 'pip SSL failed, retrying with trusted-host...'
-    & $exe -m pip --retries 1 --timeout 30 --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org @PipArgs 2>&1 | ForEach-Object { Write-Host $_ }
-    if ($LASTEXITCODE -ne 0) {
+    $pipArgs = @('-m', 'pip', '--retries', '1', '--timeout', '30', '--trusted-host', 'pypi.org', '--trusted-host', 'files.pythonhosted.org', '--trusted-host', 'pypi.python.org') + $PipArgs
+    Invoke-Native -FilePath $exe -ArgumentList $pipArgs
+    if ($script:LastNativeExit -ne 0) {
         throw 'pip install failed. Switch to a phone hotspot and try again.'
     }
 }
@@ -341,8 +378,8 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
     Write-Host ("Using Python: " + $python)
     $hasVenv = Test-PythonExe -Exe $python -NeedVenv
     if ($hasVenv) {
-        & $python -m venv .venv >$null 2>$null
-        if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $venvPython)) {
+        Invoke-Native -FilePath $python -ArgumentList @('-m', 'venv', '.venv')
+        if ($script:LastNativeExit -ne 0 -or -not (Test-Path -LiteralPath $venvPython)) {
             Write-Host 'venv create failed; installing packages into the local Python instead.'
             $venvPython = $python
         }
@@ -352,22 +389,22 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
     }
 }
 $venvPython = ConvertTo-PythonPath $venvPython
-if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.2.7.zip again.' }
+if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.2.8.zip again.' }
 
 Write-Host 'Installing packages (first run needs internet, a few minutes)...'
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '--upgrade', 'pip')
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', 'certifi')
-$cert = & $venvPython -c 'import certifi; print(certifi.where())'
-if ($LASTEXITCODE -eq 0 -and $cert) {
-    $env:SSL_CERT_FILE = $cert.Trim()
+$cert = Invoke-NativeText -FilePath $venvPython -ArgumentList @('-c', 'import certifi; print(certifi.where())')
+if ($script:LastNativeExit -eq 0 -and $cert) {
+    $env:SSL_CERT_FILE = $cert
     $env:REQUESTS_CA_BUNDLE = $env:SSL_CERT_FILE
     $env:CURL_CA_BUNDLE = $env:SSL_CERT_FILE
 }
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '-r', 'requirements.txt')
-& $venvPython setup_models.py
-if ($LASTEXITCODE -ne 0) {
+Invoke-Native -FilePath $venvPython -ArgumentList @('setup_models.py')
+if ($script:LastNativeExit -ne 0) {
     Write-Warning 'Translation model not installed yet. Use the yellow button in the webpage. If campus Wi-Fi fails, use a phone hotspot.'
 }
 
 Write-Host 'Starting. In the webpage, use the yellow buttons to download models. Use a phone hotspot on campus Wi-Fi.'
-& $venvPython server.py
+Invoke-Native -FilePath $venvPython -ArgumentList @('server.py')

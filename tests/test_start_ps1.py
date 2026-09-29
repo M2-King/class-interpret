@@ -17,7 +17,7 @@ for token in (
     "certifi",
     "api/shutdown",
     "status.version",
-    "0.2.7",
+    "0.2.8",
     ".runtime\\python",
     "python-3.12.10",
     "mirrors.huaweicloud.com/python",
@@ -28,9 +28,14 @@ for token in (
     "get-pip.py",
     "Downloading official Python",
     "ConvertTo-PythonPath",
+    "Invoke-Native",
+    "-sS",
+    "LastNativeExit",
     "ForEach-Object { Write-Host $_ }",
 ):
     assert token in script, token
+assert "curl.exe @curlArgs 2>$null" not in script
+assert "& curl.exe @curlArgs 2>$null" not in script
 
 import re
 
@@ -69,7 +74,7 @@ assert b"ExecutionPolicy Bypass" in cn_bat or b"Start.bat" in cn_bat
 howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
 assert all(byte < 128 for byte in howto)
 assert b"Start.bat" in howto
-assert b"0.2.7" in howto
-assert b"ClassInterpreter-windows-0.2.7.zip" in howto or b"0.2.7" in howto
+assert b"0.2.8" in howto
+assert b"ClassInterpreter-windows-0.2.8.zip" in howto or b"0.2.8" in howto
 
 print("start.ps1 ok")
