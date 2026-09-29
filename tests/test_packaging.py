@@ -44,7 +44,13 @@ with zipfile.ZipFile(mac_zip) as zf:
                 assert b"launcher" in data
 
     assert any("deepseek_api.py" in name for name in names)
+    assert any(name.endswith("deepseek_api.enc") for name in names)
     assert not any(name.endswith("deepseek.api") for name in names)
+    for name in names:
+        if name.endswith("deepseek_api.enc"):
+            payload = zf.read(name)
+            assert payload.startswith(b"CI1.")
+            assert b"sk-" not in payload
 
 inner = f"ClassInterpreter-{version}"
 win_zip = root / f"ClassInterpreter-windows-{version}.zip"
@@ -72,6 +78,10 @@ with zipfile.ZipFile(win_zip) as zf:
     assert got == version, got
     assert f"{inner}/secret_box.py" in names
     assert f"{inner}/deepseek_api.py" in names
+    assert f"{inner}/deepseek_api.enc" in names
+    enc = zf.read(f"{inner}/deepseek_api.enc")
+    assert enc.startswith(b"CI1.")
+    assert b"sk-" not in enc
     assert not any(name.endswith("secrets/deepseek.api") or name.endswith("/deepseek.api") for name in names)
 
 print("packaging ok")
