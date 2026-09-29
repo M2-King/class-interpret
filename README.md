@@ -53,6 +53,8 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 **若应用运行在你的 Linux SSH 服务器：** 在服务器克隆此仓库，运行 `bash start.sh`（建议在 `tmux` 内保持运行）；在手机 SSH 客户端连接该服务器，添加本地转发 `127.0.0.1:8765 → 服务器 127.0.0.1:8765`。服务器若没有 GPU，Medium 模型可能明显落后于课堂进度，可选 Small。
 
+需要随服务器自动启动时，把项目放到 `/opt/class-interpret`，以 root 运行 `bash deploy/install.sh`。安装脚本会创建独立 Python 环境、下载免费离线模型，并注册 `class-interpret.service`。可用 `systemctl status class-interpret` 查看状态。
+
 **若希望继续用这台电脑的显卡：** 保持本机应用和电脑开机，在电脑终端运行 `ssh -N -R 18765:127.0.0.1:8765 用户名@服务器地址`；手机 SSH 客户端连接同一服务器，添加本地转发 `127.0.0.1:8765 → 服务器 127.0.0.1:18765`。这样手机的麦克风音频经 SSH 送到电脑处理，不把应用端口直接暴露到公网。SSH 服务器需允许端口转发。
 
 手机端适合**线下课堂麦克风收音和看字幕**。手机浏览器共享本机其他 App 的音频支持有限；锁屏或切到后台可能使录音/SSH 连接中断，尤其在 iPhone 上，听课时请保持页面在前台。

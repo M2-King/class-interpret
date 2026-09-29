@@ -1,0 +1,17 @@
+[Unit]
+Description=Class Interpreter
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/opt/class-interpret
+Environment=CLASS_INTERPRET_NO_BROWSER=1
+Environment=CLASS_INTERPRET_PORT=8765
+ExecStart=/opt/class-interpret/.venv/bin/python /opt/class-interpret/server.py
+Restart=on-failure
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
