@@ -165,10 +165,8 @@ def transcribe(audio: bytes, model_name: str, glossary: str) -> str:
             # CTranslate2 can load a CUDA model but fail only when inference starts.
             if not any(term in str(exc).lower() for term in ("cublas", "cudnn", "cuda")):
                 raise
-            from faster_whisper import WhisperModel
-
             print("GPU 推理库不可用，自动改用 CPU。")
-            cpu_model, device = whisper_hub.create_model(model_name)
+            cpu_model, device = whisper_hub.create_model(model_name, force_cpu=True)
             MODEL_CACHE[model_name] = cpu_model
             MODEL_DEVICE[model_name] = device
             return run(cpu_model)

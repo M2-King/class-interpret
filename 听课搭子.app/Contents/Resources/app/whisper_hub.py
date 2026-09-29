@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import os
-import sys
 from pathlib import Path
 
 REPOS = {
@@ -76,27 +75,38 @@ def friendly_error(exc: BaseException) -> str:
     return text
 
 
-def create_model(name: str):
+def instantiate(name: str, *, local_files_only: bool, force_cpu: bool = False):
+    """Load faster-whisper the same way this morning's server.py did: CUDA, then CPU.
+
+    faster-whisper/CTranslate2 only understands NVIDIA CUDA or CPU. A Mac GPU is
+    Metal (Apple Silicon) or Intel graphics, so the CUDA attempt fails there and
+    we use CPU — same as the old backend. force_cpu is for the inference fallback
+    when CUDA loaded but cublas/cudnn then failed.
+    """
     from faster_whisper import WhisperModel
 
+    kwargs = {"local_files_only": True} if local_files_only else {}
+    if force_cpu:
+        return WhisperModel(name, device="cpu", compute_type="int8", **kwargs), "CPU"
+    try:
+        return WhisperModel(name, device="cuda", compute_type="int8_float16", **kwargs), "GPU"
+    except Exception:
+        return WhisperModel(name, device="cpu", compute_type="int8", **kwargs), "CPU"
+
+
+def create_model(name: str, *, force_cpu: bool = False):
     configure()
     last_error: BaseException | None = None
-    use_cuda = sys.platform.startswith("linux") or os.name == "nt"
     if cached(name):
         try:
-            return WhisperModel(name, device="cpu", compute_type="int8", local_files_only=True), "CPU"
+            return instantiate(name, local_files_only=True, force_cpu=force_cpu)
         except Exception as exc:
             last_error = exc
     for url in endpoints():
         os.environ["HF_ENDPOINT"] = url
         print(f"正在从 {url} 获取语音模型 {name}……")
         try:
-            if use_cuda:
-                try:
-                    return WhisperModel(name, device="cuda", compute_type="int8_float16"), "GPU"
-                except Exception:
-                    pass
-            return WhisperModel(name, device="cpu", compute_type="int8"), "CPU"
+            return instantiate(name, local_files_only=False, force_cpu=force_cpu)
         except Exception as exc:
             last_error = exc
             print(f"{url} 下载失败：{exc}")
