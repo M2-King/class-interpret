@@ -4,17 +4,16 @@
 
 ## 第一次使用（Windows）
 
-1. **删掉以前解压出来的旧文件夹**（尤其是里面带「听课搭子」目录、双击后黑窗口报 `Unexpected token` 的那份）。
-2. 重新下载 [ClassInterpreter-windows.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows.zip)，解压后进入 **ClassInterpreter** 文件夹。
-3. 安装 [Python 3.10–3.12](https://www.python.org/downloads/)；安装时勾选 **Add python.exe to PATH**。推荐 Chrome 或 Edge。
-4. 双击 **Start.bat**（也可以点「启动同传.bat」）。**不要双击 start.ps1**。第一次会装依赖，需要联网。
-5. 浏览器左上角必须是 **0.2.5**。黄色条里点 **现在安装中文翻译模型** 和 **下载语音模型**（建议 Small）。
+1. **删掉以前解压出来的旧文件夹**，再下载 [ClassInterpreter-windows.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows.zip)。
+2. 解压后进入 **ClassInterpreter** 文件夹。推荐 Chrome 或 Edge。
+3. 双击 **Start.bat**（也可以点「启动同传.bat」）。**不要双击 start.ps1**。
+4. 第一次会自动下载 Python 3.12 到这个文件夹里（不用先装 Python、不用勾选 PATH）。黑窗口请一直开着，需要联网。校园网慢或失败时换手机热点再双击一次。
+5. 浏览器左上角必须是 **0.2.6**。黄色条里点 **现在安装中文翻译模型** 和 **下载语音模型**（建议 Small）。
 6. 再点 **开始同传**，允许麦克风。网课共享时勾选 **共享音频**。
 
-校园网如果出现证书错误或 `ConnectTimeout` / Hugging Face Hub 超时，**换手机热点**后再点黄色条下载。不要只刷新浏览器。
-
 如果 Windows 提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
-如果黑窗口仍出现 `Unexpected token` / `Missing closing '}'`，一定还是旧压缩包，请删掉整个文件夹再下 0.2.5。
+如果黑窗口仍出现 `Python 3.10-3.12 not found` 且没有 `Downloading official Python`，一定还是旧压缩包，请删掉再下 0.2.6。
+如果出现 `Unexpected token` / `Missing closing '}'`，也是旧压缩包。
 
 ## 第一次使用（Mac）
 
@@ -24,7 +23,7 @@
 2. 双击 zip 解压，进入 **ClassInterpreter-mac** 文件夹。
 3. **不要只点「听课搭子」图标**（会提示无法打开）。请双击 **Open.command**。
 4. 若仍无法打开：按住 Control 点 Open.command → 打开。或到系统设置 → 隐私与安全性 → 仍要打开。
-5. 左上角应为 **Class Interpreter · 0.2.5**。黄色条下载模型；校园网请换手机热点。
+5. 左上角应为 **Class Interpreter · 0.2.6**。黄色条下载模型；校园网请换手机热点。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。

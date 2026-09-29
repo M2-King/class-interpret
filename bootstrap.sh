@@ -15,7 +15,7 @@ app_version() {
   elif [[ -f VERSION ]]; then
     tr -d '[:space:]' < VERSION
   else
-    printf '%s' "0.2.5"
+    printf '%s' "0.2.6"
   fi
 }
 

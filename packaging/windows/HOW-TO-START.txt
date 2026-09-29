@@ -1,25 +1,25 @@
-Class Interpreter 0.2.5 for Windows
+Class Interpreter 0.2.6 for Windows
 ===================================
 
-1. Install Python 3.10-3.12 from https://www.python.org/downloads/
-   Check the box: Add python.exe to PATH
+1. Delete any old unzipped folder from a previous download.
 
-2. Delete any old unzipped folder from a previous download.
+2. Unzip ClassInterpreter-windows.zip and open the ClassInterpreter folder.
 
-3. Unzip ClassInterpreter-windows.zip and open the ClassInterpreter folder.
-
-4. Double-click Start.bat
+3. Double-click Start.bat
    You can also double-click the Chinese-named .bat in this folder.
    Do NOT double-click start.ps1
 
-5. Wait for the browser. Top-left must say 0.2.5
+4. First run downloads official Python 3.12 into this folder.
+   You do not need to install Python yourself.
+   Keep the black window open. Use a phone hotspot if campus Wi-Fi fails.
+
+5. Wait for the browser. Top-left must say 0.2.6
 
 6. Click the yellow buttons to install the Chinese translation model
    and the speech model. Choose Small if the network is slow.
 
-Campus Wi-Fi SSL / Hugging Face timeout: switch to a phone hotspot.
-
 If Windows says Windows protected your PC: More info -> Run anyway.
 
-If the black window says Unexpected token or Missing closing:
+If the black window says Unexpected token, Missing closing, or
+Python 3.10-3.12 not found WITHOUT Downloading official Python:
 you are still using an old zip. Delete it and download again.

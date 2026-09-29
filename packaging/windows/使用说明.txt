@@ -1,10 +1,11 @@
-﻿听课搭子 Windows 0.2.5
+﻿听课搭子 Windows 0.2.6
 
-1. 安装 Python 3.10-3.12，勾选 Add python.exe to PATH。
-2. 删掉以前解压出来的旧文件夹，再解压新的 ClassInterpreter-windows.zip。
-3. 打开 ClassInterpreter 文件夹，双击 Start.bat（也可以点「启动同传.bat」）。
+1. 删掉以前解压出来的旧文件夹，再解压新的 ClassInterpreter-windows.zip。
+2. 打开 ClassInterpreter 文件夹，双击 Start.bat（也可以点「启动同传.bat」）。
    不要双击 start.ps1。
-4. 浏览器左上角必须是 0.2.5。用黄色按钮下载翻译模型和语音模型（建议 Small）。
+3. 第一次会自动下载 Python 3.12 到本文件夹，不用先安装 Python。请保持黑窗口打开。
+   校园网失败时换手机热点再双击一次。
+4. 浏览器左上角必须是 0.2.6。用黄色按钮下载翻译模型和语音模型（建议 Small）。
 5. 校园网证书错误或 Hugging Face 超时：换手机热点后再点黄色按钮。
 
-如果黑窗口出现 Unexpected token / Missing closing '}'，说明还在用旧压缩包，请删掉重下。
+如果黑窗口出现 Unexpected token，或只提示 Python not found 却没有 Downloading official Python，说明还在用旧压缩包，请删掉重下。

@@ -52,6 +52,6 @@ with zipfile.ZipFile(win_zip) as zf:
     assert all(byte < 128 for byte in start_bat)
     assert b"ExecutionPolicy Bypass" in start_bat
     version = zf.read("ClassInterpreter/VERSION").decode().strip()
-    assert version == "0.2.5", version
+    assert version == "0.2.6", version
 
 print("packaging ok")

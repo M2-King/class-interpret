@@ -17,8 +17,16 @@ for token in (
     "certifi",
     "api/shutdown",
     "status.version",
-    "Add python.exe to PATH",
-    "0.2.5",
+    "0.2.6",
+    ".runtime\\python",
+    "python-3.12.10",
+    "mirrors.huaweicloud.com/python",
+    "InstallAllUsers=0",
+    "TargetDir",
+    "WindowsApps",
+    "embed-amd64",
+    "get-pip.py",
+    "Downloading official Python",
 ):
     assert token in script, token
 
@@ -38,6 +46,6 @@ assert b"ExecutionPolicy Bypass" in cn_bat or b"Start.bat" in cn_bat
 howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
 assert all(byte < 128 for byte in howto)
 assert b"Start.bat" in howto
-assert b"0.2.5" in howto
+assert b"0.2.6" in howto
 
 print("start.ps1 ok")

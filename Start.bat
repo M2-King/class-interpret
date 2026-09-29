@@ -2,7 +2,8 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-echo Class Interpreter 0.2.5
+echo Class Interpreter 0.2.6
+echo First run may download Python 3.12 into this folder. Keep this window open.
 echo.
 
 if not exist "%~dp0start.ps1" (
@@ -27,10 +28,9 @@ powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1"
 if errorlevel 1 (
   echo.
   echo Launch failed.
-  echo 1. Delete old unzipped folders, then download ClassInterpreter-windows.zip again.
-  echo 2. Double-click Start.bat. Do not double-click start.ps1.
-  echo 3. Install Python 3.10-3.12 from python.org and check Add python.exe to PATH.
-  echo 4. Campus Wi-Fi: switch to a phone hotspot.
+  echo 1. Switch to a phone hotspot and double-click Start.bat again.
+  echo 2. Keep this window open; first run downloads Python 3.12 automatically.
+  echo 3. Do not double-click start.ps1.
   echo.
   pause
   exit /b 1
