@@ -13,7 +13,8 @@ const ui = {
   summaryPage: $('summary-page-content'), exportList: $('export-list'),
   exportPreview: $('export-preview'), exportTitle: $('export-title'),
   greeting: $('home-greeting'), currentModel: $('current-model-label'),
-  installTranslation: $('install-translation'), quitApp: $('quit-app')
+  installTranslation: $('install-translation'), quitApp: $('quit-app'),
+  modelBanner: $('model-banner'), modelBannerText: $('model-banner-text')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
@@ -39,6 +40,7 @@ function greeting() {
 }
 
 function syncModelCards() {
+  if (!ui.model) return;
   const value = ui.model.value;
   document.querySelectorAll('.model-card').forEach(card => {
     card.classList.toggle('selected', card.dataset.model === value);
@@ -126,14 +128,23 @@ async function api(path, options = {}) {
 }
 
 function notice(message, error = false) {
+  if (!ui.notice) return;
   ui.notice.textContent = message;
-  ui.notice.classList.toggle('error', error);
+  ui.notice.classList.toggle('error', error === true);
+  ui.notice.classList.toggle('warn', error === 'warn');
 }
 
 function applyStatus(status) {
   ui.status.textContent = `${status.translation ? '离线翻译就绪' : '翻译模型待安装'} · ${status.deepseek ? 'DeepSeek 就绪' : '基础总结就绪'}`;
   if (ui.engineHealth) ui.engineHealth.textContent = status.translation ? '正常运行' : '模型待安装';
-  if (ui.installTranslation) ui.installTranslation.hidden = !!status.translation;
+  if (ui.modelBanner) ui.modelBanner.classList.toggle('show', !status.translation);
+  if (ui.installTranslation) ui.installTranslation.disabled = !!status.translation;
+}
+
+function fetchTimeout(ms) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  return { signal: controller.signal, cancel: () => clearTimeout(timer) };
 }
 
 function formatTime(seconds) {
@@ -472,25 +483,37 @@ async function init() {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
     applyStatus(status);
     if (!status.translation) {
-      notice('中文翻译模型还没装好。点下方按钮自动下载（需联网，大约一两分钟）。不用打开终端。', true);
+      notice('中文翻译模型还没装好。请看页面上方的黄色提示，点按钮安装。', 'warn');
     }
-  } catch (error) { notice(`无法连接本地服务：${error.message}`, true); ui.status.textContent = '服务未就绪'; }
+  } catch (error) {
+    if (ui.modelBanner) ui.modelBanner.classList.add('show');
+    if (ui.modelBannerText) ui.modelBannerText.textContent = `无法连接本地服务：${error.message}`;
+    notice(`无法连接本地服务：${error.message}`, true);
+    ui.status.textContent = '服务未就绪';
+  }
 }
 
 if (ui.installTranslation) {
   ui.installTranslation.addEventListener('click', async () => {
     ui.installTranslation.disabled = true;
-    notice('正在下载英语 → 中文模型，请保持联网…');
+    if (ui.modelBannerText) ui.modelBannerText.textContent = '正在下载英语 → 中文模型，请保持联网…';
+    notice('正在下载英语 → 中文模型，请保持联网…', 'warn');
+    const timeout = fetchTimeout(360000);
     try {
-      const body = await api('/api/translation/install', {
-        method: 'POST',
-        signal: AbortSignal.timeout(360000)
-      });
+      const body = await api('/api/translation/install', { method: 'POST', signal: timeout.signal });
+      timeout.cancel();
       const status = await api('/api/status');
       applyStatus(status);
-      notice(body.message || '翻译模型已安装。现在可以开始同传。');
+      if (ui.modelBannerText) {
+        ui.modelBannerText.textContent = body.message || '翻译模型已安装。现在可以开始同传。';
+      }
+      notice(body.message || '翻译模型已安装。现在可以开始同传。', 'warn');
     } catch (error) {
-      notice(`翻译模型安装失败：${error.message}。可改用手机热点后重试。`, true);
+      timeout.cancel();
+      const message = error.name === 'AbortError' ? '下载超时，请换网络后重试。' : error.message;
+      if (ui.modelBanner) ui.modelBanner.classList.add('show');
+      if (ui.modelBannerText) ui.modelBannerText.textContent = `翻译模型安装失败：${message}。可改用手机热点后重试。`;
+      notice(`翻译模型安装失败：${message}。可改用手机热点后重试。`, true);
       ui.installTranslation.disabled = false;
     }
   });

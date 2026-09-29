@@ -22,14 +22,18 @@ assert "deepseek" in data
 
 with urllib.request.urlopen(base + "/") as response:
     html = response.read().decode()
+assert 'id="model-banner"' in html
 assert "现在安装中文翻译模型" in html
 assert 'id="quit-app"' in html
 assert "退出听课搭子" in html
+assert "fff4cc" in Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
 
 with urllib.request.urlopen(base + "/app.js") as response:
     script = response.read().decode()
 assert "/api/translation/install" in script
 assert "/api/shutdown" in script
+assert "AbortSignal.timeout" not in script
+assert "modelBanner.classList.toggle" in script
 
 req = urllib.request.Request(base + "/api/shutdown", data=b"", method="POST")
 with urllib.request.urlopen(req) as response:
