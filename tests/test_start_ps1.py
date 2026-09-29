@@ -17,7 +17,7 @@ for token in (
     "certifi",
     "api/shutdown",
     "status.version",
-    "0.2.9",
+    "0.3.0",
     ".runtime\\python",
     "python-3.12.10",
     "mirrors.huaweicloud.com/python",
@@ -82,7 +82,7 @@ assert b"ExecutionPolicy Bypass" in cn_bat or b"Start.bat" in cn_bat
 howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
 assert all(byte < 128 for byte in howto)
 assert b"Start.bat" in howto
-assert b"0.2.9" in howto
-assert b"ClassInterpreter-windows-0.2.9.zip" in howto or b"0.2.9" in howto
+assert b"0.3.0" in howto
+assert b"ClassInterpreter-windows-0.3.0.zip" in howto or b"0.3.0" in howto
 
 print("start.ps1 ok")

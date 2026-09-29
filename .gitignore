@@ -2,5 +2,6 @@
 .runtime/
 data/
 hf/
+ollama-models/
 __pycache__/
 *.pyc

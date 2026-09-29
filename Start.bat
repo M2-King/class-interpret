@@ -2,12 +2,12 @@
 setlocal EnableExtensions
 cd /d "%~dp0"
 
-echo Class Interpreter 0.2.9
+echo Class Interpreter 0.3.0
 echo Folder: %CD%
 echo If this laptop already ran Class Interpreter, use THAT old folder.
 echo Do not replace a working copy with a new unzip from Downloads.
 echo First run may download Python 3.12. Keep this window open.
-echo If the first line says 0.2.5-0.2.8, you opened an old zip. Close this window.
+echo If the first line says 0.2.5-0.2.9, you opened an old zip. Close this window.
 echo.
 
 if not exist "%~dp0start.ps1" (

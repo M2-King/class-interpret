@@ -1,29 +1,31 @@
-Class Interpreter 0.2.9 for Windows
+Class Interpreter 0.3.0 for Windows
 ===================================
 
 If this laptop already ran Class Interpreter with low delay, keep using
 that old folder. Do not replace it with this Downloads unzip.
 
-The zip name must be ClassInterpreter-windows-0.2.9.zip
+The zip name must be ClassInterpreter-windows-0.3.0.zip
 Wait until Chrome finishes. Do not open a .crdownload file.
 Do not open a folder named ClassInterpreter-windows (1).
 
 1. Delete any old unzipped folder from a previous download.
 
-2. Unzip, then open the ClassInterpreter-0.2.9 folder.
+2. Unzip, then open the ClassInterpreter-0.3.0 folder.
 
 3. Double-click Start.bat
-   The first line must say Class Interpreter 0.2.9
+   The first line must say Class Interpreter 0.3.0
    Do NOT double-click start.ps1
 
 4. First run downloads official Python 3.12 into this folder.
    You do not need to install Python yourself.
    Keep the black window open. Use a phone hotspot if campus Wi-Fi fails.
 
-5. Wait for the browser. Top-left must say 0.2.9
+5. Wait for the browser. Top-left must say 0.3.0
 
 6. Click the yellow buttons to install the Chinese translation model
    and the speech model. Choose Small if the network is slow.
+   DeepSeek is optional for after-class summaries. Live interpreting
+   does not need it.
 
 If Windows says Windows protected your PC: More info -> Run anyway.
 

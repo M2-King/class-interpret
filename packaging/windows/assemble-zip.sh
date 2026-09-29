@@ -7,7 +7,7 @@ DEST_NAME="ClassInterpreter-${VERSION}"
 DEST="$STAGE/$DEST_NAME"
 export DEST
 mkdir -p "$DEST"
-for f in Start.bat 启动同传.bat start.ps1 server.py setup_models.py setup_whisper.py ssl_certs.py whisper_hub.py \
+for f in Start.bat 启动同传.bat start.ps1 server.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
          requirements.txt index.html app.js style.css VERSION README.md; do
   cp "$ROOT/$f" "$DEST/"
 done
