@@ -1,19 +1,18 @@
-STOP. This is version 0.3.1.
+STOP. This is version 0.3.3.
+
+How to use Windows:
+A. Old working folder: double-click that Start.bat. Do not replace it.
+B. New copy: right-click zip -> Extract All -> OPEN-THIS.bat
+
+Windows cannot run this from inside the zip. That is not a broken laptop.
 
 If the black window says "Class Interpreter 0.2.5", you opened an OLD folder.
-Close it. Do not click Start.bat inside ClassInterpreter-windows or
-ClassInterpreter-windows (1).
-
-If this laptop already ran Class Interpreter well, use that old folder
-instead of this Downloads copy. The old .venv is faster.
 
 1. Wait until Chrome finishes. The file must be
-   ClassInterpreter-windows-0.3.1.zip
+   ClassInterpreter-windows-0.3.3.zip
    NOT a .crdownload file.
 
-2. Delete old unzipped folders first.
+2. Right-click the zip -> Extract All. Then double-click OPEN-THIS.bat.
+   Do not run Start.bat from inside the zip window.
 
-3. Unzip, open ClassInterpreter-0.3.1, double-click Start.bat.
-
-4. First run downloads Python 3.12 into this folder. Keep the window open.
-   Campus Wi-Fi: use a phone hotspot if the download fails.
+3. This zip includes Python. Keep the window open. Campus Wi-Fi: phone hotspot.

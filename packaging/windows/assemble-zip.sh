@@ -7,7 +7,7 @@ DEST_NAME="ClassInterpreter-${VERSION}"
 DEST="$STAGE/$DEST_NAME"
 export DEST
 mkdir -p "$DEST"
-for f in Start.bat 启动同传.bat start.ps1 server.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
+for f in Start.bat 启动同传.bat start.ps1 win_bootstrap.py server.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
          deepseek_api.py secret_box.py requirements.txt index.html app.js style.css VERSION README.md; do
   cp "$ROOT/$f" "$DEST/"
 done
@@ -17,6 +17,9 @@ fi
 cp "$ROOT/packaging/windows/HOW-TO-START.txt" "$DEST/"
 cp "$ROOT/packaging/windows/使用说明.txt" "$DEST/"
 cp "$ROOT/packaging/windows/READ-ME-FIRST.txt" "$STAGE/READ-ME-FIRST.txt"
+cp "$ROOT/packaging/windows/OPEN-THIS.bat" "$STAGE/OPEN-THIS.bat"
+export DEST
+python3 "$ROOT/packaging/windows/bundle_runtime.py"
 python3 - <<'PY'
 from pathlib import Path
 import os
@@ -34,7 +37,7 @@ OUT_STABLE="$ROOT/ClassInterpreter-windows.zip"
 rm -f "$OUT_VER" "$OUT_STABLE"
 (
   cd "$STAGE"
-  zip -r "$OUT_VER" READ-ME-FIRST.txt "$DEST_NAME"
+  zip -r "$OUT_VER" READ-ME-FIRST.txt OPEN-THIS.bat "$DEST_NAME"
 )
 cp "$OUT_VER" "$OUT_STABLE"
 rm -rf "$STAGE"
