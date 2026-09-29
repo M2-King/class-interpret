@@ -8,7 +8,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 version = (root / "VERSION").read_text(encoding="utf-8").strip()
-assert version == "0.3.0", version
+assert version == "0.3.1", version
 
 
 def unix_mode(info: zipfile.ZipInfo) -> int:
@@ -43,6 +43,15 @@ with zipfile.ZipFile(mac_zip) as zf:
             if info.filename.endswith("Open.command"):
                 assert b"launcher" in data
 
+    assert any("deepseek_api.py" in name for name in names)
+    assert any(name.endswith("deepseek_api.enc") for name in names)
+    assert not any(name.endswith("deepseek.api") for name in names)
+    for name in names:
+        if name.endswith("deepseek_api.enc"):
+            payload = zf.read(name)
+            assert payload.startswith(b"CI1.")
+            assert b"sk-" not in payload
+
 inner = f"ClassInterpreter-{version}"
 win_zip = root / f"ClassInterpreter-windows-{version}.zip"
 assert win_zip.is_file(), f"rebuild {win_zip.name}"
@@ -55,7 +64,7 @@ with zipfile.ZipFile(win_zip) as zf:
     assert f"{inner}/HOW-TO-START.txt" in names
     readme = zf.read("READ-ME-FIRST.txt")
     assert all(byte < 128 for byte in readme)
-    assert b"0.3.0" in readme
+    assert b"0.3.1" in readme
     assert b"0.2.5" in readme
     start_ps1 = zf.read(f"{inner}/start.ps1")
     assert start_ps1.startswith(b"\xef\xbb\xbf")
@@ -64,8 +73,15 @@ with zipfile.ZipFile(win_zip) as zf:
     start_bat = zf.read(f"{inner}/Start.bat")
     assert all(byte < 128 for byte in start_bat)
     assert b"ExecutionPolicy Bypass" in start_bat
-    assert b"0.3.0" in start_bat
+    assert b"0.3.1" in start_bat
     got = zf.read(f"{inner}/VERSION").decode().strip()
     assert got == version, got
+    assert f"{inner}/secret_box.py" in names
+    assert f"{inner}/deepseek_api.py" in names
+    assert f"{inner}/deepseek_api.enc" in names
+    enc = zf.read(f"{inner}/deepseek_api.enc")
+    assert enc.startswith(b"CI1.")
+    assert b"sk-" not in enc
+    assert not any(name.endswith("secrets/deepseek.api") or name.endswith("/deepseek.api") for name in names)
 
 print("packaging ok")

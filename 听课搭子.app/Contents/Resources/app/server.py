@@ -1,4 +1,4 @@
-"""Local-only classroom interpreter. No account, paid API, or audio upload."""
+"""Local classroom interpreter. Speech stays on this laptop; summaries may use a shared DeepSeek API."""
 
 from __future__ import annotations
 
@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
+import deepseek_api
 import deepseek_hub
 import ssl_certs
 import whisper_hub
@@ -26,7 +27,7 @@ ssl_certs.apply()
 whisper_hub.configure()
 
 ROOT = Path(__file__).resolve().parent
-VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.3.0"
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.3.1"
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
@@ -203,10 +204,14 @@ def fallback_summary(entries: list[dict], title: str) -> str:
 
 
 def ask_deepseek(prompt: str, model: str) -> str:
+    if model == deepseek_api.CLOUD_MODEL or model == "api":
+        return deepseek_api.chat(prompt)
     return deepseek_hub.chat(prompt, model)
 
 
 def installed_deepseek() -> str | None:
+    if deepseek_api.available():
+        return deepseek_api.CLOUD_MODEL
     return deepseek_hub.installed()
 
 
@@ -214,9 +219,6 @@ def make_summary(session: dict) -> tuple[str, str]:
     entries = session.get("entries", [])
     if not entries:
         raise ValueError("这节课还没有内容，暂时无法总结")
-    model = installed_deepseek()
-    if not model:
-        return fallback_summary(entries, session["title"]), "课堂摘录"
     transcript = "\n".join(
         f"[{int(entry.get('at', 0) // 60):02d}:{int(entry.get('at', 0) % 60):02d}] "
         f"EN: {entry.get('en', '')}\nZH: {entry.get('zh', '')}"
@@ -224,18 +226,36 @@ def make_summary(session: dict) -> tuple[str, str]:
     )
     blocks = [transcript[i:i + 11000] for i in range(0, len(transcript), 11000)]
     base = "你是留学生的课堂笔记助手。只根据提供的记录写中文总结，不猜测缺失内容。注明不确定或听写可能有误的地方。保留重要英文术语。输出：核心要点、概念与例子、作业/截止时间/考试、待核对问题。没有的信息写“课堂记录中未提及”。"
-    try:
+
+    def run(model: str, label: str) -> tuple[str, str]:
         if len(blocks) == 1:
-            return ask_deepseek(base + "\n\n课堂记录：\n" + blocks[0], model), f"DeepSeek ({model})"
+            return ask_deepseek(base + "\n\n课堂记录：\n" + blocks[0], model), label
         parts = [ask_deepseek(base + f"\n\n第 {i + 1}/{len(blocks)} 段课堂记录：\n" + block, model) for i, block in enumerate(blocks)]
         combined = "\n\n".join(parts)
-        return ask_deepseek(base + "\n\n请合并以下分段笔记，去重并保留具体任务：\n" + combined[:20000], model), f"DeepSeek ({model})"
+        return ask_deepseek(base + "\n\n请合并以下分段笔记，去重并保留具体任务：\n" + combined[:20000], model), label
+
+    if deepseek_api.available():
+        try:
+            return run(deepseek_api.CLOUD_MODEL, f"DeepSeek API ({deepseek_api.CLOUD_MODEL})")
+        except (OSError, ValueError, RuntimeError):
+            local = deepseek_hub.installed()
+            if local:
+                try:
+                    return run(local, f"DeepSeek ({local})")
+                except (OSError, ValueError, RuntimeError):
+                    pass
+            return fallback_summary(entries, session["title"]), "课堂摘录（DeepSeek 暂不可用）"
+    model = deepseek_hub.installed()
+    if not model:
+        return fallback_summary(entries, session["title"]), "课堂摘录"
+    try:
+        return run(model, f"DeepSeek ({model})")
     except (OSError, ValueError, RuntimeError):
         return fallback_summary(entries, session["title"]), "课堂摘录（DeepSeek 暂不可用）"
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClassInterpret/0.3.0"
+    server_version = "ClassInterpret/0.3.1"
 
     def log_message(self, format: str, *args) -> None:
         print("[%s] %s" % (self.log_date_time_string(), format % args))
@@ -271,10 +291,13 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and path == "/api/status":
             models = whisper_hub.cached_models()
             deepseek = deepseek_hub.snapshot()
+            cloud = deepseek_api.available()
+            label = deepseek_api.CLOUD_MODEL if cloud else deepseek.get("deepseek")
             return self.respond(200, {
                 "translation": translation_available(),
-                "deepseek": deepseek.get("deepseek"),
-                "deepseek_ready": deepseek.get("ready"),
+                "deepseek": label,
+                "deepseek_ready": bool(cloud or deepseek.get("ready")),
+                "deepseek_cloud": cloud,
                 "ollama": deepseek.get("ollama"),
                 "version": VERSION,
                 "whisper_models": models,
