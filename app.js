@@ -9,13 +9,41 @@ const ui = {
   elapsed: $('elapsed-time'), concepts: $('concept-list'), conceptCount: $('concept-count'),
   durationMetric: $('duration-metric'), segmentMetric: $('segment-metric'),
   wordMetric: $('word-metric'), conceptMetric: $('concept-metric'),
-  micHealth: $('mic-health'), audioHealth: $('audio-health'), engineHealth: $('engine-health')
+  micHealth: $('mic-health'), audioHealth: $('audio-health'), engineHealth: $('engine-health'),
+  summaryPage: $('summary-page-content'), exportList: $('export-list'),
+  exportPreview: $('export-preview'), exportTitle: $('export-title'),
+  greeting: $('home-greeting'), currentModel: $('current-model-label')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
   uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0 };
 const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
+const MODEL_LABELS = { small: 'Small', medium: 'Medium', 'large-v3': 'Large v3' };
 let clockTimer = null;
+
+function showView(name) {
+  document.querySelectorAll('.view').forEach(view => { view.hidden = view.id !== `view-${name}`; });
+  document.querySelectorAll('[data-view]').forEach(button => {
+    button.classList.toggle('active', button.dataset.view === name && button.classList.contains('nav-item'));
+  });
+  if (name === 'live' && ui.notice && !ui.notice.textContent) {
+    ui.notice.textContent = '第一次识别会下载免费语音模型，需保持联网；下载完成后可离线使用。';
+  }
+}
+
+function greeting() {
+  const hour = new Date().getHours();
+  const text = hour < 12 ? 'Good morning' : hour < 18 ? 'Good afternoon' : 'Good evening';
+  if (ui.greeting) ui.greeting.textContent = text;
+}
+
+function syncModelCards() {
+  const value = ui.model.value;
+  document.querySelectorAll('.model-card').forEach(card => {
+    card.classList.toggle('selected', card.dataset.model === value);
+  });
+  if (ui.currentModel) ui.currentModel.textContent = MODEL_LABELS[value] || value;
+}
 
 function formatClock(seconds) {
   seconds = Math.max(0, Math.floor(Number(seconds) || 0));
@@ -63,10 +91,29 @@ function renderInsights(session) {
   updateClock();
 }
 
+function notesText(session) {
+  if (!session) return '选择一节课或先开始同传。';
+  return [`# ${session.title}`, `创建时间：${session.created}`, '', '## 课堂记录',
+    ...session.entries.flatMap(e => [`[${formatTime(e.at)}] ${e.en}`, e.zh || '（中文译文不可用）', '']),
+    '## 课后总结', session.summary || '尚未生成'].join('\n');
+}
+
 $('mobile-settings').addEventListener('click', () => {
   const expanded = document.querySelector('.sidebar').classList.toggle('expanded');
   $('mobile-settings').setAttribute('aria-expanded', String(expanded));
-  $('mobile-settings').textContent = expanded ? '收起设置 ▴' : '课堂设置 ▾';
+  $('mobile-settings').textContent = expanded ? '收起' : '菜单';
+});
+
+document.querySelectorAll('[data-view]').forEach(button => {
+  button.addEventListener('click', () => showView(button.dataset.view));
+});
+
+document.querySelectorAll('.model-card').forEach(card => {
+  card.addEventListener('click', () => {
+    if (ui.model.disabled) return;
+    ui.model.value = card.dataset.model;
+    syncModelCards();
+  });
 });
 
 async function api(path, options = {}) {
@@ -96,17 +143,26 @@ function drawSession() {
   if (!session?.entries.length) {
     const empty = document.createElement('div');
     empty.className = 'empty';
-    empty.innerHTML = '<div class="empty-icon">◌</div><strong>准备好听课了</strong><p>点击“开始同传”，允许浏览器访问麦克风。</p>';
+    empty.innerHTML = '<strong>准备好听课了</strong><p>点击“开始同传”，允许浏览器访问麦克风。</p>';
     ui.transcript.append(empty);
   } else {
     for (const entry of session.entries) ui.transcript.append(makeEntry(entry));
     ui.transcript.scrollTop = ui.transcript.scrollHeight;
   }
-  ui.summaryContent.textContent = session?.summary || '点击上方“生成课后总结”，随时整理已经记录的内容。';
+  const summary = session?.summary || '点击“生成课后总结”，随时整理已经记录的内容。';
+  ui.summaryContent.textContent = summary;
   ui.summaryContent.classList.toggle('muted', !session?.summary);
+  if (ui.summaryPage) {
+    ui.summaryPage.textContent = session?.summary || 'Your summary will appear here.';
+    ui.summaryPage.classList.toggle('muted', !session?.summary);
+  }
   ui.summarySource.textContent = session?.summary_source || '尚未生成';
   ui.summary.disabled = !session?.entries.length;
   ui.export.disabled = !session?.entries.length;
+  $('summary-page-button').disabled = !session?.entries.length;
+  $('export-page-button').disabled = !session;
+  if (ui.exportTitle) ui.exportTitle.textContent = session?.title || '当前笔记';
+  if (ui.exportPreview) ui.exportPreview.textContent = notesText(session);
   renderInsights(session);
 }
 
@@ -156,13 +212,16 @@ function makeEntry(entry) {
   return row;
 }
 
-async function loadHistory() {
-  const list = await api('/api/sessions');
-  ui.history.replaceChildren();
-  if (!list.length) { ui.history.innerHTML = '<span class="muted">尚无课堂记录</span>'; return; }
+function fillSessionList(container, list) {
+  container.replaceChildren();
+  if (!list.length) {
+    container.innerHTML = '<span class="muted">尚无课堂记录</span>';
+    return;
+  }
   for (const item of list) {
     const button = document.createElement('button');
-    button.className = 'history-item' + (state.session?.id === item.id ? ' active' : '');
+    button.type = 'button';
+    button.className = (container === ui.exportList ? 'note-item' : 'history-item') + (state.session?.id === item.id ? ' active' : '');
     const title = document.createElement('strong'); title.textContent = item.title;
     const info = document.createElement('small');
     info.textContent = `${new Date(item.created).toLocaleDateString('zh-CN')} · ${item.count} 条记录`;
@@ -172,9 +231,16 @@ async function loadHistory() {
       state.session = await api(`/api/sessions/${item.id}`);
       ui.title.value = state.session.title;
       drawSession(); loadHistory();
+      if (container === ui.history) showView('live');
     });
-    ui.history.append(button);
+    container.append(button);
   }
+}
+
+async function loadHistory() {
+  const list = await api('/api/sessions');
+  fillSessionList(ui.history, list);
+  if (ui.exportList) fillSessionList(ui.exportList, list);
 }
 
 async function ensureSession() {
@@ -327,7 +393,7 @@ async function stopRecording() {
 
 ui.record.addEventListener('click', async () => {
   ui.record.disabled = true;
-  try { if (state.recording) await stopRecording(); else await startRecording(); }
+  try { if (state.recording) await stopRecording(); else { showView('live'); await startRecording(); } }
   catch (error) { notice(`无法开始录音：${error.message}`, true); }
   finally { ui.record.disabled = false; }
 });
@@ -341,22 +407,25 @@ $('new-session').addEventListener('click', async () => {
 });
 
 document.querySelector('[data-generate-summary]').addEventListener('click', () => ui.summary.click());
-document.querySelectorAll('[data-scroll]').forEach(button => button.addEventListener('click', () => {
-  document.getElementById(button.dataset.scroll)?.scrollIntoView({behavior:'smooth', block:'start'});
-}));
-document.querySelectorAll('[data-expand-settings]').forEach(button => button.addEventListener('click', () => {
-  document.querySelector('.sidebar').classList.add('expanded');
-  $('mobile-settings').setAttribute('aria-expanded', 'true');
-  $('mobile-settings').textContent = '收起设置 ▴';
-  ui.title.focus();
-}));
-document.querySelectorAll('[data-focus="history"]').forEach(button => button.addEventListener('click', () => {
-  document.querySelector('.sidebar').classList.add('expanded');
-  ui.history.scrollIntoView({behavior:'smooth', block:'center'});
-}));
+$('summary-page-button').addEventListener('click', () => {
+  showView('live');
+  ui.summary.click();
+});
+$('export-page-button').addEventListener('click', () => ui.export.click());
 $('transcript-search').addEventListener('input', event => {
   const query = event.target.value.trim().toLocaleLowerCase();
   document.querySelectorAll('#transcript .entry').forEach(row => {
+    row.hidden = query && !row.textContent.toLocaleLowerCase().includes(query);
+  });
+});
+$('global-search').addEventListener('input', event => {
+  const query = event.target.value.trim().toLocaleLowerCase();
+  if (!$('view-live').hidden) {
+    $('transcript-search').value = event.target.value;
+    $('transcript-search').dispatchEvent(new Event('input'));
+    return;
+  }
+  document.querySelectorAll('.history-item, .note-item').forEach(row => {
     row.hidden = query && !row.textContent.toLocaleLowerCase().includes(query);
   });
 });
@@ -364,30 +433,33 @@ $('transcript-search').addEventListener('input', event => {
 ui.summary.addEventListener('click', async () => {
   if (!state.session) return;
   const sessionId = state.session.id;
-  ui.summary.disabled = true; ui.summary.textContent = '✦ 正在整理课堂内容…';
+  ui.summary.disabled = true; ui.summary.textContent = '正在整理课堂内容…';
   notice('正在生成课后总结；如果已安装本机 DeepSeek，会自动使用。');
   try {
     await state.uploadQueue;
     const result = await api(`/api/sessions/${sessionId}/summary`, {method:'POST', body: '{}'});
     if (state.session?.id === sessionId) {
       state.session.summary = result.summary; state.session.summary_source = result.source;
-      drawSession(); $('summary-section').scrollIntoView({behavior:'smooth', block:'start'});
+      drawSession();
+      showView('summarize');
       notice(`课后总结已生成：${result.source}。`);
     }
   } catch (error) { notice(`总结失败：${error.message}`, true); }
-  finally { ui.summary.textContent = '✦ 生成课后总结'; ui.summary.disabled = !state.session?.entries.length; }
+  finally { ui.summary.textContent = '生成课程总结'; ui.summary.disabled = !state.session?.entries.length; }
 });
 
 ui.export.addEventListener('click', () => {
   const session = state.session; if (!session) return;
-  const content = [`# ${session.title}`, `创建时间：${session.created}`, '', '## 课堂记录', ...session.entries.flatMap(e => [`[${formatTime(e.at)}] ${e.en}`, e.zh || '（中文译文不可用）', '']), '## 课后总结', session.summary || '尚未生成'].join('\n');
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([content], {type:'text/plain;charset=utf-8'}));
+  link.href = URL.createObjectURL(new Blob([notesText(session)], {type:'text/plain;charset=utf-8'}));
   link.download = `${session.title.replace(/[\\/:*?"<>|]/g, '_') || '课堂笔记'}.txt`;
   link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
 });
 
 async function init() {
+  greeting();
+  syncModelCards();
+  showView('home');
   drawSession();
   try {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
