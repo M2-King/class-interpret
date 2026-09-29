@@ -1,11 +1,77 @@
 #!/bin/bash
+# Double-clickable Mac app: no Terminal. Source lives inside this bundle.
 set -euo pipefail
-ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
-cd "$ROOT"
-ROOT_Q=$(printf '%q' "$ROOT")
-osascript <<EOF
-tell application "Terminal"
-  activate
-  do script "cd ${ROOT_Q} && echo '听课搭子：首次会自动安装 Python 与模型，可能要输入 Mac 密码。' && bash start.sh"
-end tell
-EOF
+
+export PATH="/Library/Frameworks/Python.framework/Versions/3.12/bin:/Library/Frameworks/Python.framework/Versions/3.11/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:$PATH"
+
+APP_BUNDLE="$(cd "$(dirname "$0")/../.." && pwd)"
+APP="$APP_BUNDLE/Contents/Resources/app"
+SUPPORT="$HOME/Library/Application Support/ClassInterpret"
+LOG_DIR="$HOME/Library/Logs"
+LOG="$LOG_DIR/class-interpret.log"
+ADDRESS="http://127.0.0.1:8765/"
+
+mkdir -p "$SUPPORT/data" "$LOG_DIR"
+exec >>"$LOG" 2>&1
+
+notify() {
+  osascript -e "display notification \"$1\" with title \"听课搭子\"" >/dev/null 2>&1 || true
+}
+
+alert() {
+  osascript -e "display dialog \"$1\" with title \"听课搭子\" buttons {\"好\"} default button 1" >/dev/null 2>&1 || true
+}
+
+open_app() {
+  open "$ADDRESS"
+}
+
+service_up() {
+  curl -fsS --max-time 1 "${ADDRESS}api/status" >/dev/null 2>&1
+}
+
+if [[ ! -f "$APP/server.py" ]]; then
+  alert "安装包不完整。请从 GitHub Releases 重新下载 听课搭子.app。"
+  exit 1
+fi
+
+if service_up; then
+  open_app
+  exit 0
+fi
+
+notify "正在准备听课搭子（首次需联网下载模型）…"
+osascript -e 'display dialog "正在安装听课搭子。第一次需要联网，可能要几分钟。如果弹出密码窗口，请输入你的 Mac 登录密码。不会打开终端。" with title "听课搭子" buttons {"好"} default button 1 giving up after 8' >/dev/null 2>&1 || true
+
+cd "$APP"
+export CLASS_INTERPRET_VENV="$SUPPORT/venv"
+export CLASS_INTERPRET_DATA="$SUPPORT/data"
+export CLASS_INTERPRET_NO_BROWSER=1
+
+# shellcheck source=/dev/null
+source "$APP/bootstrap.sh"
+if ! ensure_runtime; then
+  alert "安装失败。请检查网络后重试。详细日志：~/Library/Logs/class-interpret.log"
+  exit 1
+fi
+
+"$CLASS_INTERPRET_VENV/bin/python" "$APP/server.py" &
+SERVER_PID=$!
+cleanup() { kill "$SERVER_PID" 2>/dev/null || true; }
+trap cleanup EXIT INT TERM
+
+ready=0
+for _ in $(seq 1 60); do
+  if service_up; then ready=1; break; fi
+  if ! kill -0 "$SERVER_PID" 2>/dev/null; then break; fi
+  sleep 1
+done
+
+if [[ "$ready" -ne 1 ]]; then
+  alert "服务没有启动。请查看 ~/Library/Logs/class-interpret.log"
+  exit 1
+fi
+
+open_app
+notify "听课搭子已打开。下课后在程序坞退出应用即可。"
+wait "$SERVER_PID"

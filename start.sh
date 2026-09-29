@@ -29,4 +29,4 @@ if [[ -z "${DISPLAY:-}" && "$(uname -s)" != "Darwin" ]]; then
   export CLASS_INTERPRET_NO_BROWSER=1
 fi
 
-exec .venv/bin/python server.py
+exec "${CLASS_INTERPRET_VENV:-.venv}/bin/python" server.py

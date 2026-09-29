@@ -24,6 +24,8 @@
   <string>12.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
+  <key>NSAppleEventsUsageDescription</key>
+  <string>听课搭子用系统对话框提示安装进度，并打开浏览器。</string>
   <key>LSApplicationCategoryType</key>
   <string>public.app-category.education</string>
 </dict>

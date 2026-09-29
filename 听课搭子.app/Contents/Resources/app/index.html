@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>听课搭子 · 本地同声传译</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <div class="app">
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="brand-mark" aria-hidden="true">▶</span>
+        <div>
+          <strong>听课搭子</strong>
+          <small>Class Interpreter</small>
+        </div>
+      </div>
+      <button id="mobile-settings" class="mobile-nav" type="button" aria-expanded="false">菜单</button>
+      <nav class="side-nav" aria-label="功能导航">
+        <button class="nav-item active" type="button" data-view="home">Home</button>
+        <button class="nav-item" type="button" data-view="live">Live Class</button>
+        <button class="nav-item" type="button" data-view="summarize">Summarize</button>
+        <button class="nav-item" type="button" data-view="export">Export Notes</button>
+        <button class="nav-item" type="button" data-view="model">Switch Model</button>
+        <button class="nav-item" type="button" data-view="setup">Class Set-up</button>
+        <button class="nav-item" type="button" data-view="history">History</button>
+      </nav>
+      <div class="side-promo">
+        <p>Better tools.<br>Brighter future.</p>
+        <span>语音在此电脑处理 · 无付费接口</span>
+      </div>
+    </aside>
+
+    <div class="stage">
+      <header class="topbar">
+        <label class="search-wrap"><input id="global-search" placeholder="Search anything…" autocomplete="off"></label>
+        <div class="top-actions">
+          <span id="local-status" class="status-pill">正在检查本地模型…</span>
+          <span class="avatar" aria-hidden="true"></span>
+        </div>
+      </header>
+
+      <section class="view" id="view-home">
+        <div class="hero-panel">
+          <div>
+            <p class="eyebrow" id="home-greeting">Good morning</p>
+            <h1>Let’s make today count.</h1>
+            <p>Translate, understand, and grow — one step at a time. 听懂每一句，跟上每一堂课。</p>
+          </div>
+          <div class="hero-art" aria-hidden="true"></div>
+        </div>
+        <div class="home-grid">
+          <button class="home-card" type="button" data-view="live">
+            <b>Live Class</b>
+            <span>麦克风或网课音频，实时英译中。</span>
+          </button>
+          <button class="home-card" type="button" data-view="summarize">
+            <b>Summarize Content</b>
+            <span>从本堂记录生成课后总结。</span>
+          </button>
+          <button class="home-card" type="button" data-view="export">
+            <b>Export Notes</b>
+            <span>保存、分享课堂笔记。</span>
+          </button>
+          <button class="home-card" type="button" data-view="model">
+            <b>Switch Model</b>
+            <span>Small / Medium / Large，仍在本机运行。</span>
+          </button>
+          <button class="home-card" type="button" data-view="setup">
+            <b>Class Set-up</b>
+            <span>课程名、术语、音频来源与朗读。</span>
+          </button>
+          <button class="home-card" type="button" data-view="history">
+            <b>History</b>
+            <span>查看过往转写与总结。</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="view" id="view-live" hidden>
+        <div class="page-head">
+          <div>
+            <h1>Live Class</h1>
+            <p>Break language barriers, instantly. 实时转写与中文译文。</p>
+          </div>
+        </div>
+        <div class="live-layout">
+          <div class="panel">
+            <div class="live-toolbar">
+              <div>
+                <strong id="elapsed-time">00:00:00</strong>
+                <small id="record-indicator" class="record-indicator"><span></span><i id="record-status">未录音</i> · <b id="session-heading">准备开始听课</b></small>
+              </div>
+              <div class="live-actions">
+                <button id="record-button" class="button primary" type="button"><span>开始同传</span></button>
+                <button id="summary-button" class="button" type="button">生成课程总结</button>
+                <button id="export-button" class="button" type="button">导出笔记</button>
+              </div>
+            </div>
+            <label class="speak-inline"><input id="speak" type="checkbox"> 朗读中文译文</label>
+            <p id="notice" class="notice" role="status" aria-live="polite">第一次识别会下载免费语音模型，需保持联网；下载完成后可离线使用。</p>
+            <div class="transcript-bar">
+              <div>
+                <h2>实时转写与翻译</h2>
+                <p id="session-meta">选择声音来源，开始后将自动保存课堂记录。</p>
+              </div>
+              <label class="search-wrap tight"><input id="transcript-search" placeholder="搜索转写内容…"></label>
+              <span id="entry-count" class="count">0 条</span>
+            </div>
+            <div id="transcript" class="transcript"></div>
+          </div>
+          <aside class="insight-rail">
+            <section class="panel" id="summary-section">
+              <h3>课程摘要 <small id="summary-source">尚未生成</small></h3>
+              <div id="summary-content" class="summary-content muted">完成一段课堂记录后，点击“生成课程总结”。</div>
+              <button class="button" type="button" data-generate-summary>生成完整总结</button>
+            </section>
+            <section class="panel">
+              <h3>关键概念 <span id="concept-count" class="count">0</span></h3>
+              <div id="concept-list" class="concept-list"></div>
+            </section>
+            <section class="panel">
+              <h3>学习数据</h3>
+              <p class="muted">今日时长 <b id="duration-metric">0 分钟</b></p>
+              <div class="metric-grid">
+                <div><strong id="segment-metric">0</strong><span>转写片段</span></div>
+                <div><strong id="word-metric">0</strong><span>英文词数</span></div>
+                <div><strong id="concept-metric">0</strong><span>关键概念</span></div>
+              </div>
+            </section>
+            <section class="panel">
+              <h3>系统状态</h3>
+              <ul class="system-list">
+                <li><span>麦克风</span><b id="mic-health">待连接</b></li>
+                <li><span>音频输入</span><b id="audio-health">等待语音</b></li>
+                <li><span>同传引擎</span><b id="engine-health">检查中</b></li>
+                <li><span>本地记录</span><b>自动保存</b></li>
+              </ul>
+            </section>
+          </aside>
+        </div>
+      </section>
+
+      <section class="view" id="view-summarize" hidden>
+        <div class="page-head">
+          <div>
+            <h1>Summarize Content</h1>
+            <p>Get key points in seconds. 只根据已识别的课堂文字，不编造内容。</p>
+          </div>
+        </div>
+        <div class="split">
+          <div class="panel drop-panel">
+            <p>从当前课堂记录生成总结。需要先在 Live Class 录音。</p>
+            <button class="button primary" type="button" id="summary-page-button">生成课后总结</button>
+          </div>
+          <div class="panel">
+            <h3>Summary Result</h3>
+            <div id="summary-page-content" class="summary-content muted">Your summary will appear here.</div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-export" hidden>
+        <div class="page-head">
+          <div>
+            <h1>Export Notes</h1>
+            <p>Save, share, and study anytime.</p>
+          </div>
+          <button class="button primary" type="button" id="export-page-button">Download</button>
+        </div>
+        <div class="split">
+          <div class="panel">
+            <h3>Recent classes</h3>
+            <div id="export-list" class="note-list"></div>
+          </div>
+          <div class="panel">
+            <h3 id="export-title">当前笔记</h3>
+            <pre id="export-preview" class="note-preview">选择一节课或先开始同传。</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="view-model" hidden>
+        <div class="page-head">
+          <div>
+            <h1>Switch Model</h1>
+            <p>Choose the best local Whisper model. 不使用 GPT / Claude / Gemini。</p>
+          </div>
+        </div>
+        <div class="model-grid">
+          <button class="model-card" type="button" data-model="small">
+            <b>Small · 流畅</b>
+            <span>普通笔记本、希望尽量跟上课堂</span>
+          </button>
+          <button class="model-card" type="button" data-model="medium">
+            <b>Medium · 中等</b>
+            <span>口音较重、电脑性能较好</span>
+          </button>
+          <button class="model-card" type="button" data-model="large-v3">
+            <b>Large v3 · 精确</b>
+            <span>优先准确率，延迟更长</span>
+          </button>
+        </div>
+        <p class="muted">当前模型：<b id="current-model-label">Medium</b></p>
+        <select id="model" hidden>
+          <option value="small">Small · 流畅</option>
+          <option value="medium" selected>Medium · 中等</option>
+          <option value="large-v3">Large v3 · 精确</option>
+        </select>
+      </section>
+
+      <section class="view" id="view-setup" hidden>
+        <div class="page-head">
+          <div>
+            <h1>Class Set-up</h1>
+            <p>Create or join your class, manage your learning group.</p>
+          </div>
+          <button id="new-session" class="button primary" type="button">＋ 新建课堂</button>
+        </div>
+        <div class="setup-grid">
+          <label class="field"><span>课程名称</span><input id="class-title" maxlength="80" placeholder="Business Analytics"></label>
+          <label class="field"><span>音频来源</span>
+            <select id="source">
+              <option value="mic">麦克风 · 线下课堂</option>
+              <option value="screen">共享标签页 · 网课</option>
+            </select>
+          </label>
+          <label class="field wide"><span>专业术语（可选）</span>
+            <textarea id="glossary" rows="3" maxlength="500" placeholder="regression, hypothesis testing, ANOVA"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="view" id="view-history" hidden>
+        <div class="page-head">
+          <div>
+            <h1>History</h1>
+            <p>View your past translations and summaries.</p>
+          </div>
+        </div>
+        <div id="history" class="history-grid"></div>
+      </section>
+    </div>
+  </div>
+  <script src="/app.js" defer></script>
+</body>
+</html>
