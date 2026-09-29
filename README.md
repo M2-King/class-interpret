@@ -17,17 +17,19 @@ powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 
 ## 第一次使用（Mac）
 
-双击 `启动同传.command` 即可。脚本会检测系统（macOS / 芯片），若缺少 Python 3.10–3.12、Homebrew 或应用依赖，会自动安装。第一次需要联网，可能要几分钟，并可能弹出窗口让你输入 **Mac 登录密码**。装好后会打开 `http://127.0.0.1:8765/`。
+解压或 clone 之后，在 Finder 里双击 **`听课搭子.app`**。这就是 Mac 安装/启动方式：应用会打开「终端」，自动检测系统并安装缺的 Python、Homebrew 和模型。第一次要联网，可能要几分钟，并可能要求输入 **Mac 登录密码**。完成后浏览器打开 `http://127.0.0.1:8765/`。
 
-若提示无法打开：右键该文件 → 打开。或在「终端」进入项目目录后运行 `bash start.sh`。
+若提示“无法打开，因为来自身份不明的开发者”：右键应用 → **打开** → 打开。不要拖到 /Applications（应用要留在这个项目文件夹里，才能找到 `server.py`）。
+
+也可以双击 `启动同传.command`，或在终端运行 `bash start.sh`。没有单独的 App Store 安装包：Whisper 模型较大，首次仍须下载。
 
 苹果芯片用 CPU 推理，课堂里建议选 **Small** 或 **Medium**。上课期间 Mac 必须保持开机。用完后在弹出的终端窗口按 `Ctrl+C`。
 
 本机 DeepSeek 总结（可选）：安装 [Ollama for Mac](https://ollama.com/download/mac)，终端执行 `ollama pull deepseek-r1:1.5b`，保持 Ollama 运行后再点「生成课后总结」。
 
-**在 Mac 上听课：** 只用上面这一步，不必 SSH。
+**在 Mac 上听课：** 双击 `听课搭子.app` 即可。
 
-**手机听课：** 手机没有终端。在 Mac 上再双击 `手机访问.command`（同样会自动检测并安装 `cloudflared`），把窗口里的 `https://` 链接用手机 Safari / Chrome 打开。Mac 关机后手机不能识别。
+**手机听课：** 手机没有安装包。Mac 上应用跑起来之后，再双击 **`听课搭子手机.app`**，把窗口里的 `https://` 链接用手机 Safari / Chrome 打开。Mac 关机后手机不能识别。
 
 ## 课后总结与 DeepSeek
 
@@ -89,4 +91,4 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 技术结构
 
-`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`bootstrap.sh` 检测系统并安装 Python / 依赖；`start.ps1` / `启动同传.bat` 用于 Windows，`start.sh` / `启动同传.command` 用于 Mac 与 Linux；`start-tunnel.sh` / `手机访问.command` 用 Cloudflare 把本机服务以 HTTPS 提供给手机。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
+`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`bootstrap.sh` 检测系统并安装 Python / 依赖；`start.ps1` / `启动同传.bat` 用于 Windows；Mac 可双击 `听课搭子.app`（或 `启动同传.command` / `bash start.sh`）；手机访问用 `听课搭子手机.app` 或 `start-tunnel.sh`。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。

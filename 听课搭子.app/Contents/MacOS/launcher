@@ -1,0 +1,11 @@
+#!/bin/bash
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
+cd "$ROOT"
+ROOT_Q=$(printf '%q' "$ROOT")
+osascript <<EOF
+tell application "Terminal"
+  activate
+  do script "cd ${ROOT_Q} && echo '听课搭子：首次会自动安装 Python 与模型，可能要输入 Mac 密码。' && bash start.sh"
+end tell
+EOF
