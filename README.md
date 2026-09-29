@@ -10,10 +10,10 @@
 
 ## 第一次使用（Windows，没有旧文件夹时）
 
-1. 下载 [ClassInterpreter-windows-0.2.9.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows-0.2.9.zip)。
-2. 解压后进入 **ClassInterpreter-0.2.9**，双击 **Start.bat**。第一行必须是 **Class Interpreter 0.2.9**。
+1. 下载 [ClassInterpreter-windows-0.3.0.zip](https://github.com/M2-King/class-interpret/raw/cursor/deepseek-integrate-b27d/ClassInterpreter-windows-0.3.0.zip)。
+2. 解压后进入 **ClassInterpreter-0.3.0**，双击 **Start.bat**。第一行必须是 **Class Interpreter 0.3.0**。
 3. 没有系统 Python 时会在本文件夹安装。校园网失败请换手机热点再点一次。
-4. 浏览器左上角必须是 **0.2.9**，再用黄色按钮下载模型（建议 Small）。
+4. 浏览器左上角必须是 **0.3.0**，再用黄色按钮下载模型（建议 Small）。
 
 如果 Windows 提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
 
@@ -21,11 +21,11 @@
 
 三步，不用终端：
 
-1. 下载 [ClassInterpreter-mac-0.2.9.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac-0.2.9.zip)。
-2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.2.9** 文件夹。
+1. 下载 [ClassInterpreter-mac-0.3.0.zip](https://github.com/M2-King/class-interpret/raw/cursor/deepseek-integrate-b27d/ClassInterpreter-mac-0.3.0.zip)。
+2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.3.0** 文件夹。
 3. **不要只点「听课搭子」图标**（会提示无法打开）。请双击 **Open.command**。
 4. 若仍无法打开：按住 Control 点 Open.command → 打开。或到系统设置 → 隐私与安全性 → 仍要打开。
-5. 左上角应为 **Class Interpreter · 0.2.9**。黄色条下载模型；校园网请换手机热点。
+5. 左上角应为 **Class Interpreter · 0.3.0**。黄色条下载模型；校园网请换手机热点。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
@@ -37,17 +37,15 @@
 
 苹果芯片用 CPU，课堂里建议选 **Small** 或 **Medium**。日志在 `~/Library/Logs/class-interpret.log`。
 
-本机 DeepSeek 总结（可选）：安装 [Ollama for Mac](https://ollama.com/download/mac) 后，在 Ollama 里拉取 `deepseek-r1:1.5b`。
+本机 DeepSeek 总结：在页面点 **安装 DeepSeek**（免费，约 1.1GB）。上课同传仍用 Whisper，不需要 DeepSeek。Mac 上 Ollama 可以用苹果 GPU；Whisper 仍然走 CPU。
 
 **手机：** 先在 Mac 上打开听课搭子，再双击 `听课搭子手机.app`，把弹出的 https 链接用 Safari / Chrome 打开。
 
 ## 课后总结与 DeepSeek
 
-**生成课后总结** 是独立功能，直接点击就能使用。未安装 DeepSeek 时，会给出忠于课堂记录的摘录，不会编造概念或截止时间。如果希望使用免费的本机 DeepSeek 归纳：
+**生成课后总结** 是独立功能，直接点击就能使用。未安装 DeepSeek 时，会给出忠于课堂记录的摘录，不会编造概念或截止时间。
 
-1. 安装 [Ollama](https://ollama.com/download/windows)。
-2. 在终端运行 `ollama pull deepseek-r1:1.5b`（较轻，约 1.1 GB）或 `ollama pull deepseek-r1:7b`（质量更好，约 4.7 GB）。
-3. 保持 Ollama 运行，刷新应用页面，再点击 **生成课后总结**。应用会自动选择已安装的 DeepSeek-R1；不需要 API Key，也不调用收费接口。
+若要使用免费的本机 DeepSeek 归纳：在页面点 **安装 DeepSeek**。应用会查找已有的 Ollama；没有则下载，并拉取 `deepseek-r1:1.5b`（约 1.1GB）。不需要 API Key，也不调用收费接口。校园网请换手机热点。已经装过 `deepseek-r1:7b` / `8b` 时会自动用更大的型号。
 
 ## 选择识别精度
 
@@ -101,4 +99,4 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 技术结构
 
-`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`bootstrap.sh` 检测系统并安装 Python / 依赖。Mac 安装包请双击 `Open.command`。Windows 请双击 `Start.bat`。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
+`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`deepseek_hub.py` 安装本机 DeepSeek；`bootstrap.sh` 检测系统并安装 Python / 依赖。Mac 安装包请双击 `Open.command`。Windows 请双击 `Start.bat`。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。

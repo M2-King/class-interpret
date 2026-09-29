@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>听课搭子 · 本地同声传译</title>
-  <link rel="stylesheet" href="/style.css?v=0.2.9">
+  <link rel="stylesheet" href="/style.css?v=0.3.0">
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <span class="brand-mark" aria-hidden="true">▶</span>
         <div>
           <strong>听课搭子</strong>
-          <small>Class Interpreter · 0.2.9</small>
+          <small>Class Interpreter · 0.3.0</small>
         </div>
       </div>
       <button id="mobile-settings" class="mobile-nav" type="button" aria-expanded="false">菜单</button>
@@ -47,6 +47,7 @@
         <div class="banner-actions">
           <button id="install-translation" class="button primary" type="button">现在安装中文翻译模型</button>
           <button id="install-whisper" class="button primary" type="button">下载语音模型</button>
+          <button id="install-deepseek" class="button" type="button">安装 DeepSeek</button>
         </div>
       </div>
 
@@ -144,6 +145,7 @@
                 <li><span>麦克风</span><b id="mic-health">待连接</b></li>
                 <li><span>音频输入</span><b id="audio-health">等待语音</b></li>
                 <li><span>同传引擎</span><b id="engine-health">检查中</b></li>
+                <li><span>DeepSeek</span><b id="deepseek-health">检查中</b></li>
                 <li><span>本地记录</span><b>自动保存</b></li>
               </ul>
             </section>
@@ -160,8 +162,10 @@
         </div>
         <div class="split">
           <div class="panel drop-panel">
-            <p>从当前课堂记录生成总结。需要先在 Live Class 录音。</p>
+            <p>从当前课堂记录生成总结。需要先在 Live Class 录音。本机 DeepSeek 会归纳要点；没装时仍可生成摘录。</p>
+            <p id="deepseek-status-text" class="muted">正在检查本机 DeepSeek…</p>
             <button class="button primary" type="button" id="summary-page-button">生成课后总结</button>
+            <button class="button" type="button" id="install-deepseek-page">安装 DeepSeek（约 1.1GB，免费）</button>
           </div>
           <div class="panel">
             <h3>Summary Result</h3>
@@ -252,6 +256,6 @@
       </section>
     </div>
   </div>
-  <script src="/app.js?v=0.2.9" defer></script>
+  <script src="/app.js?v=0.3.0" defer></script>
 </body>
 </html>

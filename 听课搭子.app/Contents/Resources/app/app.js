@@ -15,7 +15,9 @@ const ui = {
   greeting: $('home-greeting'), currentModel: $('current-model-label'),
   installTranslation: $('install-translation'), quitApp: $('quit-app'),
   modelBanner: $('model-banner'), modelBannerText: $('model-banner-text'),
-  installWhisper: $('install-whisper')
+  installWhisper: $('install-whisper'), installDeepseek: $('install-deepseek'),
+  installDeepseekPage: $('install-deepseek-page'),
+  deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
@@ -140,11 +142,20 @@ function notice(message, error = false) {
 function applyStatus(status) {
   lastStatus = status;
   const whisperReady = !!(status.whisper_models?.[ui.model?.value || 'small'] ?? status.whisper);
-  ui.status.textContent = `v${status.version || '?'} · ${status.translation ? '离线翻译就绪' : '翻译待安装'} · ${whisperReady ? '语音就绪' : '语音模型待下载'}`;
+  const deepseekReady = !!(status.deepseek_ready || status.deepseek);
+  const deepseekLabel = status.deepseek || '待安装';
+  ui.status.textContent = `v${status.version || '?'} · ${status.translation ? '离线翻译就绪' : '翻译待安装'} · ${whisperReady ? '语音就绪' : '语音模型待下载'} · DeepSeek ${deepseekReady ? deepseekLabel : '待安装'}`;
   if (ui.engineHealth) ui.engineHealth.textContent = whisperReady ? '正常运行' : '语音模型待下载';
+  if (ui.deepseekHealth) ui.deepseekHealth.textContent = deepseekReady ? deepseekLabel : '未安装';
+  if (ui.deepseekStatusText) {
+    ui.deepseekStatusText.textContent = deepseekReady
+      ? `本机 DeepSeek 已就绪：${deepseekLabel}。点生成课后总结时会自动使用。`
+      : '还没有本机 DeepSeek。点「安装 DeepSeek」下载免费的 1.5b 模型（约 1.1GB）。校园网请换手机热点。没装也能生成摘录。';
+  }
   const needTranslation = !status.translation;
   const needWhisper = !whisperReady;
-  if (ui.modelBanner) ui.modelBanner.classList.toggle('show', needTranslation || needWhisper);
+  const needDeepseek = !deepseekReady;
+  if (ui.modelBanner) ui.modelBanner.classList.toggle('show', needTranslation || needWhisper || needDeepseek);
   if (ui.installTranslation) {
     ui.installTranslation.hidden = !needTranslation;
     ui.installTranslation.disabled = !needTranslation;
@@ -153,13 +164,20 @@ function applyStatus(status) {
     ui.installWhisper.hidden = !needWhisper;
     ui.installWhisper.disabled = !needWhisper;
   }
-  if (ui.modelBannerText && (needTranslation || needWhisper)) {
+  [ui.installDeepseek, ui.installDeepseekPage].forEach(button => {
+    if (!button) return;
+    button.hidden = !needDeepseek;
+    button.disabled = !needDeepseek;
+  });
+  if (ui.modelBannerText && (needTranslation || needWhisper || needDeepseek)) {
     if (needTranslation && needWhisper) {
       ui.modelBannerText.textContent = '翻译模型和语音模型都还没装好。校园网请换手机热点，再点右侧按钮下载。';
     } else if (needWhisper) {
       ui.modelBannerText.textContent = '语音识别模型还没下载（Small 约 500MB）。校园网经常失败，请换手机热点后点「下载语音模型」。';
-    } else {
+    } else if (needTranslation) {
       ui.modelBannerText.textContent = '中文翻译模型还没装好。点右侧按钮下载（需联网，大约一两分钟）。';
+    } else {
+      ui.modelBannerText.textContent = '课后总结可用本机 DeepSeek（免费，约 1.1GB）。上课同传不需要它；校园网请换手机热点后再装。';
     }
   }
 }
@@ -484,7 +502,7 @@ ui.summary.addEventListener('click', async () => {
   if (!state.session) return;
   const sessionId = state.session.id;
   ui.summary.disabled = true; ui.summary.textContent = '正在整理课堂内容…';
-  notice('正在生成课后总结；如果已安装本机 DeepSeek，会自动使用。');
+  notice('正在生成课后总结；已安装本机 DeepSeek 时会自动使用，否则给出课堂摘录。');
   try {
     await state.uploadQueue;
     const result = await api(`/api/sessions/${sessionId}/summary`, {method:'POST', body: '{}'});
@@ -518,6 +536,8 @@ async function init() {
       notice('中文翻译模型还没装好。请看页面上方的黄色提示，点按钮安装。', 'warn');
     } else if (!(status.whisper_models?.[ui.model?.value || 'small'] ?? status.whisper)) {
       notice('语音模型还没下载。请看黄色条，换手机热点后点「下载语音模型」。', 'warn');
+    } else if (!(status.deepseek_ready || status.deepseek)) {
+      notice('同传已经可以用。课后总结可点「安装 DeepSeek」（免费，约 1.1GB）；不装也能生成摘录。', 'warn');
     }
   } catch (error) {
     if (ui.modelBanner) ui.modelBanner.classList.add('show');
@@ -583,6 +603,39 @@ if (ui.installWhisper) {
     }
   });
 }
+
+async function installDeepseek() {
+  const buttons = [ui.installDeepseek, ui.installDeepseekPage].filter(Boolean);
+  buttons.forEach(button => { button.disabled = true; });
+  const message = '正在安装本机 DeepSeek（Ollama + deepseek-r1:1.5b，约 1.1GB）。校园网请改用手机热点，可能要十几分钟…';
+  if (ui.modelBannerText) ui.modelBannerText.textContent = message;
+  if (ui.deepseekStatusText) ui.deepseekStatusText.textContent = message;
+  notice(message, 'warn');
+  const timeout = fetchTimeout(900000);
+  try {
+    const body = await api('/api/deepseek/install', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({model: 'deepseek-r1:1.5b'}),
+      signal: timeout.signal
+    });
+    timeout.cancel();
+    const status = await api('/api/status');
+    applyStatus(status);
+    notice(body.message || 'DeepSeek 已安装。生成课后总结时会自动使用。', 'warn');
+  } catch (error) {
+    timeout.cancel();
+    const text = error.name === 'AbortError' ? '下载超时，请换手机热点后重试。' : error.message;
+    if (ui.modelBanner) ui.modelBanner.classList.add('show');
+    if (ui.modelBannerText) ui.modelBannerText.textContent = `DeepSeek 安装失败：${text}`;
+    if (ui.deepseekStatusText) ui.deepseekStatusText.textContent = `DeepSeek 安装失败：${text}`;
+    notice(`DeepSeek 安装失败：${text}`, true);
+    buttons.forEach(button => { button.disabled = false; });
+  }
+}
+
+if (ui.installDeepseek) ui.installDeepseek.addEventListener('click', installDeepseek);
+if (ui.installDeepseekPage) ui.installDeepseekPage.addEventListener('click', installDeepseek);
 
 if (ui.quitApp) {
   ui.quitApp.addEventListener('click', async () => {

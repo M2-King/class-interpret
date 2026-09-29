@@ -18,6 +18,7 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
+import deepseek_hub
 import ssl_certs
 import whisper_hub
 
@@ -25,12 +26,11 @@ ssl_certs.apply()
 whisper_hub.configure()
 
 ROOT = Path(__file__).resolve().parent
-VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.2.9"
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.3.0"
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("CLASS_INTERPRET_PORT", "8765"))
-OLLAMA = "http://127.0.0.1:11434"
 MODEL_NAMES = {"small", "medium", "large-v3"}
 SESSION_ID = re.compile(r"^[a-f0-9]{32}$")
 LOCK = threading.RLock()
@@ -38,6 +38,7 @@ MODEL_LOCK = threading.Lock()
 TRANSLATE_LOCK = threading.Lock()
 TRANSLATE_INSTALL_LOCK = threading.Lock()
 WHISPER_INSTALL_LOCK = threading.Lock()
+DEEPSEEK_INSTALL_LOCK = threading.Lock()
 MODEL_CACHE: dict[str, object] = {}
 MODEL_DEVICE: dict[str, str] = {}
 CUDA_DLL_HANDLES: list[object] = []
@@ -100,15 +101,6 @@ def translate(text: str) -> str:
         if not translator:
             raise RuntimeError("英语 → 中文翻译模型未安装")
         return translator.translate(text).strip()
-
-
-def ollama_available() -> bool:
-    try:
-        with request.urlopen(f"{OLLAMA}/api/tags", timeout=1) as response:
-            models = json.load(response).get("models", [])
-        return any(item.get("name", "").startswith("deepseek-r1:") for item in models)
-    except (OSError, ValueError):
-        return False
 
 
 def load_model(name: str):
@@ -211,33 +203,11 @@ def fallback_summary(entries: list[dict], title: str) -> str:
 
 
 def ask_deepseek(prompt: str, model: str) -> str:
-    payload = json.dumps({
-        "model": model,
-        "messages": [{"role": "user", "content": prompt}],
-        "stream": False,
-        "options": {"temperature": 0.2},
-    }, ensure_ascii=False).encode("utf-8")
-    req = request.Request(f"{OLLAMA}/api/chat", data=payload, headers={"Content-Type": "application/json"})
-    with request.urlopen(req, timeout=240) as response:
-        result = json.load(response)
-    content = result.get("message", {}).get("content", "").strip()
-    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
-    if not content:
-        raise RuntimeError("DeepSeek 没有返回总结")
-    return content
+    return deepseek_hub.chat(prompt, model)
 
 
 def installed_deepseek() -> str | None:
-    try:
-        with request.urlopen(f"{OLLAMA}/api/tags", timeout=2) as response:
-            models = json.load(response).get("models", [])
-        names = [item.get("name", "") for item in models]
-        for wanted in ("deepseek-r1:8b", "deepseek-r1:7b", "deepseek-r1:1.5b"):
-            if wanted in names:
-                return wanted
-        return next((name for name in names if name.startswith("deepseek-r1:")), None)
-    except (OSError, ValueError):
-        return None
+    return deepseek_hub.installed()
 
 
 def make_summary(session: dict) -> tuple[str, str]:
@@ -265,7 +235,7 @@ def make_summary(session: dict) -> tuple[str, str]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClassInterpret/0.2.9"
+    server_version = "ClassInterpret/0.3.0"
 
     def log_message(self, format: str, *args) -> None:
         print("[%s] %s" % (self.log_date_time_string(), format % args))
@@ -300,9 +270,12 @@ class Handler(BaseHTTPRequestHandler):
             return self.serve_file(path[1:], "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8")
         if method == "GET" and path == "/api/status":
             models = whisper_hub.cached_models()
+            deepseek = deepseek_hub.snapshot()
             return self.respond(200, {
                 "translation": translation_available(),
-                "deepseek": installed_deepseek(),
+                "deepseek": deepseek.get("deepseek"),
+                "deepseek_ready": deepseek.get("ready"),
+                "ollama": deepseek.get("ollama"),
                 "version": VERSION,
                 "whisper_models": models,
                 "whisper": any(models.values()),
@@ -344,6 +317,26 @@ class Handler(BaseHTTPRequestHandler):
             if not whisper_hub.cached(name):
                 return self.respond(500, {"error": "语音模型没有装上。请换手机热点后重试。", "whisper": False})
             return self.respond(200, {"whisper": True, "model": name, "message": f"语音模型 {name} 已下载。"})
+        if method == "POST" and path == "/api/deepseek/install":
+            body = {}
+            if int(self.headers.get("Content-Length", "0") or 0) > 0:
+                try:
+                    body = self.read_json()
+                except Exception:
+                    body = {}
+            name = str(body.get("model") or deepseek_hub.DEFAULT_MODEL)
+            current = deepseek_hub.installed()
+            if current and (not body.get("model") or current == name):
+                return self.respond(200, {"deepseek": current, "ready": True, "message": f"DeepSeek 已就绪：{current}"})
+            if not DEEPSEEK_INSTALL_LOCK.acquire(blocking=False):
+                return self.respond(202, {"deepseek": current, "ready": False, "message": "正在安装 DeepSeek，请稍候。"})
+            try:
+                ready = deepseek_hub.install(name)
+            except Exception as exc:
+                return self.respond(500, {"error": deepseek_hub.friendly_error(exc), "deepseek": None, "ready": False})
+            finally:
+                DEEPSEEK_INSTALL_LOCK.release()
+            return self.respond(200, {"deepseek": ready, "ready": True, "message": f"DeepSeek 已安装：{ready}"})
         if method == "POST" and path == "/api/shutdown":
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return self.respond(200, {"ok": True})
@@ -465,6 +458,7 @@ def main() -> None:
             print(f"后台下载语音模型失败：{whisper_hub.friendly_error(exc)}")
 
     threading.Thread(target=warmup, daemon=True).start()
+    threading.Thread(target=deepseek_hub.try_start, daemon=True).start()
     if os.environ.get("CLASS_INTERPRET_NO_BROWSER") != "1":
         threading.Timer(0.8, lambda: webbrowser.open(address)).start()
     try:
