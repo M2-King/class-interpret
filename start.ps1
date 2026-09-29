@@ -6,7 +6,7 @@ $script:LastNativeExit = 0
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
 $VersionFile = Join-Path $PSScriptRoot 'VERSION'
-$Version = '0.2.8'
+$Version = '0.2.9'
 if (Test-Path -LiteralPath $VersionFile) {
     $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1 -Encoding UTF8).Trim()
 }
@@ -154,7 +154,6 @@ function Find-Python {
     $saved = $ErrorActionPreference
     $ErrorActionPreference = 'Continue'
     $candidates = @()
-    $candidates += $PrivatePython
 
     $pyCmd = $null
     $pyWhere = Get-Command py -ErrorAction SilentlyContinue
@@ -166,8 +165,8 @@ function Find-Python {
         $pyCmd = Join-Path $env:LOCALAPPDATA 'Programs\Python\Launcher\py.exe'
     }
     if ($pyCmd) {
-        foreach ($item in @('3.12', '3.11', '3.10')) {
-            $exe = Invoke-NativeText -FilePath $pyCmd -ArgumentList @("-$item", '-c', 'import sys; print(sys.executable)')
+        foreach ($item in @('-3.12', '-3.11', '-3.10', '-3')) {
+            $exe = Invoke-NativeText -FilePath $pyCmd -ArgumentList @($item, '-c', 'import sys; print(sys.executable)')
             if ($script:LastNativeExit -eq 0 -and $exe) { $candidates += $exe }
         }
     }
@@ -185,7 +184,12 @@ function Find-Python {
         (Join-Path $env:ProgramFiles 'Python312\python.exe'),
         (Join-Path $env:ProgramFiles 'Python311\python.exe'),
         (Join-Path $env:ProgramFiles 'Python310\python.exe'),
-        (Join-Path $env:ProgramFiles 'Python\python.exe')
+        (Join-Path $env:ProgramFiles 'Python\python.exe'),
+        (Join-Path $env:USERPROFILE 'anaconda3\python.exe'),
+        (Join-Path $env:USERPROFILE 'miniconda3\python.exe'),
+        (Join-Path $env:USERPROFILE 'miniforge3\python.exe'),
+        (Join-Path $env:LOCALAPPDATA 'anaconda3\python.exe'),
+        (Join-Path $env:LOCALAPPDATA 'miniconda3\python.exe')
     )
     if (${env:ProgramFiles(x86)}) {
         $folders += Join-Path ${env:ProgramFiles(x86)} 'Python312\python.exe'
@@ -212,6 +216,8 @@ function Find-Python {
         }
     }
 
+    $candidates += $PrivatePython
+
     $ErrorActionPreference = $saved
     $seen = @{}
     foreach ($exe in $candidates) {
@@ -227,14 +233,57 @@ function Find-Python {
 
 function Enable-EmbeddableSite {
     param([string]$Dest)
-    $pth = Get-ChildItem -LiteralPath $Dest -Filter '*.pth' -ErrorAction SilentlyContinue | Select-Object -First 1
-    if (-not $pth) { return }
-    $text = [IO.File]::ReadAllText($pth.FullName)
-    $text = $text -replace '#import site', 'import site'
-    if ($text -notmatch 'site-packages') {
-        $text = $text.TrimEnd() + "`r`nLib\site-packages`r`n"
+    if (-not (Test-Path -LiteralPath $Dest)) { return }
+    $zip = Get-ChildItem -LiteralPath $Dest -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'python*.zip' } | Select-Object -First 1
+    $zipName = 'python312.zip'
+    if ($zip) { $zipName = $zip.Name }
+    $pth = Get-ChildItem -LiteralPath $Dest -ErrorAction SilentlyContinue | Where-Object { $_.Name -like 'python*._pth' -or $_.Extension -eq '.pth' } | Select-Object -First 1
+    $pthPath = Join-Path $Dest 'python312._pth'
+    if ($pth) { $pthPath = $pth.FullName }
+    $content = $zipName + "`r`n.`r`nLib\site-packages`r`nimport site`r`n"
+    [IO.File]::WriteAllText($pthPath, $content)
+    Write-Host ("Wrote " + $pthPath + " so pip can be imported")
+}
+
+function Test-PipModule {
+    param([string]$Exe)
+    if (-not $Exe -or -not (Test-Path -LiteralPath $Exe)) { return $false }
+    Invoke-Native -FilePath $Exe -ArgumentList @('-m', 'pip', '--version')
+    return ($script:LastNativeExit -eq 0)
+}
+
+function Ensure-LocalPip {
+    param([string]$Exe)
+    if (-not $Exe) { $Exe = $PrivatePython }
+    if (-not (Test-Path -LiteralPath $Exe)) { return }
+    $dest = Split-Path -Parent $Exe
+    Enable-EmbeddableSite -Dest $dest
+    if (Test-PipModule -Exe $Exe) { return }
+    Write-Host 'pip module missing; installing get-pip.py...'
+    $getPip = Join-Path $RuntimeDir 'get-pip.py'
+    $pipUrls = @(
+        'https://bootstrap.pypa.io/get-pip.py',
+        'https://mirrors.aliyun.com/pypi/get-pip.py'
+    )
+    foreach ($url in $pipUrls) {
+        $saved = $ErrorActionPreference
+        $ErrorActionPreference = 'Continue'
+        try {
+            Invoke-WebRequest -Uri $url -OutFile $getPip -UseBasicParsing -TimeoutSec 60
+        } catch { }
+        $ErrorActionPreference = $saved
+        if ((Test-Path -LiteralPath $getPip) -and ((Get-Item -LiteralPath $getPip).Length -gt 10000)) { break }
+        if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
+            Invoke-Native -FilePath 'curl.exe' -ArgumentList @('-sS', '-fL', '--retry', '2', '-o', $getPip, $url)
+            if ((Test-Path -LiteralPath $getPip) -and ((Get-Item -LiteralPath $getPip).Length -gt 10000)) { break }
+        }
     }
-    [IO.File]::WriteAllText($pth.FullName, $text)
+    if (Test-Path -LiteralPath $getPip) {
+        Invoke-Native -FilePath $Exe -ArgumentList @($getPip, '--no-warn-script-location')
+    }
+    Enable-EmbeddableSite -Dest $dest
+    if (Test-PipModule -Exe $Exe) { return }
+    Write-Host 'pip still missing after get-pip. Check python*._pth has import site.'
 }
 
 function Install-EmbeddablePython {
@@ -258,26 +307,7 @@ function Install-EmbeddablePython {
     if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force -ErrorAction SilentlyContinue }
     New-Item -ItemType Directory -Force -Path $dest | Out-Null
     Expand-Archive -LiteralPath $zipPath -DestinationPath $dest -Force | Out-Null
-    Enable-EmbeddableSite -Dest $dest
-    $getPip = Join-Path $RuntimeDir 'get-pip.py'
-    $pipUrls = @(
-        'https://bootstrap.pypa.io/get-pip.py',
-        'https://mirrors.aliyun.com/pypi/get-pip.py'
-    )
-    foreach ($url in $pipUrls) {
-        try {
-            Invoke-WebRequest -Uri $url -OutFile $getPip -UseBasicParsing -TimeoutSec 60
-            if ((Test-Path -LiteralPath $getPip) -and ((Get-Item -LiteralPath $getPip).Length -gt 10000)) { break }
-        } catch { }
-        if (Get-Command curl.exe -ErrorAction SilentlyContinue) {
-            Invoke-Native -FilePath 'curl.exe' -ArgumentList @('-sS', '-fL', '--retry', '2', '-o', $getPip, $url)
-            if ((Test-Path -LiteralPath $getPip) -and ((Get-Item -LiteralPath $getPip).Length -gt 10000)) { break }
-        }
-    }
-    if (Test-Path -LiteralPath $getPip) {
-        Write-Host 'Installing pip into the local Python...'
-        Invoke-Native -FilePath $PrivatePython -ArgumentList @($getPip, '--no-warn-script-location')
-    }
+    Ensure-LocalPip -Exe $PrivatePython
 }
 
 function Install-PrivatePython {
@@ -349,6 +379,10 @@ function Install-WithPip {
     )
     $exe = ConvertTo-PythonPath $PythonExe
     if (-not $exe) { throw 'Python path missing after install. Double-click Start.bat again.' }
+    Ensure-LocalPip -Exe $exe
+    if (-not (Test-PipModule -Exe $exe)) {
+        throw 'pip is not available in the local Python. Delete the .runtime folder and double-click Start.bat again.'
+    }
     Write-Host ("pip using " + $exe)
     $pipArgs = @('-m', 'pip', '--retries', '1', '--timeout', '30') + $PipArgs
     Invoke-Native -FilePath $exe -ArgumentList $pipArgs
@@ -389,7 +423,7 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
     }
 }
 $venvPython = ConvertTo-PythonPath $venvPython
-if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.2.8.zip again.' }
+if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.2.9.zip again.' }
 
 Write-Host 'Installing packages (first run needs internet, a few minutes)...'
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '--upgrade', 'pip')

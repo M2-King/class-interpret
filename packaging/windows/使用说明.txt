@@ -1,12 +1,12 @@
-﻿听课搭子 Windows 0.2.8
+﻿听课搭子 Windows 0.2.9
 
-压缩包文件名必须是 ClassInterpreter-windows-0.2.8.zip。
+压缩包文件名必须是 ClassInterpreter-windows-0.2.9.zip。
 等 Chrome 下完，不要打开 .crdownload。不要打开 ClassInterpreter-windows (1)。
 
 1. 删掉以前解压出来的旧文件夹。
-2. 解压后打开 ClassInterpreter-0.2.8，双击 Start.bat。不要双击 start.ps1。
-3. 黑窗口第一行必须是 Class Interpreter 0.2.8。第一次会自动下载 Python 3.12。
-4. 浏览器左上角必须是 0.2.8。用黄色按钮下载模型（建议 Small）。
+2. 解压后打开 ClassInterpreter-0.2.9，双击 Start.bat。不要双击 start.ps1。
+3. 黑窗口第一行必须是 Class Interpreter 0.2.9。第一次会自动下载 Python 3.12。
+4. 浏览器左上角必须是 0.2.9。用黄色按钮下载模型（建议 Small）。
 5. 校园网失败：换手机热点再双击 Start.bat。
 
-如果黑窗口写着 0.2.5，说明打开的是旧文件夹，请关掉，改用新解压出来的 ClassInterpreter-0.2.8。
+如果黑窗口写着 0.2.5，说明打开的是旧文件夹，请关掉，改用新解压出来的 ClassInterpreter-0.2.9。

@@ -17,7 +17,7 @@ for token in (
     "certifi",
     "api/shutdown",
     "status.version",
-    "0.2.8",
+    "0.2.9",
     ".runtime\\python",
     "python-3.12.10",
     "mirrors.huaweicloud.com/python",
@@ -32,10 +32,18 @@ for token in (
     "-sS",
     "LastNativeExit",
     "ForEach-Object { Write-Host $_ }",
+    "._pth",
+    "Ensure-LocalPip",
+    "anaconda3",
+    "-3",
 ):
     assert token in script, token
 assert "curl.exe @curlArgs 2>$null" not in script
-assert "& curl.exe @curlArgs 2>$null" not in script
+assert "Filter '*.pth'" not in script
+
+import fnmatch
+assert not fnmatch.fnmatch("python312._pth", "*.pth")
+assert fnmatch.fnmatch("python312._pth", "python*._pth")
 
 import re
 
@@ -74,7 +82,7 @@ assert b"ExecutionPolicy Bypass" in cn_bat or b"Start.bat" in cn_bat
 howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
 assert all(byte < 128 for byte in howto)
 assert b"Start.bat" in howto
-assert b"0.2.8" in howto
-assert b"ClassInterpreter-windows-0.2.8.zip" in howto or b"0.2.8" in howto
+assert b"0.2.9" in howto
+assert b"ClassInterpreter-windows-0.2.9.zip" in howto or b"0.2.9" in howto
 
 print("start.ps1 ok")

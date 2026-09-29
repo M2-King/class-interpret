@@ -2,16 +2,18 @@
 
 这是一个运行在自己电脑上的英语课堂同传应用。用浏览器采集麦克风或网课标签页的声音，约每 3–8 秒给出英文原文及中文译文；可选中文朗读、修正识别结果、自动保存、导出笔记，并有独立的 **“生成课后总结”** 按钮。
 
-## 第一次使用（Windows）
+## 已经能用的电脑（例如 R9000P）
 
-你上一张图是 **0.2.7 的 curl NativeCommandError**（进度条被当成了错误）。请不要再点 0.2.7 文件夹。
+**不要换成 Downloads 里的新 zip。** 原来那个文件夹里的 `.venv`、模型和显卡加速都还在，延迟才会小。新 zip 是空的安装包，会再下一份 CPU 版 Python，所以又慢又容易坏。
 
-1. 等下载结束，文件名必须是 **ClassInterpreter-windows-0.2.8.zip**（没有 `.crdownload`）。
-2. 删掉旧文件夹，包括 `ClassInterpreter-windows` 和 `ClassInterpreter-windows (1)`。
-3. 下载 [ClassInterpreter-windows-0.2.8.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows-0.2.8.zip)。
-4. 解压后进入 **ClassInterpreter-0.2.8**，双击 **Start.bat**。黑窗口第一行必须是 **Class Interpreter 0.2.8**。
-5. 第一次会自动下载 Python 3.12（不用先装 Python）。请保持黑窗口打开。校园网失败就换手机热点再点一次 Start.bat。
-6. 浏览器左上角必须是 **0.2.8**，再用黄色按钮下载模型（建议 Small）。
+继续用原来的目录双击 `Start.bat` / `启动同传.bat`。
+
+## 第一次使用（Windows，没有旧文件夹时）
+
+1. 下载 [ClassInterpreter-windows-0.2.9.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows-0.2.9.zip)。
+2. 解压后进入 **ClassInterpreter-0.2.9**，双击 **Start.bat**。第一行必须是 **Class Interpreter 0.2.9**。
+3. 没有系统 Python 时会在本文件夹安装。校园网失败请换手机热点再点一次。
+4. 浏览器左上角必须是 **0.2.9**，再用黄色按钮下载模型（建议 Small）。
 
 如果 Windows 提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
 
@@ -19,11 +21,11 @@
 
 三步，不用终端：
 
-1. 下载 [ClassInterpreter-mac-0.2.8.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac-0.2.8.zip)。
-2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.2.8** 文件夹。
+1. 下载 [ClassInterpreter-mac-0.2.9.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac-0.2.9.zip)。
+2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.2.9** 文件夹。
 3. **不要只点「听课搭子」图标**（会提示无法打开）。请双击 **Open.command**。
 4. 若仍无法打开：按住 Control 点 Open.command → 打开。或到系统设置 → 隐私与安全性 → 仍要打开。
-5. 左上角应为 **Class Interpreter · 0.2.8**。黄色条下载模型；校园网请换手机热点。
+5. 左上角应为 **Class Interpreter · 0.2.9**。黄色条下载模型；校园网请换手机热点。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
