@@ -4,7 +4,7 @@ try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
 $env:PYTHONUTF8 = '1'
 
 $VersionFile = Join-Path $PSScriptRoot 'VERSION'
-$Version = '0.2.4'
+$Version = '0.2.5'
 if (Test-Path -LiteralPath $VersionFile) {
     $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1 -Encoding UTF8).Trim()
 }

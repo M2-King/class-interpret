@@ -4,30 +4,27 @@
 
 ## 第一次使用（Windows）
 
-1. 下载 [ClassInterpreter-windows.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows.zip)，解压到任意文件夹。
-2. 安装 [Python 3.10–3.12](https://www.python.org/downloads/)；安装时勾选 **Add python.exe to PATH**。推荐 Chrome 或 Edge。
-3. 关掉已经打开的旧黑窗口（如果之前双击过 `启动同传.bat`）。
-4. 双击解压后文件夹里的 **启动同传.bat**。第一次会装依赖，需要联网。
-5. 浏览器打开后看左上角是否为 **0.2.4**。黄色条里点 **现在安装中文翻译模型** 和 **下载语音模型**（建议 Small）。
+1. **删掉以前解压出来的旧文件夹**（尤其是里面带「听课搭子」目录、双击后黑窗口报 `Unexpected token` 的那份）。
+2. 重新下载 [ClassInterpreter-windows.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows.zip)，解压后进入 **ClassInterpreter** 文件夹。
+3. 安装 [Python 3.10–3.12](https://www.python.org/downloads/)；安装时勾选 **Add python.exe to PATH**。推荐 Chrome 或 Edge。
+4. 双击 **Start.bat**（也可以点「启动同传.bat」）。**不要双击 start.ps1**。第一次会装依赖，需要联网。
+5. 浏览器左上角必须是 **0.2.5**。黄色条里点 **现在安装中文翻译模型** 和 **下载语音模型**（建议 Small）。
 6. 再点 **开始同传**，允许麦克风。网课共享时勾选 **共享音频**。
 
 校园网如果出现证书错误或 `ConnectTimeout` / Hugging Face Hub 超时，**换手机热点**后再点黄色条下载。不要只刷新浏览器。
 
-如果双击无法启动，在 PowerShell 运行：
-
-```powershell
-powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
-```
+如果 Windows 提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
+如果黑窗口仍出现 `Unexpected token` / `Missing closing '}'`，一定还是旧压缩包，请删掉整个文件夹再下 0.2.5。
 
 ## 第一次使用（Mac）
 
 三步，不用终端：
 
-1. 下载 [ClassInterpreter-mac.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac.zip)（不要用旧的 Release v0.2.0，也不要只用浏览器刷新）。
-2. **先关掉所有「终端」窗口**（尤其是 `启动同传.command`），否则会继续显示旧页面。
-3. 在访达里双击 zip **解压**，得到 `听课搭子.app`。
-4. 双击 **新解压出来的** `听课搭子.app`。若提示身份不明：右键图标 → **打开**。
-5. 看左上角是否写着 **Class Interpreter · 0.2.4**，以及搜索框下面有没有 **黄色条**。如果还是「运行 setup_models.py」，说明旧服务还在，请关掉终端后再打开一次。
+1. 下载 [ClassInterpreter-mac.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac.zip)。
+2. 双击 zip 解压，进入 **ClassInterpreter-mac** 文件夹。
+3. **不要只点「听课搭子」图标**（会提示无法打开）。请双击 **Open.command**。
+4. 若仍无法打开：按住 Control 点 Open.command → 打开。或到系统设置 → 隐私与安全性 → 仍要打开。
+5. 左上角应为 **Class Interpreter · 0.2.5**。黄色条下载模型；校园网请换手机热点。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
@@ -103,4 +100,4 @@ D:\class-interpret\.venv\Scripts\python.exe -m pip install nvidia-cublas-cu12 nv
 
 ## 技术结构
 
-`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`bootstrap.sh` 检测系统并安装 Python / 依赖。Mac 安装包是自包含的 `听课搭子.app`（无需终端）。Windows 用 `启动同传.bat`。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。
+`server.py` 是仅监听本机的 Python 服务；`index.html`、`style.css`、`app.js` 是浏览器界面；`setup_models.py` 安装离线翻译模型；`bootstrap.sh` 检测系统并安装 Python / 依赖。Mac 安装包请双击 `Open.command`。Windows 请双击 `Start.bat`。Python 依赖见 `requirements.txt`。不需要数据库、云端账号或付费 API。

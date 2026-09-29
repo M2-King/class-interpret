@@ -8,5 +8,6 @@ for f in server.py setup_models.py setup_whisper.py ssl_certs.py whisper_hub.py 
          index.html app.js style.css VERSION; do
   cp "$ROOT/$f" "$DEST/"
 done
-chmod +x "$APP/Contents/MacOS/launcher"
+chmod +x "$APP/Contents/MacOS/launcher" "$DEST/bootstrap.sh"
+printf 'APPL????' > "$APP/Contents/PkgInfo"
 echo "Assembled $DEST"

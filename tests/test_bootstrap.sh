@@ -19,10 +19,11 @@ ensure_python
 type service_up >/dev/null
 type stop_existing_server >/dev/null
 type pip_with_ssl_fallback >/dev/null
-[[ "$(app_version VERSION)" == "0.2.4" ]]
+[[ "$(app_version VERSION)" == "0.2.5" ]]
 
 "$found" tests/test_ssl.py
 "$found" tests/test_whisper_hub.py
 "$found" tests/test_start_ps1.py
+"$found" tests/test_packaging.py
 
 echo "bootstrap ok: os=$os python=$PYTHON"
