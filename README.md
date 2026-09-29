@@ -17,7 +17,11 @@ powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 
 ## 第一次使用（Mac）
 
-从 [Releases](https://github.com/M2-King/class-interpret/releases) 下载最新的 **听课搭子.app**（zip 里只有这一个应用）。解压后双击即可，**不用输入任何终端命令**。
+三步，不用终端：
+
+1. 下载 [ClassInterpreter-mac.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-mac.zip)（不要用旧的 Release v0.2.0）。
+2. 在访达里双击 zip **解压**，得到 `听课搭子.app`。
+3. 双击 `听课搭子.app`。若提示身份不明：右键图标 → **打开**。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
