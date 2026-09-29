@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>听课搭子 · 本地同声传译</title>
-  <link rel="stylesheet" href="/style.css?v=0.2.2">
+  <link rel="stylesheet" href="/style.css?v=0.2.3">
 </head>
 <body>
   <div class="app">
@@ -13,7 +13,7 @@
         <span class="brand-mark" aria-hidden="true">▶</span>
         <div>
           <strong>听课搭子</strong>
-          <small>Class Interpreter · 0.2.2</small>
+          <small>Class Interpreter · 0.2.3</small>
         </div>
       </div>
       <button id="mobile-settings" class="mobile-nav" type="button" aria-expanded="false">菜单</button>
@@ -43,8 +43,11 @@
       </header>
 
       <div id="model-banner" class="model-banner show">
-        <p id="model-banner-text">中文翻译模型还没装好。点右侧按钮下载（需联网，大约一两分钟）。不用打开终端。</p>
-        <button id="install-translation" class="button primary" type="button">现在安装中文翻译模型</button>
+        <p id="model-banner-text">模型还没装好。点右侧按钮下载（需联网）。校园网请改用手机热点。</p>
+        <div class="banner-actions">
+          <button id="install-translation" class="button primary" type="button">现在安装中文翻译模型</button>
+          <button id="install-whisper" class="button primary" type="button">下载语音模型</button>
+        </div>
       </div>
 
       <section class="view" id="view-home">
@@ -208,10 +211,10 @@
             <span>优先准确率，延迟更长</span>
           </button>
         </div>
-        <p class="muted">当前模型：<b id="current-model-label">Medium</b></p>
+        <p class="muted">当前模型：<b id="current-model-label">Small</b></p>
         <select id="model" hidden>
-          <option value="small">Small · 流畅</option>
-          <option value="medium" selected>Medium · 中等</option>
+          <option value="small" selected>Small · 流畅</option>
+          <option value="medium">Medium · 中等</option>
           <option value="large-v3">Large v3 · 精确</option>
         </select>
       </section>
@@ -249,6 +252,6 @@
       </section>
     </div>
   </div>
-  <script src="/app.js?v=0.2.2" defer></script>
+  <script src="/app.js?v=0.2.3" defer></script>
 </body>
 </html>

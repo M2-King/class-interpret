@@ -228,6 +228,7 @@ button:disabled { cursor: not-allowed; opacity: .5; }
 .model-banner.show { display: flex; }
 .model-banner p { margin: 0; font-size: 14px; font-weight: 650; line-height: 1.45; }
 .model-banner .button { flex: 0 0 auto; }
+.banner-actions { display: flex; flex-wrap: wrap; gap: 8px; flex: 0 0 auto; }
 .transcript-bar {
   display: flex;
   align-items: flex-end;

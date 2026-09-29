@@ -4,10 +4,14 @@
 
 ## 第一次使用（Windows）
 
-1. 安装 [Python 3.10–3.12](https://www.python.org/downloads/)；安装时勾选 **Add Python to PATH**。推荐使用 Chrome 或 Edge。
-2. 双击 `启动同传.bat`。第一次会安装免费依赖和英语→中文翻译模型，需要联网。安装结束会打开 `http://127.0.0.1:8765/`。
-3. 输入课程名和常见英文术语，选择“麦克风”或“共享标签页/屏幕音频”，点击 **开始同传**，允许浏览器访问声音。网课共享时要勾选浏览器的 **共享音频**。
-4. 首次识别还会下载所选的免费 Whisper 模型。等下载完成后，之后可离线识别和翻译。
+1. 下载 [ClassInterpreter-windows.zip](https://github.com/M2-King/class-interpret/raw/cursor/mac-local-start-b27d/ClassInterpreter-windows.zip)，解压到任意文件夹。
+2. 安装 [Python 3.10–3.12](https://www.python.org/downloads/)；安装时勾选 **Add python.exe to PATH**。推荐 Chrome 或 Edge。
+3. 关掉已经打开的旧黑窗口（如果之前双击过 `启动同传.bat`）。
+4. 双击解压后文件夹里的 **启动同传.bat**。第一次会装依赖，需要联网。
+5. 浏览器打开后看左上角是否为 **0.2.3**。黄色条里点 **现在安装中文翻译模型** 和 **下载语音模型**（建议 Small）。
+6. 再点 **开始同传**，允许麦克风。网课共享时勾选 **共享音频**。
+
+校园网如果出现证书错误或 `ConnectTimeout` / Hugging Face Hub 超时，**换手机热点**后再点黄色条下载。不要只刷新浏览器。
 
 如果双击无法启动，在 PowerShell 运行：
 
@@ -23,7 +27,7 @@ powershell -ExecutionPolicy Bypass -File "D:\class-interpret\start.ps1"
 2. **先关掉所有「终端」窗口**（尤其是 `启动同传.command`），否则会继续显示旧页面。
 3. 在访达里双击 zip **解压**，得到 `听课搭子.app`。
 4. 双击 **新解压出来的** `听课搭子.app`。若提示身份不明：右键图标 → **打开**。
-5. 看左上角是否写着 **0.2.2**，以及搜索框下面有没有 **黄色条** 和按钮 **现在安装中文翻译模型**。如果还是「运行 setup_models.py」，说明旧服务还在，请关掉终端后再打开一次。
+5. 看左上角是否写着 **Class Interpreter · 0.2.3**，以及搜索框下面有没有 **黄色条**。如果还是「运行 setup_models.py」，说明旧服务还在，请关掉终端后再打开一次。
 
 - 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
 - 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。

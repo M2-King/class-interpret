@@ -29,7 +29,10 @@ fi
 
 if [[ "$(uname -s)" == Darwin ]]; then
   export CLASS_INTERPRET_CERTS="${CLASS_INTERPRET_CERTS:-$HOME/Library/Application Support/ClassInterpret/certs.pem}"
-  mkdir -p "$(dirname "$CLASS_INTERPRET_CERTS")" "$HOME/Library/Application Support/ClassInterpret/data"
+  export CLASS_INTERPRET_MODELS="${CLASS_INTERPRET_MODELS:-$HOME/Library/Application Support/ClassInterpret/models}"
+  export CLASS_INTERPRET_HF="${CLASS_INTERPRET_HF:-$HOME/Library/Application Support/ClassInterpret/hf}"
+  export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
+  mkdir -p "$(dirname "$CLASS_INTERPRET_CERTS")" "$HOME/Library/Application Support/ClassInterpret/data" "$CLASS_INTERPRET_HF"
 fi
 
 ensure_runtime

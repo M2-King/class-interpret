@@ -14,7 +14,8 @@ const ui = {
   exportPreview: $('export-preview'), exportTitle: $('export-title'),
   greeting: $('home-greeting'), currentModel: $('current-model-label'),
   installTranslation: $('install-translation'), quitApp: $('quit-app'),
-  modelBanner: $('model-banner'), modelBannerText: $('model-banner-text')
+  modelBanner: $('model-banner'), modelBannerText: $('model-banner-text'),
+  installWhisper: $('install-whisper')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
@@ -22,6 +23,7 @@ const state = { session: null, recording: false, stream: null, audioContext: nul
 const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
 const MODEL_LABELS = { small: 'Small', medium: 'Medium', 'large-v3': 'Large v3' };
 let clockTimer = null;
+let lastStatus = null;
 
 function showView(name) {
   document.querySelectorAll('.view').forEach(view => { view.hidden = view.id !== `view-${name}`; });
@@ -116,6 +118,7 @@ document.querySelectorAll('.model-card').forEach(card => {
     if (ui.model.disabled) return;
     ui.model.value = card.dataset.model;
     syncModelCards();
+    if (lastStatus) applyStatus(lastStatus);
   });
 });
 
@@ -135,10 +138,39 @@ function notice(message, error = false) {
 }
 
 function applyStatus(status) {
-  ui.status.textContent = `v${status.version || '?'} · ${status.translation ? '离线翻译就绪' : '翻译模型待安装'} · ${status.deepseek ? 'DeepSeek 就绪' : '基础总结就绪'}`;
-  if (ui.engineHealth) ui.engineHealth.textContent = status.translation ? '正常运行' : '模型待安装';
-  if (ui.modelBanner) ui.modelBanner.classList.toggle('show', !status.translation);
-  if (ui.installTranslation) ui.installTranslation.disabled = !!status.translation;
+  lastStatus = status;
+  const whisperReady = !!(status.whisper_models?.[ui.model?.value || 'small'] ?? status.whisper);
+  ui.status.textContent = `v${status.version || '?'} · ${status.translation ? '离线翻译就绪' : '翻译待安装'} · ${whisperReady ? '语音就绪' : '语音模型待下载'}`;
+  if (ui.engineHealth) ui.engineHealth.textContent = whisperReady ? '正常运行' : '语音模型待下载';
+  const needTranslation = !status.translation;
+  const needWhisper = !whisperReady;
+  if (ui.modelBanner) ui.modelBanner.classList.toggle('show', needTranslation || needWhisper);
+  if (ui.installTranslation) {
+    ui.installTranslation.hidden = !needTranslation;
+    ui.installTranslation.disabled = !needTranslation;
+  }
+  if (ui.installWhisper) {
+    ui.installWhisper.hidden = !needWhisper;
+    ui.installWhisper.disabled = !needWhisper;
+  }
+  if (ui.modelBannerText && (needTranslation || needWhisper)) {
+    if (needTranslation && needWhisper) {
+      ui.modelBannerText.textContent = '翻译模型和语音模型都还没装好。校园网请换手机热点，再点右侧按钮下载。';
+    } else if (needWhisper) {
+      ui.modelBannerText.textContent = '语音识别模型还没下载（Small 约 500MB）。校园网经常失败，请换手机热点后点「下载语音模型」。';
+    } else {
+      ui.modelBannerText.textContent = '中文翻译模型还没装好。点右侧按钮下载（需联网，大约一两分钟）。';
+    }
+  }
+}
+
+function humanizeChunkError(message) {
+  if (/ConnectTimeout|timed out|Hub|huggingface|Errno 60|snapshot folder|语音识别模型还没下载/i.test(message)) {
+    return message.includes('语音识别模型还没下载')
+      ? message
+      : '语音模型还没下完。校园网连不上 Hugging Face。请换手机热点，点黄色条「下载语音模型」，建议用 Small。';
+  }
+  return `这一段录音处理失败：${message}`;
 }
 
 function fetchTimeout(ms) {
@@ -330,7 +362,7 @@ function queueAudio(samples, elapsed) {
       }
       if (response.translation_error) notice(`已识别英文；中文翻译不可用：${response.translation_error}`, true);
       else if (response.entry) notice('识别与翻译已自动保存。');
-    } catch (error) { notice(`这一段录音处理失败：${error.message}`, true); }
+    } catch (error) { notice(humanizeChunkError(error.message), true); }
     finally { state.pending--; }
   });
 }
@@ -484,6 +516,8 @@ async function init() {
     applyStatus(status);
     if (!status.translation) {
       notice('中文翻译模型还没装好。请看页面上方的黄色提示，点按钮安装。', 'warn');
+    } else if (!(status.whisper_models?.[ui.model?.value || 'small'] ?? status.whisper)) {
+      notice('语音模型还没下载。请看黄色条，换手机热点后点「下载语音模型」。', 'warn');
     }
   } catch (error) {
     if (ui.modelBanner) ui.modelBanner.classList.add('show');
@@ -515,6 +549,37 @@ if (ui.installTranslation) {
       if (ui.modelBannerText) ui.modelBannerText.textContent = `翻译模型安装失败：${message}。可改用手机热点后重试。`;
       notice(`翻译模型安装失败：${message}。可改用手机热点后重试。`, true);
       ui.installTranslation.disabled = false;
+    }
+  });
+}
+
+if (ui.installWhisper) {
+  ui.installWhisper.addEventListener('click', async () => {
+    ui.installWhisper.disabled = true;
+    const model = ui.model?.value || 'small';
+    if (ui.modelBannerText) {
+      ui.modelBannerText.textContent = `正在下载语音模型 ${model}。校园网请改用手机热点，可能要几分钟…`;
+    }
+    notice(`正在下载语音模型 ${model}…`, 'warn');
+    const timeout = fetchTimeout(600000);
+    try {
+      const body = await api('/api/whisper/install', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({model}),
+        signal: timeout.signal
+      });
+      timeout.cancel();
+      const status = await api('/api/status');
+      applyStatus(status);
+      notice(body.message || '语音模型已下载。现在可以开始同传。', 'warn');
+    } catch (error) {
+      timeout.cancel();
+      const message = error.name === 'AbortError' ? '下载超时，请换手机热点后重试。' : error.message;
+      if (ui.modelBanner) ui.modelBanner.classList.add('show');
+      if (ui.modelBannerText) ui.modelBannerText.textContent = `语音模型下载失败：${message}`;
+      notice(`语音模型下载失败：${message}`, true);
+      ui.installWhisper.disabled = false;
     }
   });
 }

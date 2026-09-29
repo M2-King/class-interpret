@@ -72,6 +72,10 @@ export CLASS_INTERPRET_VENV="$SUPPORT/venv"
 export CLASS_INTERPRET_DATA="$SUPPORT/data"
 export CLASS_INTERPRET_CERTS="$SUPPORT/certs.pem"
 export CLASS_INTERPRET_NO_BROWSER=1
+export CLASS_INTERPRET_MODELS="$SUPPORT/models"
+export CLASS_INTERPRET_HF="$SUPPORT/hf"
+export HF_ENDPOINT="${HF_ENDPOINT:-https://hf-mirror.com}"
+export HF_HUB_DOWNLOAD_TIMEOUT="${HF_HUB_DOWNLOAD_TIMEOUT:-180}"
 
 if ! ensure_runtime; then
   alert "安装失败，多半是网络证书问题。请换用手机热点后再双击打开。详细日志：访达 → 前往文件夹 → ~/Library/Logs/class-interpret.log"

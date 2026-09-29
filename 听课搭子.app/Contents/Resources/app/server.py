@@ -19,11 +19,13 @@ from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
 import ssl_certs
+import whisper_hub
 
 ssl_certs.apply()
+whisper_hub.configure()
 
 ROOT = Path(__file__).resolve().parent
-VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.2.2"
+VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.2.3"
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
@@ -35,6 +37,7 @@ LOCK = threading.RLock()
 MODEL_LOCK = threading.Lock()
 TRANSLATE_LOCK = threading.Lock()
 TRANSLATE_INSTALL_LOCK = threading.Lock()
+WHISPER_INSTALL_LOCK = threading.Lock()
 MODEL_CACHE: dict[str, object] = {}
 MODEL_DEVICE: dict[str, str] = {}
 CUDA_DLL_HANDLES: list[object] = []
@@ -117,15 +120,14 @@ def load_model(name: str):
             MODEL_DEVICE.clear()
             gc.collect()
             prepare_cuda_dlls()
-            from faster_whisper import WhisperModel
-
-            try:
-                MODEL_CACHE[name] = WhisperModel(name, device="cuda", compute_type="int8_float16")
-                MODEL_DEVICE[name] = "GPU"
-            except Exception:
-                MODEL_CACHE[name] = WhisperModel(name, device="cpu", compute_type="int8")
-                MODEL_DEVICE[name] = "CPU"
+            model, device = whisper_hub.create_model(name)
+            MODEL_CACHE[name] = model
+            MODEL_DEVICE[name] = device
         return MODEL_CACHE[name]
+
+
+def install_whisper_model(name: str = "small") -> None:
+    whisper_hub.download(name)
 
 
 def prepare_cuda_dlls() -> None:
@@ -166,9 +168,9 @@ def transcribe(audio: bytes, model_name: str, glossary: str) -> str:
             from faster_whisper import WhisperModel
 
             print("GPU 推理库不可用，自动改用 CPU。")
-            cpu_model = WhisperModel(model_name, device="cpu", compute_type="int8")
+            cpu_model, device = whisper_hub.create_model(model_name)
             MODEL_CACHE[model_name] = cpu_model
-            MODEL_DEVICE[model_name] = "CPU"
+            MODEL_DEVICE[model_name] = device
             return run(cpu_model)
 
 
@@ -265,7 +267,7 @@ def make_summary(session: dict) -> tuple[str, str]:
 
 
 class Handler(BaseHTTPRequestHandler):
-    server_version = "ClassInterpret/0.2.2"
+    server_version = "ClassInterpret/0.2.3"
 
     def log_message(self, format: str, *args) -> None:
         print("[%s] %s" % (self.log_date_time_string(), format % args))
@@ -299,10 +301,13 @@ class Handler(BaseHTTPRequestHandler):
         if method == "GET" and path in ("/app.js", "/style.css"):
             return self.serve_file(path[1:], "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8")
         if method == "GET" and path == "/api/status":
+            models = whisper_hub.cached_models()
             return self.respond(200, {
                 "translation": translation_available(),
                 "deepseek": installed_deepseek(),
                 "version": VERSION,
+                "whisper_models": models,
+                "whisper": any(models.values()),
             })
         if method == "POST" and path == "/api/translation/install":
             if translation_available():
@@ -318,6 +323,29 @@ class Handler(BaseHTTPRequestHandler):
             if not translation_available():
                 return self.respond(500, {"error": "翻译模型没有装上，请检查网络后重试。", "translation": False})
             return self.respond(200, {"translation": True, "message": "英语 → 中文模型已安装。"})
+        if method == "POST" and path == "/api/whisper/install":
+            body = {}
+            if int(self.headers.get("Content-Length", "0") or 0) > 0:
+                try:
+                    body = self.read_json()
+                except Exception:
+                    body = {}
+            name = str(body.get("model") or "small")
+            if name not in MODEL_NAMES:
+                raise ValueError("不支持的识别模型")
+            if whisper_hub.cached(name):
+                return self.respond(200, {"whisper": True, "model": name, "message": f"语音模型 {name} 已在本地。"})
+            if not WHISPER_INSTALL_LOCK.acquire(blocking=False):
+                return self.respond(202, {"whisper": False, "message": "正在下载语音模型，请稍候。"})
+            try:
+                install_whisper_model(name)
+            except Exception as exc:
+                return self.respond(500, {"error": whisper_hub.friendly_error(exc), "whisper": False})
+            finally:
+                WHISPER_INSTALL_LOCK.release()
+            if not whisper_hub.cached(name):
+                return self.respond(500, {"error": "语音模型没有装上。请换手机热点后重试。", "whisper": False})
+            return self.respond(200, {"whisper": True, "model": name, "message": f"语音模型 {name} 已下载。"})
         if method == "POST" and path == "/api/shutdown":
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return self.respond(200, {"ok": True})
@@ -351,7 +379,10 @@ class Handler(BaseHTTPRequestHandler):
                 audio = self.read_body()
                 if audio[:4] != b"RIFF" or audio[8:12] != b"WAVE":
                     raise ValueError("需要 16 kHz 的 WAV 录音")
-                english = transcribe(audio, model, glossary)
+                try:
+                    english = transcribe(audio, model, glossary)
+                except Exception as exc:
+                    raise RuntimeError(whisper_hub.friendly_error(exc)) from exc
                 with LOCK:
                     session = read_session(session_id)
                     if session["entries"] and english:
@@ -428,6 +459,14 @@ def main() -> None:
     address = f"http://{HOST}:{PORT}/"
     server = ThreadingHTTPServer((HOST, PORT), Handler)
     print(f"课堂同传已启动：{address}")
+
+    def warmup() -> None:
+        try:
+            whisper_hub.download("small")
+        except Exception as exc:
+            print(f"后台下载语音模型失败：{whisper_hub.friendly_error(exc)}")
+
+    threading.Thread(target=warmup, daemon=True).start()
     if os.environ.get("CLASS_INTERPRET_NO_BROWSER") != "1":
         threading.Timer(0.8, lambda: webbrowser.open(address)).start()
     try:
