@@ -1,26 +1,30 @@
-Class Interpreter 0.3.1 for Windows
+Class Interpreter 0.3.2 for Windows
 ===================================
+
+This is not a device/GPU problem. Windows cannot run the app from
+inside the zip window. Extract All first.
 
 If this laptop already ran Class Interpreter with low delay, keep using
 that old folder. Do not replace it with this Downloads unzip.
 
-The zip name must be ClassInterpreter-windows-0.3.1.zip
+The zip name must be ClassInterpreter-windows-0.3.2.zip
 Wait until Chrome finishes. Do not open a .crdownload file.
 Do not open a folder named ClassInterpreter-windows (1).
 
 1. Delete any old unzipped folder from a previous download.
 
-2. Unzip, then open the ClassInterpreter-0.3.1 folder.
+2. Right-click the zip -> Extract All. Do not double-click files inside the zip window.
 
-3. Double-click Start.bat
-   The first line must say Class Interpreter 0.3.1
+3. In the new folder, double-click OPEN-THIS.bat
+   Or open ClassInterpreter-0.3.2 and double-click Start.bat
+   The first line must say Class Interpreter 0.3.2
    Do NOT double-click start.ps1
 
 4. First run downloads official Python 3.12 into this folder.
    You do not need to install Python yourself.
    Keep the black window open. Use a phone hotspot if campus Wi-Fi fails.
 
-5. Wait for the browser. Top-left must say 0.3.1
+5. Wait for the browser. Top-left must say 0.3.2
 
 6. Click the yellow buttons to install the Chinese translation model
    and the speech model. Choose Small if the network is slow.
@@ -29,5 +33,5 @@ Do not open a folder named ClassInterpreter-windows (1).
 
 If Windows says Windows protected your PC: More info -> Run anyway.
 
-If the black window says 0.2.5, Unexpected token, or Python not found
+If the black window says 0.2.5-0.3.1, Unexpected token, or Python not found
 WITHOUT Downloading official Python: you opened an old folder.

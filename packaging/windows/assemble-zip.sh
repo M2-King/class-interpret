@@ -17,6 +17,7 @@ fi
 cp "$ROOT/packaging/windows/HOW-TO-START.txt" "$DEST/"
 cp "$ROOT/packaging/windows/使用说明.txt" "$DEST/"
 cp "$ROOT/packaging/windows/READ-ME-FIRST.txt" "$STAGE/READ-ME-FIRST.txt"
+cp "$ROOT/packaging/windows/OPEN-THIS.bat" "$STAGE/OPEN-THIS.bat"
 python3 - <<'PY'
 from pathlib import Path
 import os
@@ -34,7 +35,7 @@ OUT_STABLE="$ROOT/ClassInterpreter-windows.zip"
 rm -f "$OUT_VER" "$OUT_STABLE"
 (
   cd "$STAGE"
-  zip -r "$OUT_VER" READ-ME-FIRST.txt "$DEST_NAME"
+  zip -r "$OUT_VER" READ-ME-FIRST.txt OPEN-THIS.bat "$DEST_NAME"
 )
 cp "$OUT_VER" "$OUT_STABLE"
 rm -rf "$STAGE"

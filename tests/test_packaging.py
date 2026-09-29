@@ -8,7 +8,7 @@ from pathlib import Path
 
 root = Path(__file__).resolve().parents[1]
 version = (root / "VERSION").read_text(encoding="utf-8").strip()
-assert version == "0.3.1", version
+assert version == "0.3.2", version
 
 
 def unix_mode(info: zipfile.ZipInfo) -> int:
@@ -59,13 +59,18 @@ assert (root / "ClassInterpreter-windows.zip").is_file()
 with zipfile.ZipFile(win_zip) as zf:
     names = zf.namelist()
     assert "READ-ME-FIRST.txt" in names, names
+    assert "OPEN-THIS.bat" in names, names
     assert f"{inner}/Start.bat" in names, names
     assert f"{inner}/start.ps1" in names
     assert f"{inner}/HOW-TO-START.txt" in names
     readme = zf.read("READ-ME-FIRST.txt")
     assert all(byte < 128 for byte in readme)
-    assert b"0.3.1" in readme
+    assert b"0.3.2" in readme
     assert b"0.2.5" in readme
+    open_this = zf.read("OPEN-THIS.bat")
+    assert all(byte < 128 for byte in open_this)
+    assert b"Extract All" in open_this
+    assert b"0.3.2" in open_this
     start_ps1 = zf.read(f"{inner}/start.ps1")
     assert start_ps1.startswith(b"\xef\xbb\xbf")
     assert all(byte < 128 for byte in start_ps1[3:])
@@ -73,7 +78,8 @@ with zipfile.ZipFile(win_zip) as zf:
     start_bat = zf.read(f"{inner}/Start.bat")
     assert all(byte < 128 for byte in start_bat)
     assert b"ExecutionPolicy Bypass" in start_bat
-    assert b"0.3.1" in start_bat
+    assert b"0.3.2" in start_bat
+    assert b"%TEMP%" in start_bat
     got = zf.read(f"{inner}/VERSION").decode().strip()
     assert got == version, got
     assert f"{inner}/secret_box.py" in names

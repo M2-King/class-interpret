@@ -3,6 +3,6 @@
 1. 解压后先双击 Open.command（不要只点「听课搭子」图标）。
 2. 如果提示无法打开：按住 Control 键点 Open.command，选「打开」。
 3. 系统设置 → 隐私与安全性 → 往下滚 → 「仍要打开」。
-4. 浏览器打开后左上角应显示 0.3.1。用黄色按钮下载模型。校园网请换手机热点。
-   解压后的文件夹名应是 ClassInterpreter-mac-0.3.1，请双击 Open.command。
+4. 浏览器打开后左上角应显示 0.3.2。用黄色按钮下载模型。校园网请换手机热点。
+   解压后的文件夹名应是 ClassInterpreter-mac-0.3.2，请双击 Open.command。
 5. 课后总结可点「安装 DeepSeek」。上课英译中仍然用 Whisper，不需要 DeepSeek。

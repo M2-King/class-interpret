@@ -8,9 +8,10 @@ assert "听懂每一句" in html
 assert "Class Interpreter" in html
 assert "Open.command" in html
 assert "Start.bat" in html
-assert "ClassInterpreter-mac-0.3.1.zip" in html
-assert "ClassInterpreter-windows-0.3.1.zip" in html
-assert "deepseek-api-encrypt-b27d" in html
+assert "ClassInterpreter-mac-0.3.2.zip" in html
+assert "ClassInterpreter-windows-0.3.2.zip" in html
+assert "windows-extract-guard-b27d" in html
+assert "OPEN-THIS.bat" in html
 assert "assets/app-preview.png" in html
 assert "sk-" not in html
 assert "sk-" not in css

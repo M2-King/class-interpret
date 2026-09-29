@@ -6,7 +6,7 @@ $script:LastNativeExit = 0
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
 $VersionFile = Join-Path $PSScriptRoot 'VERSION'
-$Version = '0.3.1'
+$Version = '0.3.2'
 if (Test-Path -LiteralPath $VersionFile) {
     $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1 -Encoding UTF8).Trim()
 }
@@ -20,6 +20,29 @@ if (-not $env:HF_HUB_DOWNLOAD_TIMEOUT) { $env:HF_HUB_DOWNLOAD_TIMEOUT = '180' }
 $env:CLASS_INTERPRET_HF = Join-Path $PSScriptRoot 'hf'
 $env:CLASS_INTERPRET_DATA = Join-Path $PSScriptRoot 'data'
 New-Item -ItemType Directory -Force -Path $env:CLASS_INTERPRET_HF, $env:CLASS_INTERPRET_DATA, $RuntimeDir | Out-Null
+
+function Test-LaunchedFromTemp {
+    $root = [string]$PSScriptRoot
+    foreach ($t in @($env:TEMP, $env:TMP)) {
+        if (-not $t) { continue }
+        $prefix = $t.TrimEnd('\')
+        if ($root -like ($prefix + '\*') -or $root -eq $prefix) { return $true }
+    }
+    if ($root -like '*\AppData\Local\Temp\*') { return $true }
+    return $false
+}
+if (Test-LaunchedFromTemp) {
+    Write-Host 'You opened Start.bat from INSIDE the zip (Windows Temp).'
+    Write-Host 'This is not a broken laptop. Right-click the zip, Extract All, then double-click OPEN-THIS.bat.'
+    throw 'Extract All the zip first. Do not run Start.bat from inside the zip window.'
+}
+
+function Get-PythonArch {
+    $proc = [string]$env:PROCESSOR_ARCHITECTURE
+    if ($proc -match 'ARM64') { return 'arm64' }
+    if (-not [Environment]::Is64BitOperatingSystem) { return 'win32' }
+    return 'amd64'
+}
 
 function Get-AppStatus {
     try {
@@ -288,16 +311,17 @@ function Ensure-LocalPip {
 
 function Install-EmbeddablePython {
     $dest = Join-Path $RuntimeDir 'python'
-    $arch = 'amd64'
-    if (-not [Environment]::Is64BitOperatingSystem) { $arch = 'win32' }
-    $zipName = "python-3.12.10-embed-$arch.zip"
+    $arch = Get-PythonArch
+    $zipName = 'python-3.12.10-embed-amd64.zip'
+    if ($arch -eq 'win32') { $zipName = 'python-3.12.10-embed-win32.zip' }
+    if ($arch -eq 'arm64') { $zipName = 'python-3.12.10-embed-arm64.zip' }
     $zipPath = Join-Path $RuntimeDir $zipName
     $urls = @(
         ("https://mirrors.huaweicloud.com/python/3.12.10/" + $zipName),
         ("https://cdn.npmmirror.com/binaries/python/3.12.10/" + $zipName),
         ("https://www.python.org/ftp/python/3.12.10/" + $zipName)
     )
-    Write-Host 'Downloading embed-amd64 Python 3.12 (no admin)...'
+    Write-Host ("Downloading embed-" + $arch + " Python 3.12 (no admin)...")
     $got = $false
     foreach ($url in $urls) {
         Write-Host ("Trying " + $url)
@@ -313,12 +337,10 @@ function Install-EmbeddablePython {
 function Install-PrivatePython {
     if (Test-PythonExe -Exe $PrivatePython) { return }
     $dest = Join-Path $RuntimeDir 'python'
-    $arch = 'amd64'
+    $arch = Get-PythonArch
     $file = 'python-3.12.10-amd64.exe'
-    if (-not [Environment]::Is64BitOperatingSystem) {
-        $arch = 'win32'
-        $file = 'python-3.12.10.exe'
-    }
+    if ($arch -eq 'win32') { $file = 'python-3.12.10.exe' }
+    if ($arch -eq 'arm64') { $file = 'python-3.12.10-arm64.exe' }
     $setup = Join-Path $RuntimeDir $file
     $urls = @(
         ("https://mirrors.huaweicloud.com/python/3.12.10/" + $file),
@@ -423,7 +445,7 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
     }
 }
 $venvPython = ConvertTo-PythonPath $venvPython
-if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.3.1.zip again.' }
+if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.3.2.zip again.' }
 
 Write-Host 'Installing packages (first run needs internet, a few minutes)...'
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '--upgrade', 'pip')
