@@ -1,16 +1,19 @@
-﻿听课搭子 Windows 0.3.2
+﻿听课搭子 Windows 0.3.3
 
-不是电脑坏了，也不是显卡问题。不要在压缩包窗口里直接双击。
-压缩包文件名必须是 ClassInterpreter-windows-0.3.2.zip。
-等 Chrome 下完，不要打开 .crdownload。不要打开 ClassInterpreter-windows (1)。
+Windows 用法（二选一）
 
-1. 删掉以前解压出来的旧文件夹。
-2. 右键 zip → Extract All 解压全部。不要在压缩包窗口里直接双击 Start.bat。
-3. 解压后双击 OPEN-THIS.bat。或打开 ClassInterpreter-0.3.2，双击 Start.bat。不要双击 start.ps1。
-4. 黑窗口第一行必须是 Class Interpreter 0.3.2。浏览器左上角必须是 0.3.2。
-5. 用黄色按钮下载模型（建议 Small）。课后总结可点「安装 DeepSeek」。上课同传不需要它。
-6. 校园网失败：换手机热点再双击 Start.bat。
+A. 这台电脑以前已经能用（例如 R9000P 旧文件夹）
+   不要用 Downloads 里的新 zip 覆盖。
+   打开原来那个带 .venv 的文件夹，双击 Start.bat。
+   黑窗口不要关。浏览器应打开 http://127.0.0.1:8765/
 
-如果这台电脑以前已经能用（例如 R9000P 旧文件夹），请继续用旧文件夹，不要用 Downloads 里的新解压覆盖。
+B. 这台电脑第一次用
+   1. 下载 ClassInterpreter-windows-0.3.3.zip，等 Chrome 下完，不要打开 .crdownload。
+   2. 右键 zip → Extract All。不要在压缩包窗口里双击。
+   3. 双击 OPEN-THIS.bat。第一行必须是 Class Interpreter 0.3.3。
+   4. 这个包已带 Python。黑窗口不要关。校园网失败请换手机热点。
+   5. 浏览器左上角必须是 0.3.3。点黄色按钮，模型选 Small。
 
-如果黑窗口写着 0.2.5 或 0.3.1，说明打开的是旧文件夹，请关掉，改用新解压出来的 0.3.2。
+不是电脑坏了，也不是显卡问题。不要在压缩包窗口里直接打开。
+
+如果黑窗口写着 0.2.5、0.3.1 或 0.3.2，说明打开的是旧文件夹。

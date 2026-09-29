@@ -17,7 +17,7 @@ for token in (
     "certifi",
     "api/shutdown",
     "status.version",
-    "0.3.2",
+    "0.3.3",
     ".runtime\\python",
     "python-3.12.10",
     "mirrors.huaweicloud.com/python",
@@ -41,6 +41,7 @@ for token in (
     "AppData\\Local\\Temp",
     "Extract All",
     "env:TEMP",
+    "tuna.tsinghua",
     "embed-arm64",
     "python-3.12.10-arm64.exe",
 ):
@@ -83,7 +84,9 @@ assert b"%TEMP%" in start_bat
 assert b"server.py" in start_bat
 assert b"-File" in start_bat
 assert b"Unblock-File" in start_bat
-assert b"0.3.2" in start_bat
+assert b"0.3.3" in start_bat
+assert b"win_bootstrap.py" in start_bat
+assert b".runtime\\python\\python.exe" in start_bat
 
 cn_bat = (root / "启动同传.bat").read_bytes()
 assert all(byte < 128 for byte in cn_bat), "启动同传.bat must be ASCII"
@@ -92,7 +95,7 @@ assert b"Start.bat" in cn_bat
 open_this = (root / "packaging/windows/OPEN-THIS.bat").read_bytes()
 assert all(byte < 128 for byte in open_this), "OPEN-THIS.bat must be ASCII"
 assert b"Extract All" in open_this
-assert b"ClassInterpreter-0.3.2" in open_this
+assert b"ClassInterpreter-0.3.3" in open_this
 assert b"Start.bat" in open_this
 assert b"%TEMP%" in open_this
 
@@ -100,7 +103,7 @@ howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
 assert all(byte < 128 for byte in howto)
 assert b"Start.bat" in howto
 assert b"OPEN-THIS.bat" in howto
-assert b"0.3.2" in howto
-assert b"ClassInterpreter-windows-0.3.2.zip" in howto or b"0.3.2" in howto
+assert b"0.3.3" in howto
+assert b"ClassInterpreter-windows-0.3.3.zip" in howto or b"0.3.3" in howto
 
 print("start.ps1 ok")

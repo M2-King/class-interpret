@@ -6,7 +6,7 @@ $script:LastNativeExit = 0
 try { [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 } catch { }
 
 $VersionFile = Join-Path $PSScriptRoot 'VERSION'
-$Version = '0.3.2'
+$Version = '0.3.3'
 if (Test-Path -LiteralPath $VersionFile) {
     $Version = (Get-Content -LiteralPath $VersionFile -TotalCount 1 -Encoding UTF8).Trim()
 }
@@ -405,10 +405,17 @@ function Install-WithPip {
     if (-not (Test-PipModule -Exe $exe)) {
         throw 'pip is not available in the local Python. Delete the .runtime folder and double-click Start.bat again.'
     }
+    $indexes = @(
+        @('--index-url', 'https://pypi.tuna.tsinghua.edu.cn/simple', '--trusted-host', 'pypi.tuna.tsinghua.edu.cn', '--trusted-host', 'mirrors.cloud.tencent.com'),
+        @('--index-url', 'https://mirrors.aliyun.com/pypi/simple', '--trusted-host', 'mirrors.aliyun.com'),
+        @()
+    )
     Write-Host ("pip using " + $exe)
-    $pipArgs = @('-m', 'pip', '--retries', '1', '--timeout', '30') + $PipArgs
-    Invoke-Native -FilePath $exe -ArgumentList $pipArgs
-    if ($script:LastNativeExit -eq 0) { return }
+    foreach ($indexArgs in $indexes) {
+        $pipArgs = @('-m', 'pip', '--retries', '1', '--timeout', '45') + $indexArgs + $PipArgs
+        Invoke-Native -FilePath $exe -ArgumentList $pipArgs
+        if ($script:LastNativeExit -eq 0) { return }
+    }
     Write-Host 'pip SSL failed, retrying with trusted-host...'
     $pipArgs = @('-m', 'pip', '--retries', '1', '--timeout', '30', '--trusted-host', 'pypi.org', '--trusted-host', 'files.pythonhosted.org', '--trusted-host', 'pypi.python.org') + $PipArgs
     Invoke-Native -FilePath $exe -ArgumentList $pipArgs
@@ -445,7 +452,7 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
     }
 }
 $venvPython = ConvertTo-PythonPath $venvPython
-if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.3.2.zip again.' }
+if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.3.3.zip again.' }
 
 Write-Host 'Installing packages (first run needs internet, a few minutes)...'
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '--upgrade', 'pip')
