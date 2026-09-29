@@ -7,37 +7,49 @@
   <link rel="stylesheet" href="/style.css">
 </head>
 <body>
-  <div class="shell">
+  <div class="ambient ambient-a"></div>
+  <div class="ambient ambient-b"></div>
+  <div class="app-window">
     <aside class="sidebar">
-      <div class="brand"><span class="brand-mark">聴</span><div><strong>听课搭子</strong><small>CLASS INTERPRETER</small></div></div>
+      <div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div>
+      <div class="brand"><span class="brand-mark">听</span><div><strong>听课搭子</strong><small>Class Interpreter</small></div></div>
       <button id="mobile-settings" class="mobile-settings-button" type="button" aria-expanded="false">课堂设置 ▾</button>
-      <div class="side-label">课堂设置</div>
-      <label class="field"><span>课程名称</span><input id="class-title" maxlength="80" placeholder="例如：Business Analytics"></label>
-      <label class="field"><span>声音来源</span><select id="source"><option value="mic">麦克风 · 线下课堂</option><option value="screen">共享标签页/屏幕音频 · 网课</option></select></label>
-      <label class="field"><span>识别精度</span><select id="model"><option value="small">流畅 · Small</option><option value="medium" selected>更准确 · Medium</option><option value="large-v3">最高精度 · Large v3</option></select></label>
-      <label class="field"><span>课程术语提示</span><textarea id="glossary" rows="3" maxlength="500" placeholder="例：regression, hypothesis testing, ANOVA"></textarea><small>输入老师常用的英文专业词，有助于识别。</small></label>
-      <label class="check"><input id="speak" type="checkbox"><span>朗读中文译文</span></label>
+      <nav class="side-nav" aria-label="功能导航">
+        <button class="nav-item active" type="button"><span class="nav-icon waveform-icon">▮▮▮</span><span><b>实时听课</b><small>Live Class</small></span></button>
+        <button class="nav-item" type="button" data-scroll="summary-section"><span class="nav-icon">▤</span><span><b>课程总结</b><small>Summaries</small></span></button>
+        <button class="nav-item" type="button" data-focus="history"><span class="nav-icon">◷</span><span><b>历史记录</b><small>History</small></span></button>
+        <button class="nav-item" type="button" data-expand-settings><span class="nav-icon">⚙</span><span><b>设置</b><small>Settings</small></span></button>
+      </nav>
+      <div class="sidebar-rule"></div>
+      <div class="side-label">课堂设置 <span>Classroom Setup</span></div>
+      <div class="settings-stack">
+        <label class="field compact-field"><span class="field-icon">▣</span><span class="field-copy"><small>课程名称</small><input id="class-title" maxlength="80" placeholder="Business Analytics"></span></label>
+        <label class="field compact-field"><span class="field-icon">♩</span><span class="field-copy"><small>音频来源</small><select id="source"><option value="mic">麦克风 · 线下课堂</option><option value="screen">共享标签页 · 网课</option></select></span></label>
+        <label class="field compact-field"><span class="field-icon">◫</span><span class="field-copy"><small>识别模型</small><select id="model"><option value="small">Small · 流畅</option><option value="medium" selected>Medium · 中等</option><option value="large-v3">Large v3 · 精确</option></select></span></label>
+        <label class="field glossary-field"><span>专业术语 <small>（可选）</small></span><textarea id="glossary" rows="2" maxlength="500" placeholder="regression, hypothesis testing, ANOVA"></textarea></label>
+        <label class="check"><input id="speak" type="checkbox"><span class="switch" aria-hidden="true"></span><span><b>朗读中文译文</b><small>自动朗读翻译结果</small></span></label>
+      </div>
       <div class="side-label history-title">最近课堂 <button id="new-session" class="text-button" title="新建课堂">＋ 新建</button></div>
       <div id="history" class="history"><span class="muted">尚无课堂记录</span></div>
       <div class="side-foot">语音在此电脑处理 · 无付费接口</div>
     </aside>
 
     <main class="main">
-      <header class="topbar"><span class="eyebrow">LIVE STUDY ASSISTANT</span><span id="local-status" class="status-pill">正在检查本地模型…</span></header>
-      <section class="hero">
-        <div class="hero-copy"><div class="eyebrow accent">FOR YOUR NEXT CLASS</div><h1>听懂每一句，<br><em>跟上每一堂课。</em></h1><p>英语原文与中文译文同步呈现。带口音的课堂对话也能回看、修正，再一键整理成课后笔记。</p></div>
-        <div class="hero-art" aria-hidden="true"><div class="orbit orbit-one"></div><div class="orbit orbit-two"></div><div class="sound-bars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>EN</span><b>→</b><span>中</span></div>
-      </section>
+      <header class="topbar"><div class="page-title"><span class="page-dot"></span><div><h2>实时听课 <em>Live Class</em></h2><p>AI 同传 · 实时转写 · 课程笔记 · 智能总结</p></div></div><div class="top-actions"><span id="local-status" class="status-pill"><i></i> 正在检查本地模型…</span><span class="profile-icon" aria-hidden="true">♙</span></div></header>
+      <div class="dashboard-grid"><div class="content-column">
+      <section class="hero"><div class="hero-copy"><span>你的 AI 课堂翻译助手</span><h1>听懂每一句，<br>跟上每一堂课。</h1><p>实时呈现英语原文与中文译文，支持课堂转写、智能总结和重点提炼，帮你高效学习。</p></div><div class="hero-wave" aria-hidden="true"><div class="wave-line wave-one"></div><div class="wave-line wave-two"></div><div class="language-core"><b>EN</b><i>→</i><b>中</b></div><div class="mini-wave left-wave">▏▎▆▂▅▏</div><div class="mini-wave right-wave">▏▅▂▆▎▏</div></div></section>
 
-      <section class="workspace">
-        <div class="workspace-head"><div><span class="eyebrow">CURRENT CLASS</span><h2 id="session-heading">准备开始听课</h2><p id="session-meta">选择声音来源，开始后将自动保存课堂记录。</p></div><div id="record-indicator" class="record-indicator"><span></span>未录音</div></div>
-        <div class="action-row"><button id="record-button" class="button primary"><span class="button-icon">●</span><span>开始同传</span></button><button id="summary-button" class="button secondary">✦ 生成课后总结</button><button id="export-button" class="button ghost">↓ 导出笔记</button></div>
+      <section class="control-bar"><div class="session-clock"><span class="record-orb"><i></i></span><div><strong id="elapsed-time">00:00:00</strong><small id="record-indicator" class="record-indicator"><span></span><i id="record-status">未录音</i> · <b id="session-heading">准备开始听课</b></small></div></div><div class="action-row"><button id="record-button" class="button primary"><span class="button-icon">●</span><span>开始同传</span></button><button id="summary-button" class="button secondary">＋ 生成课程总结</button><button id="export-button" class="button ghost">⇩ 导出笔记</button></div></section>
         <div id="notice" class="notice" role="status" aria-live="polite">第一次识别会下载免费语音模型，需保持联网；下载完成后可离线使用。</div>
-        <div class="section-head"><div><span class="eyebrow">TRANSCRIPT</span><h3>实时课堂记录</h3></div><span id="entry-count" class="count">0 条</span></div>
+      <section class="workspace"><div class="transcript-toolbar"><div><h3>实时转写与翻译 <span>Live Transcript</span></h3><p id="session-meta">选择声音来源，开始后将自动保存课堂记录。</p></div><div class="toolbar-actions"><span class="view-chip">双语对照⌄</span><label class="search-box"><span>⌕</span><input id="transcript-search" placeholder="搜索转写内容…"></label><span id="entry-count" class="count">0 条</span></div></div><div class="transcript-head" aria-hidden="true"><span>时间</span><span>原文 / English</span><span>译文 / 中文</span><span></span></div>
         <div id="transcript" class="transcript"><div class="empty"><div class="empty-icon">◌</div><strong>准备好听课了</strong><p>点击“开始同传”，允许浏览器访问麦克风。</p></div></div>
       </section>
-
-      <section id="summary-section" class="summary-section"><div class="section-head"><div><span class="eyebrow">AFTER CLASS</span><h3>课后总结</h3></div><span id="summary-source" class="summary-source">尚未生成</span></div><div id="summary-content" class="summary-content muted">点击上方“生成课后总结”，随时整理已经记录的内容。</div></section>
+      </div><aside class="insight-rail">
+        <section id="summary-section" class="rail-card summary-section"><div class="rail-title"><span class="rail-icon">▤</span><h3>课程摘要 <small>Class Summary</small></h3><span id="summary-source" class="summary-source">尚未生成</span></div><div id="summary-content" class="summary-content muted">完成一段课堂记录后，点击“生成课程总结”，这里会整理核心内容。</div><button class="summary-jump" type="button" data-generate-summary>生成完整总结 <span>→</span></button></section>
+        <section class="rail-card concepts-card"><div class="rail-title"><span class="rail-icon">◉</span><h3>关键概念 <small>Key Concepts</small></h3><span id="concept-count" class="number-pill">0</span></div><div id="concept-list" class="concept-list"><span class="concept-placeholder">术语将从课堂记录中提取</span></div></section>
+        <section class="rail-card progress-card"><div class="rail-title"><span class="rail-icon">▥</span><h3>学习数据 <small>Today's Progress</small></h3><span class="duration-label">今日时长 <b id="duration-metric">0 分钟</b></span></div><div class="metric-grid"><div><strong id="segment-metric">0</strong><span>转写片段</span></div><div><strong id="word-metric">0</strong><span>英文词数</span></div><div><strong id="concept-metric">0</strong><span>关键概念</span></div></div></section>
+        <section class="rail-card system-card"><div class="rail-title"><span class="rail-icon">✿</span><h3>系统状态 <small>System Status</small></h3><span class="running-pill"><i></i> 运行正常</span></div><div class="system-list"><div><span>♩ 麦克风</span><b id="mic-health">待连接</b></div><div><span>▮ 音频输入</span><b id="audio-health">等待语音</b></div><div><span>↝ 同传引擎</span><b id="engine-health">检查中</b></div><div><span>▣ 本地记录</span><b>自动保存</b></div></div></section>
+      </aside></div>
       <footer>识别结果可能因口音、距离和噪声而出错；重要作业和截止时间请核对英文原文。</footer>
     </main>
   </div>

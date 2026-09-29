@@ -5,12 +5,63 @@ const ui = {
   indicator: $('record-indicator'), record: $('record-button'), summary: $('summary-button'),
   export: $('export-button'), count: $('entry-count'), transcript: $('transcript'),
   summaryContent: $('summary-content'), summarySource: $('summary-source'),
-  status: $('local-status'), notice: $('notice')
+  status: $('local-status'), notice: $('notice'), recordStatus: $('record-status'),
+  elapsed: $('elapsed-time'), concepts: $('concept-list'), conceptCount: $('concept-count'),
+  durationMetric: $('duration-metric'), segmentMetric: $('segment-metric'),
+  wordMetric: $('word-metric'), conceptMetric: $('concept-metric'),
+  micHealth: $('mic-health'), audioHealth: $('audio-health'), engineHealth: $('engine-health')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
   uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0 };
 const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
+let clockTimer = null;
+
+function formatClock(seconds) {
+  seconds = Math.max(0, Math.floor(Number(seconds) || 0));
+  return [Math.floor(seconds / 3600), Math.floor(seconds / 60) % 60, seconds % 60]
+    .map(value => String(value).padStart(2, '0')).join(':');
+}
+
+function sessionSeconds() {
+  const recorded = state.session?.entries?.length ? Number(state.session.entries.at(-1).at) || 0 : 0;
+  return state.recording ? state.baseElapsed + (performance.now() - state.startedAt) / 1000 : recorded;
+}
+
+function updateClock() {
+  if (ui.elapsed) ui.elapsed.textContent = formatClock(sessionSeconds());
+}
+
+function extractConcepts(session) {
+  const glossary = ui.glossary.value.split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
+  const stop = new Set(['about','after','again','also','because','before','being','between','could','from','have','into','just','more','most','other','some','such','than','that','their','there','these','they','this','through','today','using','very','what','when','where','which','will','with','would','your']);
+  const counts = new Map();
+  for (const entry of session?.entries || []) {
+    const words = (entry.en || '').toLowerCase().match(/[a-z][a-z-]{3,}/g) || [];
+    for (const word of words) if (!stop.has(word)) counts.set(word, (counts.get(word) || 0) + 1);
+  }
+  const frequent = [...counts.entries()].filter(([, count]) => count > 1).sort((a,b) => b[1] - a[1]).map(([word]) => word);
+  return [...new Set([...glossary, ...frequent])].slice(0, 10);
+}
+
+function renderInsights(session) {
+  const entries = session?.entries || [];
+  const concepts = extractConcepts(session);
+  const words = entries.reduce((total, entry) => total + ((entry.en || '').match(/[A-Za-z]+(?:[-'][A-Za-z]+)*/g) || []).length, 0);
+  const minutes = Math.ceil((entries.length ? Number(entries.at(-1).at) || 0 : 0) / 60);
+  ui.concepts.replaceChildren();
+  if (concepts.length) {
+    for (const concept of concepts) { const chip = document.createElement('span'); chip.textContent = concept; ui.concepts.append(chip); }
+  } else {
+    const empty = document.createElement('span'); empty.className = 'concept-placeholder'; empty.textContent = '术语将从课堂记录中提取'; ui.concepts.append(empty);
+  }
+  ui.conceptCount.textContent = concepts.length;
+  ui.segmentMetric.textContent = entries.length;
+  ui.wordMetric.textContent = words;
+  ui.conceptMetric.textContent = concepts.length;
+  ui.durationMetric.textContent = `${minutes} 分钟`;
+  updateClock();
+}
 
 $('mobile-settings').addEventListener('click', () => {
   const expanded = document.querySelector('.sidebar').classList.toggle('expanded');
@@ -56,6 +107,7 @@ function drawSession() {
   ui.summarySource.textContent = session?.summary_source || '尚未生成';
   ui.summary.disabled = !session?.entries.length;
   ui.export.disabled = !session?.entries.length;
+  renderInsights(session);
 }
 
 function makeEntry(entry) {
@@ -245,7 +297,9 @@ async function startRecording() {
   };
   state.stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => { if (state.recording) stopRecording(); }));
   ui.record.classList.add('recording'); ui.record.lastElementChild.textContent = '结束听课';
-  ui.indicator.classList.add('active'); ui.indicator.lastChild.textContent = '正在听课';
+  ui.indicator.classList.add('active'); ui.recordStatus.textContent = '正在听课';
+  ui.micHealth.textContent = '已连接'; ui.audioHealth.textContent = '检测语音中';
+  clearInterval(clockTimer); clockTimer = setInterval(updateClock, 1000); updateClock();
   ui.model.disabled = true; ui.source.disabled = true;
   notice(matchMedia('(max-width: 750px)').matches
     ? '正在录音。手机请保持页面在前台并避免锁屏；译文按停顿或约 8 秒更新。'
@@ -262,7 +316,9 @@ async function stopRecording() {
   await state.audioContext.close();
   state.stream = null; state.audioContext = null;
   ui.record.classList.remove('recording'); ui.record.lastElementChild.textContent = '继续同传';
-  ui.indicator.classList.remove('active'); ui.indicator.lastChild.textContent = '已结束录音';
+  ui.indicator.classList.remove('active'); ui.recordStatus.textContent = '已结束录音';
+  ui.micHealth.textContent = '已断开'; ui.audioHealth.textContent = '等待语音';
+  clearInterval(clockTimer); clockTimer = null; updateClock();
   ui.model.disabled = false; ui.source.disabled = false;
   notice('录音已结束，正在完成剩余识别…');
   await state.uploadQueue;
@@ -282,6 +338,27 @@ $('new-session').addEventListener('click', async () => {
   ui.record.lastElementChild.textContent = '开始同传';
   drawSession(); loadHistory();
   notice('新课堂已准备好。输入课程名称后即可开始同传。');
+});
+
+document.querySelector('[data-generate-summary]').addEventListener('click', () => ui.summary.click());
+document.querySelectorAll('[data-scroll]').forEach(button => button.addEventListener('click', () => {
+  document.getElementById(button.dataset.scroll)?.scrollIntoView({behavior:'smooth', block:'start'});
+}));
+document.querySelectorAll('[data-expand-settings]').forEach(button => button.addEventListener('click', () => {
+  document.querySelector('.sidebar').classList.add('expanded');
+  $('mobile-settings').setAttribute('aria-expanded', 'true');
+  $('mobile-settings').textContent = '收起设置 ▴';
+  ui.title.focus();
+}));
+document.querySelectorAll('[data-focus="history"]').forEach(button => button.addEventListener('click', () => {
+  document.querySelector('.sidebar').classList.add('expanded');
+  ui.history.scrollIntoView({behavior:'smooth', block:'center'});
+}));
+$('transcript-search').addEventListener('input', event => {
+  const query = event.target.value.trim().toLocaleLowerCase();
+  document.querySelectorAll('#transcript .entry').forEach(row => {
+    row.hidden = query && !row.textContent.toLocaleLowerCase().includes(query);
+  });
 });
 
 ui.summary.addEventListener('click', async () => {
@@ -315,6 +392,7 @@ async function init() {
   try {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
     ui.status.textContent = `${status.translation ? '离线翻译就绪' : '翻译模型待安装'} · ${status.deepseek ? 'DeepSeek 就绪' : '基础总结就绪'}`;
+    ui.engineHealth.textContent = status.translation ? '正常运行' : '模型待安装';
     if (!status.translation) notice('英语 → 中文模型尚未安装。运行 setup_models.py 后即可显示中文译文。', true);
   } catch (error) { notice(`无法连接本地服务：${error.message}`, true); ui.status.textContent = '服务未就绪'; }
 }
