@@ -1,8 +1,34 @@
 # 听课搭子：免费本地课堂同传
 
-介绍页（暗色黄金稿）：打开仓库里的 [`docs/index.html`](docs/index.html)，或开启 GitHub Pages 的 `docs/` 目录。
+介绍页：仓库 [`docs/index.html`](docs/index.html)（同目录已带 Mac / Windows 安装包）。
 
-这是一个运行在自己电脑上的英语课堂同传应用。用浏览器采集麦克风或网课标签页的声音，约每 3–8 秒给出英文原文及中文译文；可选中文朗读、修正识别结果、自动保存、导出笔记，并有独立的 **“生成课后总结”** 按钮。
+这是一个运行在自己电脑上的英语课堂同传。浏览器采集麦克风或网课声音，给出英文原文和中文译文。课后可点 **生成课后总结**。上课同传不需要付费语音 API。
+
+## Windows 怎么用
+
+1. 下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/docs/ClassInterpreter-windows-0.3.3.zip)。等 Chrome 下完，不要打开 `.crdownload`。
+2. 右键 zip → **Extract All**。不要在压缩包窗口里双击任何文件。
+3. 双击 **OPEN-THIS.bat**。黑窗口不要关。第一行必须是 **Class Interpreter 0.3.3**。
+4. 浏览器打开 `http://127.0.0.1:8765/`，必须显示 **0.3.3**。点黄色按钮，模型选 **Small**。校园网失败请换手机热点。
+5. 若提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
+6. 如果已经删掉 `.venv`：把 zip 解压到**新文件夹**，换热点后再双击 OPEN-THIS.bat。第一次会重新装包，要几分钟。
+7. 解压后路径：`ClassInterpreter-0.3.3\Start.bat` · 环境 `.venv\` · 模型 `hf\` · 笔记 `data\`。
+
+已经能用且还留着 `.venv` 的电脑（例如 R9000P）：继续用旧文件夹，不要用新 zip 覆盖。
+
+## Mac 怎么用
+
+1. 下载 [ClassInterpreter-mac-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/docs/ClassInterpreter-mac-0.3.3.zip)。
+2. 双击解压，进入 **ClassInterpreter-mac-0.3.3**。
+3. 双击 **Open.command**。不要只点「听课搭子」图标。
+4. 若无法打开：按住 Control 点 Open.command → 打开；或系统设置 → 隐私与安全性 → 仍要打开。
+5. 左上角应为 **Class Interpreter · 0.3.3**。黄色条下载模型，建议 **Small** 或 **Medium**。校园网请换手机热点。
+6. 可把 `听课搭子.app` 拖到「应用程序」。依赖在 `~/Library/Application Support/ClassInterpret`，日志在 `~/Library/Logs/class-interpret.log`。
+7. 下课后点 **退出听课搭子**。上课请让 Mac 保持清醒。
+
+苹果芯片用 CPU，不是 NVIDIA。页面：`http://127.0.0.1:8765/`。
+
+**iPhone / iPad：** 手机不能单独装同传。先在 Mac 打开听课搭子，再双击 `听课搭子手机.app`，把 `https://….trycloudflare.com` 用 Safari / Chrome 打开（不要用微信内置浏览器）。
 
 ## 已经能用的电脑（例如 R9000P）
 
@@ -10,42 +36,7 @@
 
 修复包（只覆盖启动器和页面，保留旧文件夹）：[ClassInterpreter-recover-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-recover-0.3.3.zip)
 
-**如果已经删掉 `.venv`：** 用手机热点，下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-windows-0.3.3.zip)。右键 Extract All，双击 **OPEN-THIS.bat**。第一次会重新装包，黑窗口要留着，大约几分钟。装好后页面必须是 **0.3.3**，再点黄色按钮下载 Small 模型。显卡加速会尽量重装 CUDA 库；失败时仍可用 CPU。
-
-## Windows 怎么用（没有旧文件夹时）
-
-1. 下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-windows-0.3.3.zip)。等 Chrome 下完，不要打开 `.crdownload`。
-2. **右键 zip → Extract All**。不要在压缩包窗口里双击任何文件。
-3. 双击 **OPEN-THIS.bat**。黑窗口第一行必须是 **Class Interpreter 0.3.3**。这个包已带 Python 3.12。
-4. 黑窗口不要关。校园网失败请换手机热点。浏览器左上角必须是 **0.3.3**，再点黄色按钮（建议 Small）。
-
-打不开通常不是电脑坏了：Windows 不能从 zip 窗口里运行。R9000P 旧文件夹如果已经能用，请继续用旧的。
-
-如果 Windows 提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
-
-## 第一次使用（Mac）
-
-三步，不用终端：
-
-1. 下载 [ClassInterpreter-mac-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/windows-extract-guard-b27d/ClassInterpreter-mac-0.3.3.zip)。
-2. 双击 zip 解压，进入 **ClassInterpreter-mac-0.3.3** 文件夹。
-3. **不要只点「听课搭子」图标**（会提示无法打开）。请双击 **Open.command**。
-4. 若仍无法打开：按住 Control 点 Open.command → 打开。或到系统设置 → 隐私与安全性 → 仍要打开。
-5. 左上角应为 **Class Interpreter · 0.3.3**。黄色条下载模型；校园网请换手机热点。
-
-- 第一次会弹出系统通知，并可能要求输入 Mac 登录密码（安装官方 Python）。依赖装在 `~/Library/Application Support/ClassInterpret`。
-- 装好后自动用浏览器打开课堂页面。应用本身不占程序坞，避免一直跳启动动画。
-- 可以把整个 `听课搭子.app` 拖到「应用程序」文件夹。
-- 若提示身份不明：右键 → **打开**。
-- 下课后在页面左侧点 **退出听课搭子**，不要只关浏览器标签。上课期间请让 Mac 保持清醒。
-
-如果页面提示「中文翻译模型还没装好」，点 **现在安装中文翻译模型**（需联网）。校园网如果出现 `SSLCertVerificationError` / `unable to get local issuer certificate`，请改用手机热点后再打开一次应用。
-
-苹果芯片用 CPU，课堂里建议选 **Small** 或 **Medium**。日志在 `~/Library/Logs/class-interpret.log`。
-
-本机 DeepSeek 总结：把 API key 贴进 `secrets/deepseek.api` 后会加密成 `deepseek_api.enc`，你和朋友解压即可用课后总结。也可以在页面点 **安装 DeepSeek** 用本机 Ollama（免费，约 1.1GB）。上课同传仍用 Whisper。
-
-**手机：** 先在 Mac 上打开听课搭子，再双击 `听课搭子手机.app`，把弹出的 https 链接用 Safari / Chrome 打开。
+**如果已经删掉 `.venv`：** 用手机热点，按上面的 Windows 步骤解压新包。第一次会重新装包，黑窗口要留着。装好后页面必须是 **0.3.3**，再点黄色按钮下载 Small。显卡加速会尽量重装 CUDA 库；失败时仍可用 CPU。
 
 ## 课后总结与 DeepSeek
 
