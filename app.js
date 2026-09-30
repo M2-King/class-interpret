@@ -123,6 +123,17 @@ document.querySelectorAll('.model-card').forEach(card => {
     if (lastStatus) applyStatus(lastStatus);
   });
 });
+if (ui.model) {
+  ui.model.addEventListener('change', () => {
+    syncModelCards();
+    if (lastStatus) applyStatus(lastStatus);
+  });
+}
+if ($('dual-view')) {
+  $('dual-view').addEventListener('change', event => {
+    $('view-live').classList.toggle('mono', !event.target.checked);
+  });
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
@@ -245,8 +256,6 @@ function makeEntry(entry) {
   const time = document.createElement('div');
   time.className = 'entry-time';
   time.textContent = formatTime(entry.at);
-  const body = document.createElement('div');
-  body.className = 'entry-body';
   const en = document.createElement('div');
   en.className = 'entry-en';
   en.textContent = entry.en;
@@ -279,9 +288,11 @@ function makeEntry(entry) {
     });
     cancel.addEventListener('click', drawSession);
     actions.append(save, cancel);
-    body.replaceChildren(english, chinese, actions);
+    row.style.gridTemplateColumns = '1fr';
+    row.replaceChildren(english, chinese, actions);
   });
-  tools.append(edit); body.append(en, zh, tools); row.append(time, body);
+  tools.append(edit);
+  row.append(time, en, zh, tools);
   return row;
 }
 
@@ -304,7 +315,7 @@ function fillSessionList(container, list) {
       state.session = await api(`/api/sessions/${item.id}`);
       ui.title.value = state.session.title;
       drawSession(); loadHistory();
-      if (container === ui.history) showView('live');
+      if (container === ui.history || container.id === 'recent-list') showView('live');
     });
     container.append(button);
   }
@@ -314,6 +325,7 @@ async function loadHistory() {
   const list = await api('/api/sessions');
   fillSessionList(ui.history, list);
   if (ui.exportList) fillSessionList(ui.exportList, list);
+  if ($('recent-list')) fillSessionList($('recent-list'), list);
 }
 
 async function ensureSession() {
@@ -532,7 +544,7 @@ ui.export.addEventListener('click', () => {
 async function init() {
   greeting();
   syncModelCards();
-  showView('home');
+  showView('live');
   drawSession();
   try {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
