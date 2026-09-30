@@ -36,4 +36,8 @@ assert "HF_ENDPOINT" in src
 assert "hf-mirror.com" in src
 assert "server.py" in src
 assert "get-pip.py" in src
+assert "def stop_listener" in src
+assert "api/shutdown" in src
+assert src.index("stop_listener") < src.index('["server.py"]')
+wb.stop_listener(port=9, wait=0)
 print("win_bootstrap ok")

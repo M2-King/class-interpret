@@ -74,9 +74,19 @@ joined = "Collecting pip Using cached pip " + r"C:\Users\26098681\a\.runtime\pyt
 match = re.search(ps_pat, joined)
 assert match.group(1).endswith(r".runtime\python\python.exe")
 
+def assert_crlf_bat(raw: bytes, name: str) -> None:
+    leftover = raw.replace(b"\r\n", b"")
+    assert b"\n" not in leftover, (
+        f"{name} must use CRLF. Unix LF on Chinese Windows cmd.exe splits "
+        "-ExecutionPolicy so it tries to run cutionPolicy"
+    )
+    assert b"\r\n" in raw, name
+
+
 start_bat = (root / "Start.bat").read_bytes()
 assert (root / "Start.bat").is_file(), "ASCII Start.bat is the Windows double-click entry"
 assert all(byte < 128 for byte in start_bat), "Start.bat must be ASCII"
+assert_crlf_bat(start_bat, "Start.bat")
 assert b"start.ps1" in start_bat
 assert b"Extract All" in start_bat
 assert b"AppData\\Local\\Temp" in start_bat or b"Local\\Temp" in start_bat
@@ -87,13 +97,23 @@ assert b"Unblock-File" in start_bat
 assert b"0.3.3" in start_bat
 assert b"win_bootstrap.py" in start_bat
 assert b".runtime\\python\\python.exe" in start_bat
+assert b".venv\\Scripts\\python.exe" in start_bat
+assert start_bat.find(b".venv\\Scripts\\python.exe") < start_bat.find(b"ExecutionPolicy")
 
 cn_bat = (root / "启动同传.bat").read_bytes()
 assert all(byte < 128 for byte in cn_bat), "启动同传.bat must be ASCII"
-assert b"Start.bat" in cn_bat
+assert_crlf_bat(cn_bat, "启动同传.bat")
+assert b"\xe5\x90\xaf\xe5\x8a\xa8\xe5\xa4\xb1" not in cn_bat, "old UTF-8 启动失败 bat breaks cmd.exe"
+assert b"\xe6\x8c\x89\xe4\xbb\xbb\xe6\x84\x8f\xe9\x94\xae" not in cn_bat, "old 按任意键 line"
+assert len(cn_bat) != 202, "202-byte original 启动同传.bat is the cutionPolicy launcher"
+assert cn_bat == start_bat, "启动同传.bat must be a full launcher; R9000P copies often lack Start.bat"
+
+attrs = (root / ".gitattributes").read_text(encoding="utf-8")
+assert "*.bat" in attrs and "-text" in attrs, "keep CRLF bytes in git so cmd.exe can parse the bats"
 
 open_this = (root / "packaging/windows/OPEN-THIS.bat").read_bytes()
 assert all(byte < 128 for byte in open_this), "OPEN-THIS.bat must be ASCII"
+assert_crlf_bat(open_this, "OPEN-THIS.bat")
 assert b"Extract All" in open_this
 assert b"ClassInterpreter-0.3.3" in open_this
 assert b"Start.bat" in open_this

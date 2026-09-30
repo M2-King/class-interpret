@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -96,6 +97,20 @@ def pip_install(exe: str, args: list[str]) -> None:
     raise RuntimeError(last_error + ". Switch to a phone hotspot and double-click OPEN-THIS.bat again.")
 
 
+def stop_listener(port: int = 8765, wait: float = 1) -> None:
+    try:
+        req = urllib.request.Request(
+            f"http://127.0.0.1:{port}/api/shutdown",
+            data=b"",
+            method="POST",
+        )
+        urllib.request.urlopen(req, timeout=2).read()
+    except (urllib.error.URLError, TimeoutError, OSError):
+        pass
+    if wait:
+        time.sleep(wait)
+
+
 def status_version(url: str = "http://127.0.0.1:8765/api/status") -> str | None:
     try:
         with urllib.request.urlopen(url, timeout=2) as response:
@@ -164,6 +179,9 @@ def main() -> int:
         except Exception:
             pass
         return 0
+    if current:
+        log("Stopping old server " + current + " ...")
+        stop_listener()
 
     if not packages_ok(sys.executable):
         ensure_pip(root, sys.executable)

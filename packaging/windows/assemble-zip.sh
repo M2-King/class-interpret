@@ -31,6 +31,15 @@ if any(ord(ch) > 127 for ch in text):
 p.write_bytes(b"\xef\xbb\xbf" + text.encode("utf-8"))
 howto = dest / "使用说明.txt"
 howto.write_bytes(b"\xef\xbb\xbf" + howto.read_text(encoding="utf-8-sig").encode("utf-8"))
+for bat_name in ("Start.bat", "启动同传.bat"):
+    bat = dest / bat_name
+    body = bat.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    if not all(byte < 128 for byte in body):
+        raise SystemExit(bat_name + " must stay ASCII")
+    bat.write_bytes(body)
+open_this = Path(os.environ["DEST"]).parent / "OPEN-THIS.bat"
+open_body = open_this.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+open_this.write_bytes(open_body)
 PY
 OUT_VER="$ROOT/ClassInterpreter-windows-${VERSION}.zip"
 OUT_STABLE="$ROOT/ClassInterpreter-windows.zip"
