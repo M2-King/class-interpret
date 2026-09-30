@@ -564,12 +564,20 @@ async function init() {
   }
 }
 
+function translationFailNotice(message) {
+  const text = String(message || '翻译模型安装失败').replace(/。+$/, '');
+  if (/依赖|argostranslate|pip|Start\.bat|Open\.command/i.test(text)) {
+    return text + '。';
+  }
+  return `翻译模型安装失败：${text}。可改用手机热点后重试。`;
+}
+
 if (ui.installTranslation) {
   ui.installTranslation.addEventListener('click', async () => {
     ui.installTranslation.disabled = true;
-    if (ui.modelBannerText) ui.modelBannerText.textContent = '正在下载英语 → 中文模型，请保持联网…';
-    notice('正在下载英语 → 中文模型，请保持联网…', 'warn');
-    const timeout = fetchTimeout(360000);
+    if (ui.modelBannerText) ui.modelBannerText.textContent = '正在安装翻译依赖并下载英语 → 中文模型，请保持联网…';
+    notice('正在安装翻译依赖并下载英语 → 中文模型，请保持联网…', 'warn');
+    const timeout = fetchTimeout(900000);
     try {
       const body = await api('/api/translation/install', { method: 'POST', signal: timeout.signal });
       timeout.cancel();
@@ -582,9 +590,10 @@ if (ui.installTranslation) {
     } catch (error) {
       timeout.cancel();
       const message = error.name === 'AbortError' ? '下载超时，请换网络后重试。' : error.message;
+      const shown = translationFailNotice(message);
       if (ui.modelBanner) ui.modelBanner.classList.add('show');
-      if (ui.modelBannerText) ui.modelBannerText.textContent = `翻译模型安装失败：${message}。可改用手机热点后重试。`;
-      notice(`翻译模型安装失败：${message}。可改用手机热点后重试。`, true);
+      if (ui.modelBannerText) ui.modelBannerText.textContent = shown;
+      notice(shown, true);
       ui.installTranslation.disabled = false;
     }
   });

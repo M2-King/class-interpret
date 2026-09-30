@@ -75,8 +75,9 @@ def install_translation_model() -> None:
     try:
         setup_models.main()
     except SystemExit as exc:
-        if exc.code not in (0, None):
-            raise RuntimeError(str(exc) or "翻译模型安装失败") from exc
+        if exc.code in (0, None):
+            return
+        raise RuntimeError(str(exc.code) or "翻译模型安装失败") from exc
 
 
 def translation_available() -> bool:

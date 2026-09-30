@@ -26,6 +26,7 @@ type pip_with_ssl_fallback >/dev/null
 "$found" tests/test_deepseek_hub.py
 "$found" tests/test_secret_box.py
 "$found" tests/test_deepseek_api.py
+"$found" tests/test_setup_models.py
 "$found" tests/test_win_bootstrap.py
 "$found" tests/test_start_ps1.py
 "$found" tests/test_packaging.py
