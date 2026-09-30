@@ -123,6 +123,17 @@ document.querySelectorAll('.model-card').forEach(card => {
     if (lastStatus) applyStatus(lastStatus);
   });
 });
+if (ui.model) {
+  ui.model.addEventListener('change', () => {
+    syncModelCards();
+    if (lastStatus) applyStatus(lastStatus);
+  });
+}
+if ($('dual-view')) {
+  $('dual-view').addEventListener('change', event => {
+    $('view-live').classList.toggle('mono', !event.target.checked);
+  });
+}
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
@@ -245,8 +256,6 @@ function makeEntry(entry) {
   const time = document.createElement('div');
   time.className = 'entry-time';
   time.textContent = formatTime(entry.at);
-  const body = document.createElement('div');
-  body.className = 'entry-body';
   const en = document.createElement('div');
   en.className = 'entry-en';
   en.textContent = entry.en;
@@ -279,9 +288,11 @@ function makeEntry(entry) {
     });
     cancel.addEventListener('click', drawSession);
     actions.append(save, cancel);
-    body.replaceChildren(english, chinese, actions);
+    row.style.gridTemplateColumns = '1fr';
+    row.replaceChildren(english, chinese, actions);
   });
-  tools.append(edit); body.append(en, zh, tools); row.append(time, body);
+  tools.append(edit);
+  row.append(time, en, zh, tools);
   return row;
 }
 
@@ -304,7 +315,7 @@ function fillSessionList(container, list) {
       state.session = await api(`/api/sessions/${item.id}`);
       ui.title.value = state.session.title;
       drawSession(); loadHistory();
-      if (container === ui.history) showView('live');
+      if (container === ui.history || container.id === 'recent-list') showView('live');
     });
     container.append(button);
   }
@@ -314,6 +325,7 @@ async function loadHistory() {
   const list = await api('/api/sessions');
   fillSessionList(ui.history, list);
   if (ui.exportList) fillSessionList(ui.exportList, list);
+  if ($('recent-list')) fillSessionList($('recent-list'), list);
 }
 
 async function ensureSession() {
@@ -532,7 +544,7 @@ ui.export.addEventListener('click', () => {
 async function init() {
   greeting();
   syncModelCards();
-  showView('home');
+  showView('live');
   drawSession();
   try {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
@@ -552,12 +564,20 @@ async function init() {
   }
 }
 
+function translationFailNotice(message) {
+  const text = String(message || '翻译模型安装失败').replace(/。+$/, '');
+  if (/依赖|argostranslate|pip|Start\.bat|Open\.command/i.test(text)) {
+    return text + '。';
+  }
+  return `翻译模型安装失败：${text}。可改用手机热点后重试。`;
+}
+
 if (ui.installTranslation) {
   ui.installTranslation.addEventListener('click', async () => {
     ui.installTranslation.disabled = true;
-    if (ui.modelBannerText) ui.modelBannerText.textContent = '正在下载英语 → 中文模型，请保持联网…';
-    notice('正在下载英语 → 中文模型，请保持联网…', 'warn');
-    const timeout = fetchTimeout(360000);
+    if (ui.modelBannerText) ui.modelBannerText.textContent = '正在安装翻译依赖并下载英语 → 中文模型，请保持联网…';
+    notice('正在安装翻译依赖并下载英语 → 中文模型，请保持联网…', 'warn');
+    const timeout = fetchTimeout(900000);
     try {
       const body = await api('/api/translation/install', { method: 'POST', signal: timeout.signal });
       timeout.cancel();
@@ -570,9 +590,10 @@ if (ui.installTranslation) {
     } catch (error) {
       timeout.cancel();
       const message = error.name === 'AbortError' ? '下载超时，请换网络后重试。' : error.message;
+      const shown = translationFailNotice(message);
       if (ui.modelBanner) ui.modelBanner.classList.add('show');
-      if (ui.modelBannerText) ui.modelBannerText.textContent = `翻译模型安装失败：${message}。可改用手机热点后重试。`;
-      notice(`翻译模型安装失败：${message}。可改用手机热点后重试。`, true);
+      if (ui.modelBannerText) ui.modelBannerText.textContent = shown;
+      notice(shown, true);
       ui.installTranslation.disabled = false;
     }
   });
