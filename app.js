@@ -35,6 +35,26 @@ function showView(name) {
   if (name === 'live' && ui.notice && !ui.notice.textContent) {
     ui.notice.textContent = '第一次识别会下载免费语音模型，需保持联网；下载完成后可离线使用。';
   }
+  document.querySelector('.sidebar')?.classList.remove('expanded');
+  $('mobile-settings')?.setAttribute('aria-expanded', 'false');
+  if ($('mobile-settings')) $('mobile-settings').textContent = '菜单';
+}
+
+function activateRailTab(name) {
+  const available = [...document.querySelectorAll('[data-rail-tab]')]
+    .some(button => button.dataset.railTab === name);
+  const selected = available ? name : 'summary';
+  document.querySelectorAll('[data-rail-tab]').forEach(button => {
+    const active = button.dataset.railTab === selected;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('[data-rail-panel]').forEach(panel => {
+    const active = panel.dataset.railPanel === selected;
+    panel.hidden = !active;
+    panel.classList.toggle('active', active);
+  });
+  localStorage.setItem('class-interpreter-rail-tab', selected);
 }
 
 function greeting() {
@@ -134,6 +154,14 @@ if ($('dual-view')) {
     $('view-live').classList.toggle('mono', !event.target.checked);
   });
 }
+if ($('timestamp-view')) {
+  $('timestamp-view').addEventListener('change', event => {
+    $('view-live').classList.toggle('hide-time', !event.target.checked);
+  });
+}
+document.querySelectorAll('[data-rail-tab]').forEach(button => {
+  button.addEventListener('click', () => activateRailTab(button.dataset.railTab));
+});
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
@@ -256,17 +284,33 @@ function makeEntry(entry) {
   const time = document.createElement('div');
   time.className = 'entry-time';
   time.textContent = formatTime(entry.at);
+
+  const copy = document.createElement('div');
+  copy.className = 'entry-copy';
   const en = document.createElement('div');
-  en.className = 'entry-en';
-  en.textContent = entry.en;
+  en.className = 'transcript-line entry-en';
+  const enTag = document.createElement('span');
+  enTag.className = 'language-tag';
+  enTag.textContent = 'EN';
+  const enText = document.createElement('p');
+  enText.textContent = entry.en;
+  en.append(enTag, enText);
   const zh = document.createElement('div');
-  zh.className = 'entry-zh' + (entry.zh ? '' : ' missing');
-  zh.textContent = entry.zh || '中文翻译尚不可用，请安装翻译模型。';
+  zh.className = 'transcript-line entry-zh' + (entry.zh ? '' : ' missing');
+  const zhTag = document.createElement('span');
+  zhTag.className = 'language-tag';
+  zhTag.textContent = '中';
+  const zhText = document.createElement('p');
+  zhText.textContent = entry.zh || '中文翻译尚不可用，请安装翻译模型。';
+  zh.append(zhTag, zhText);
+  copy.append(en, zh);
   const tools = document.createElement('div');
   tools.className = 'entry-tools';
   const edit = document.createElement('button');
   edit.type = 'button';
-  edit.textContent = '修正识别 / 译文';
+  edit.textContent = '✎';
+  edit.title = '修正识别 / 译文';
+  edit.setAttribute('aria-label', '修正识别或译文');
   edit.addEventListener('click', () => {
     const english = document.createElement('textarea');
     english.className = 'edit-box'; english.value = entry.en; english.setAttribute('aria-label', '英文原文');
@@ -292,7 +336,7 @@ function makeEntry(entry) {
     row.replaceChildren(english, chinese, actions);
   });
   tools.append(edit);
-  row.append(time, en, zh, tools);
+  row.append(time, copy, tools);
   return row;
 }
 
@@ -448,6 +492,8 @@ async function startRecording() {
   };
   state.stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => { if (state.recording) stopRecording(); }));
   ui.record.classList.add('recording'); ui.record.lastElementChild.textContent = '结束听课';
+  const recordIcon = ui.record.querySelector('i');
+  if (recordIcon) recordIcon.textContent = 'Ⅱ';
   ui.indicator.classList.add('active'); ui.recordStatus.textContent = '正在听课';
   ui.micHealth.textContent = '已连接'; ui.audioHealth.textContent = '检测语音中';
   clearInterval(clockTimer); clockTimer = setInterval(updateClock, 1000); updateClock();
@@ -467,6 +513,8 @@ async function stopRecording() {
   await state.audioContext.close();
   state.stream = null; state.audioContext = null;
   ui.record.classList.remove('recording'); ui.record.lastElementChild.textContent = '继续同传';
+  const recordIcon = ui.record.querySelector('i');
+  if (recordIcon) recordIcon.textContent = '▶';
   ui.indicator.classList.remove('active'); ui.recordStatus.textContent = '已结束录音';
   ui.micHealth.textContent = '已断开'; ui.audioHealth.textContent = '等待语音';
   clearInterval(clockTimer); clockTimer = null; updateClock();
@@ -487,11 +535,12 @@ $('new-session').addEventListener('click', async () => {
   if (state.recording) await stopRecording();
   state.session = null; ui.title.value = '';
   ui.record.lastElementChild.textContent = '开始同传';
+  const recordIcon = ui.record.querySelector('i');
+  if (recordIcon) recordIcon.textContent = '▶';
   drawSession(); loadHistory();
   notice('新课堂已准备好。输入课程名称后即可开始同传。');
 });
 
-document.querySelector('[data-generate-summary]').addEventListener('click', () => ui.summary.click());
 $('summary-page-button').addEventListener('click', () => {
   showView('live');
   ui.summary.click();
@@ -526,24 +575,61 @@ ui.summary.addEventListener('click', async () => {
     if (state.session?.id === sessionId) {
       state.session.summary = result.summary; state.session.summary_source = result.source;
       drawSession();
-      showView('summarize');
+      showView('live');
+      activateRailTab('summary');
       notice(`课后总结已生成：${result.source}。`);
     }
   } catch (error) { notice(`总结失败：${error.message}`, true); }
   finally { ui.summary.textContent = '生成课程总结'; ui.summary.disabled = !state.session?.entries.length; }
 });
 
-ui.export.addEventListener('click', () => {
-  const session = state.session; if (!session) return;
+function safeFileName(title) {
+  return title.replace(/[\\/:*?"<>|]/g, '_') || '课堂笔记';
+}
+
+function downloadNotes(content, type, extension) {
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([notesText(session)], {type:'text/plain;charset=utf-8'}));
-  link.download = `${session.title.replace(/[\\/:*?"<>|]/g, '_') || '课堂笔记'}.txt`;
-  link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  link.href = URL.createObjectURL(new Blob([content], {type}));
+  link.download = `${safeFileName(state.session.title)}.${extension}`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  })[character]);
+}
+
+function exportSession(format = 'text') {
+  const session = state.session; if (!session) return;
+  const text = notesText(session);
+  if (format === 'pdf') {
+    document.body.classList.add('printing-notes');
+    window.print();
+    setTimeout(() => document.body.classList.remove('printing-notes'), 500);
+    return;
+  }
+  if (format === 'word') {
+    const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(session.title)}</title><pre style="font:16px/1.7 Arial,sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`;
+    downloadNotes(html, 'application/msword;charset=utf-8', 'doc');
+    return;
+  }
+  if (format === 'markdown') {
+    downloadNotes(text, 'text/markdown;charset=utf-8', 'md');
+    return;
+  }
+  downloadNotes(text, 'text/plain;charset=utf-8', 'txt');
+}
+
+document.querySelectorAll('[data-export-format]').forEach(button => {
+  button.addEventListener('click', () => exportSession(button.dataset.exportFormat));
 });
 
 async function init() {
   greeting();
   syncModelCards();
+  activateRailTab(localStorage.getItem('class-interpreter-rail-tab') || 'summary');
   showView('live');
   drawSession();
   try {

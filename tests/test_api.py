@@ -32,14 +32,17 @@ with urllib.request.urlopen(base + "/") as response:
 assert "setup_models.py" not in html
 assert "0.3.3" in html
 assert 'id="model-banner"' in html
-assert "现在安装中文翻译模型" in html
+assert 'id="install-translation"' in html
 assert "下载语音模型" in html
 assert 'id="install-whisper"' in html
 assert 'id="install-deepseek"' in html
 assert "安装 DeepSeek" in html
 assert 'id="deepseek-health"' in html
 assert 'id="quit-app"' in html
-assert "退出听课搭子" in html
+assert "退出本地服务" in html
+assert 'class="rail-tabs"' in html
+assert 'id="timestamp-view"' in html
+assert 'data-export-format="pdf"' in html
 assert "fff4cc" in Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
 
 with urllib.request.urlopen(base + "/app.js?v=0.3.3") as response:
