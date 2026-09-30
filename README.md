@@ -6,13 +6,15 @@
 
 ## 已经能用的电脑（例如 R9000P）
 
-**不要换成 Downloads 里的新 zip。** 原来那个文件夹里的 `.venv`、模型和显卡加速都还在，延迟才会小。
+**不要换成 Downloads 里的新 zip 覆盖 `.venv`。** 原来那个文件夹里的 `.venv`、模型和显卡加速都还在，延迟才会小。
 
-继续用原来的目录双击 `Start.bat` / `启动同传.bat`（文件大约 3KB；如果只有约 200 字节，那是会报 `cutionPolicy` 的旧启动器）。浏览器打开 `http://127.0.0.1:8765/`，黑窗口不要关。页面右上角应是 **0.3.3**，不要留着旧的 v0.2.2。
+修复包（只覆盖启动器和页面，保留旧文件夹）：[ClassInterpreter-recover-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-recover-0.3.3.zip)
+
+右键 zip → Extract All，把解压出的文件复制进原来那个带 `.venv` 的文件夹（替换文件，不要删 `.venv`）。关掉所有黑窗口，双击 **Start.bat**（约 3KB；如果仍是约 200 字节，会报 `cutionPolicy`）。浏览器打开 `http://127.0.0.1:8765/`，右上角应是 **0.3.3**，不要留着旧的 v0.2.2。
 
 ## Windows 怎么用（没有旧文件夹时）
 
-1. 下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/windows-extract-guard-b27d/ClassInterpreter-windows-0.3.3.zip)。等 Chrome 下完，不要打开 `.crdownload`。
+1. 下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-windows-0.3.3.zip)。等 Chrome 下完，不要打开 `.crdownload`。
 2. **右键 zip → Extract All**。不要在压缩包窗口里双击任何文件。
 3. 双击 **OPEN-THIS.bat**。黑窗口第一行必须是 **Class Interpreter 0.3.3**。这个包已带 Python 3.12。
 4. 黑窗口不要关。校园网失败请换手机热点。浏览器左上角必须是 **0.3.3**，再点黄色按钮（建议 Small）。

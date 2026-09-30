@@ -49,6 +49,71 @@ rm -f "$OUT_VER" "$OUT_STABLE"
   zip -r "$OUT_VER" READ-ME-FIRST.txt OPEN-THIS.bat "$DEST_NAME"
 )
 cp "$OUT_VER" "$OUT_STABLE"
+export ROOT VERSION
+python3 - <<'PY'
+from pathlib import Path
+import os
+import zipfile
+
+root = Path(os.environ["ROOT"])
+version = os.environ["VERSION"]
+out = root / f"ClassInterpreter-recover-{version}.zip"
+inner = f"ClassInterpreter-recover-{version}"
+names = [
+    "Start.bat",
+    "启动同传.bat",
+    "start.ps1",
+    "win_bootstrap.py",
+    "server.py",
+    "setup_models.py",
+    "setup_whisper.py",
+    "setup_deepseek.py",
+    "ssl_certs.py",
+    "whisper_hub.py",
+    "deepseek_hub.py",
+    "deepseek_api.py",
+    "secret_box.py",
+    "requirements.txt",
+    "index.html",
+    "app.js",
+    "style.css",
+    "VERSION",
+    "README.md",
+]
+readme = (
+    "STOP. This is the recover pack (fixed launcher + classroom files).\r\n"
+    "\r\n"
+    "Use this on the OLD working folder (R9000P). Keep .venv.\r\n"
+    "\r\n"
+    "1. Right-click this zip -> Extract All.\r\n"
+    "2. Copy ALL extracted files into the old folder that has .venv.\r\n"
+    "   Replace files when Windows asks. Do NOT delete .venv.\r\n"
+    "3. Close every black window and the old browser page.\r\n"
+    "4. Double-click Start.bat. It must be about 3 KB, not 202 bytes.\r\n"
+    "5. First line: Class Interpreter 0.3.3\r\n"
+    "   Browser: http://127.0.0.1:8765/\r\n"
+    "   Status must say 0.3.3, not v0.2.2.\r\n"
+    "\r\n"
+    "If the black window says cutionPolicy, you still clicked the old starter.\r\n"
+).encode("ascii")
+with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    zf.writestr("READ-ME-FIRST.txt", readme)
+    for name in names:
+        data = (root / name).read_bytes()
+        if name.endswith(".bat"):
+            data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        zf.writestr(f"{inner}/{name}", data)
+    howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
+    zf.writestr(f"{inner}/HOW-TO-START.txt", howto.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    zh = (root / "packaging/windows/使用说明.txt").read_bytes()
+    if not zh.startswith(b"\xef\xbb\xbf"):
+        zh = b"\xef\xbb\xbf" + zh
+    zf.writestr(f"{inner}/使用说明.txt", zh)
+    enc = root / "deepseek_api.enc"
+    if enc.is_file():
+        zf.writestr(f"{inner}/deepseek_api.enc", enc.read_bytes())
+print("Wrote", out)
+PY
 rm -rf "$STAGE"
 echo "Wrote $OUT_VER"
 echo "Wrote $OUT_STABLE"
