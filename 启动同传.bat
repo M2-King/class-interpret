@@ -39,6 +39,7 @@ if not exist "%~dp0server.py" (
 
 if exist "%~dp0.venv\Scripts\python.exe" goto :VENV
 if exist "%~dp0..\.venv\Scripts\python.exe" goto :PARENTVENV
+if exist "%~dp0start.ps1" goto :NEEDPS
 if exist "%~dp0.runtime\python\python.exe" goto :BUNDLE
 goto :NEEDPS
 
@@ -73,7 +74,8 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
-echo Bundled Python was not found. Trying PowerShell download...
+echo No .venv yet. Recreating packages. Keep this window open.
+echo First run needs internet. Campus Wi-Fi: use a phone hotspot.
 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -Command "Unblock-File -LiteralPath '%~dp0start.ps1' -ErrorAction SilentlyContinue"
 powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0start.ps1"
 goto :CHECK

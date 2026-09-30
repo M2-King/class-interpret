@@ -10,7 +10,7 @@
 
 修复包（只覆盖启动器和页面，保留旧文件夹）：[ClassInterpreter-recover-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-recover-0.3.3.zip)
 
-右键 zip → Extract All，把解压出的文件复制进原来那个带 `.venv` 的文件夹（替换文件，不要删 `.venv`）。关掉所有黑窗口，双击 **Start.bat**（约 3KB；如果仍是约 200 字节，会报 `cutionPolicy`）。浏览器打开 `http://127.0.0.1:8765/`，右上角应是 **0.3.3**，不要留着旧的 v0.2.2。
+**如果已经删掉 `.venv`：** 用手机热点，下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-windows-0.3.3.zip)。右键 Extract All，双击 **OPEN-THIS.bat**。第一次会重新装包，黑窗口要留着，大约几分钟。装好后页面必须是 **0.3.3**，再点黄色按钮下载 Small 模型。显卡加速会尽量重装 CUDA 库；失败时仍可用 CPU。
 
 ## Windows 怎么用（没有旧文件夹时）
 

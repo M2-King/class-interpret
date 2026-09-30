@@ -26,3 +26,6 @@ If the black window says 0.2.5-0.3.2, you opened an old folder.
 If the black window says cutionPolicy, you clicked the old UTF-8 starter.
 Close every black window. Double-click Start.bat. First line must be 0.3.3.
 If the page still shows v0.2.2, the old server is still running; click Start.bat again.
+
+If you deleted .venv: that is OK. Use a phone hotspot, then OPEN-THIS.bat.
+First run recreates packages (several minutes). Keep the black window open.

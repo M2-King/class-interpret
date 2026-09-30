@@ -100,42 +100,41 @@ def packages_ok(exe: str) -> bool:
 
 
 def ensure_pip(root: Path, exe: str) -> None:
-    if pip_ok(exe):
-        return
     enable_embed_site(exe)
     if pip_ok(exe):
         return
+    pyz = Path(root) / "pip.pyz"
+    if (not pyz.is_file()) or pyz.stat().st_size < 10000:
+        try:
+            log("Downloading pip.pyz (Python 3.12 has no distutils)...")
+            urllib.request.urlretrieve("https://bootstrap.pypa.io/pip/pip.pyz", pyz)
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            log("pip.pyz download failed: " + str(exc))
+    if pyz.is_file() and pyz.stat().st_size >= 10000:
+        log("Installing pip with pip.pyz...")
+        run(exe, [str(pyz), "install", "--no-warn-script-location", "pip"])
+        enable_embed_site(exe)
+        if pip_ok(exe):
+            return
     get_pip = root / "get-pip.py"
     if not get_pip.is_file():
-        raise RuntimeError("get-pip.py is missing. Unzip ClassInterpreter-windows-0.3.3.zip with Extract All.")
+        raise RuntimeError("pip.pyz/get-pip.py missing. Unzip ClassInterpreter-windows-0.3.3.zip with Extract All.")
     log("Installing pip into the bundled Python...")
-    code = run(exe, [str(get_pip), "--no-warn-script-location"])
+    run(exe, [str(get_pip), "--no-warn-script-location"])
     enable_embed_site(exe)
-    if code == 0 and pip_ok(exe):
+    if pip_ok(exe):
         return
-    pyz = Path(exe).resolve().parent.parent / "pip.pyz"
-    pyz.parent.mkdir(parents=True, exist_ok=True)
-    last_error = "pip install failed"
-    for url in (
-        "https://bootstrap.pypa.io/pip/pip.pyz",
-        "https://mirrors.aliyun.com/pypi/get-pip.py",
-    ):
-        try:
-            log("Downloading " + url)
-            urllib.request.urlretrieve(url, pyz)
-        except (urllib.error.URLError, TimeoutError, OSError) as exc:
-            last_error = str(exc)
-            continue
-        if pyz.is_file() and pyz.stat().st_size >= 10000:
-            run(exe, [str(pyz), "install", "--upgrade", "pip"])
-            enable_embed_site(exe)
-            if pip_ok(exe):
-                return
-            run(exe, [str(pyz), "--no-warn-script-location"])
-            enable_embed_site(exe)
-            if pip_ok(exe):
-                return
-    raise RuntimeError(last_error + ". Switch to a phone hotspot and double-click OPEN-THIS.bat again.")
+    raise RuntimeError("pip install failed. Switch to a phone hotspot and double-click OPEN-THIS.bat again.")
+
+
+def try_cuda_libs(exe: str) -> None:
+    if os.name != "nt":
+        return
+    log("Trying NVIDIA CUDA libs for this GPU (optional, large download)...")
+    try:
+        pip_install(exe, ["nvidia-cublas-cu12", "nvidia-cudnn-cu12"])
+    except RuntimeError as exc:
+        log("CUDA libs skipped (CPU still works): " + str(exc))
 
 
 def pip_install(exe: str, args: list[str]) -> None:
@@ -256,6 +255,7 @@ def main() -> int:
         log("Installing packages (first run, keep this window open)...")
         pip_install(sys.executable, ["certifi"])
         pip_install(sys.executable, ["-r", "requirements.txt"])
+        try_cuda_libs(sys.executable)
     else:
         log("Using Python: " + sys.executable)
 

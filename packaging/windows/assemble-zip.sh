@@ -14,6 +14,11 @@ done
 if [[ -f "$ROOT/deepseek_api.enc" ]]; then
   cp "$ROOT/deepseek_api.enc" "$DEST/"
 fi
+if [[ -f "$ROOT/pip.pyz" ]]; then
+  cp "$ROOT/pip.pyz" "$DEST/"
+elif [[ -f "$ROOT/packaging/windows/cache/pip.pyz" ]]; then
+  cp "$ROOT/packaging/windows/cache/pip.pyz" "$DEST/pip.pyz"
+fi
 cp "$ROOT/packaging/windows/HOW-TO-START.txt" "$DEST/"
 cp "$ROOT/packaging/windows/使用说明.txt" "$DEST/"
 cp "$ROOT/packaging/windows/READ-ME-FIRST.txt" "$STAGE/READ-ME-FIRST.txt"
@@ -79,27 +84,30 @@ names = [
     "style.css",
     "VERSION",
     "README.md",
+    "pip.pyz",
 ]
 readme = (
-    "STOP. This is the recover pack (fixed launcher + classroom files).\r\n"
-    "\r\n"
-    "Use this on the OLD working folder (R9000P). Keep .venv.\r\n"
+    "STOP. Recover pack after a broken launch or a deleted .venv.\r\n"
     "\r\n"
     "1. Right-click this zip -> Extract All.\r\n"
-    "2. Copy ALL extracted files into the old folder that has .venv.\r\n"
-    "   Replace files when Windows asks. Do NOT delete .venv.\r\n"
-    "3. Close every black window and the old browser page.\r\n"
-    "4. Double-click Start.bat. It must be about 3 KB, not 202 bytes.\r\n"
-    "5. First line: Class Interpreter 0.3.3\r\n"
-    "   Browser: http://127.0.0.1:8765/\r\n"
+    "2. If you still have a .venv folder, copy files into THAT folder and keep .venv.\r\n"
+    "3. If you DELETED .venv: copy files into ClassInterpreter-0.3.3\r\n"
+    "   (the folder that already has .runtime). Replace files.\r\n"
+    "4. Phone hotspot (campus Wi-Fi often fails pip).\r\n"
+    "5. Double-click Start.bat. First run recreates packages (several minutes).\r\n"
+    "   First line must be Class Interpreter 0.3.3\r\n"
     "   Status must say 0.3.3, not v0.2.2.\r\n"
     "\r\n"
-    "If the black window says cutionPolicy, you still clicked the old starter.\r\n"
+    "Do not click OPEN-THIS.bat from inside the zip window.\r\n"
+    "If the black window says cutionPolicy, you clicked the old starter.\r\n"
 ).encode("ascii")
 with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     zf.writestr("READ-ME-FIRST.txt", readme)
     for name in names:
-        data = (root / name).read_bytes()
+        path = root / name
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
         if name.endswith(".bat"):
             data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
         zf.writestr(f"{inner}/{name}", data)

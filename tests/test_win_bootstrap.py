@@ -67,7 +67,10 @@ assert "def stop_listener" in src
 assert "def find_venv_root" in src
 assert "def enable_embed_site" in src
 assert "import site" in src
-assert "pip.pyz" in src
+ensure_src = src[src.index("def ensure_pip") : src.index("def pip_install")]
+assert "pip.pyz" in ensure_src
+assert ensure_src.index("pip.pyz") < ensure_src.index("get-pip.py")
+assert "nvidia-cublas-cu12" in src
 assert "api/shutdown" in src
 assert src.index("stop_listener") < src.index('["server.py"]')
 wb.stop_listener(port=9, wait=0)

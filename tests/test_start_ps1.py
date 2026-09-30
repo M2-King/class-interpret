@@ -36,6 +36,7 @@ for token in (
     "._pth",
     "Ensure-LocalPip",
     "get-pip.py",
+    "pip.pyz",
     "anaconda3",
     "-3",
     "AppData\\Local\\Temp",
@@ -44,6 +45,8 @@ for token in (
     "tuna.tsinghua",
     "embed-arm64",
     "python-3.12.10-arm64.exe",
+    "nvidia-cublas-cu12",
+    "CUDA libs skipped",
 ):
     assert token in script, token
 assert "curl.exe @curlArgs 2>$null" not in script
@@ -101,6 +104,10 @@ assert b".venv\\Scripts\\python.exe" in start_bat
 assert b"..\\.venv\\Scripts\\python.exe" in start_bat
 assert start_bat.find(b".venv\\Scripts\\python.exe") < start_bat.find(b"ExecutionPolicy")
 assert start_bat.find(b"..\\.venv\\Scripts\\python.exe") < start_bat.find(b".runtime\\python\\python.exe")
+assert b"if exist \"%~dp0start.ps1\" goto :NEEDPS" in start_bat
+assert start_bat.find(b"if exist \"%~dp0start.ps1\" goto :NEEDPS") < start_bat.find(
+    b"if exist \"%~dp0.runtime\\python\\python.exe\" goto :BUNDLE"
+), "deleted .venv must recreate via start.ps1 before bundled Python/get-pip"
 
 cn_bat = (root / "启动同传.bat").read_bytes()
 assert all(byte < 128 for byte in cn_bat), "启动同传.bat must be ASCII"

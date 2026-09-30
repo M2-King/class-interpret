@@ -94,6 +94,8 @@ with zipfile.ZipFile(win_zip) as zf:
     assert got == version, got
     assert f"{inner}/win_bootstrap.py" in names
     assert f"{inner}/get-pip.py" in names
+    assert f"{inner}/pip.pyz" in names
+    assert len(zf.read(f"{inner}/pip.pyz")) > 10000
     assert f"{inner}/.runtime/python/python.exe" in names
     pth = zf.read(f"{inner}/.runtime/python/python312._pth")
     assert b"import site" in pth
@@ -114,7 +116,7 @@ with zipfile.ZipFile(recover_zip) as zf:
     assert "READ-ME-FIRST.txt" in names, names
     recover_readme = zf.read("READ-ME-FIRST.txt")
     assert all(byte < 128 for byte in recover_readme)
-    assert b"Keep .venv" in recover_readme
+    assert b"Keep .venv" in recover_readme or b"DELETED .venv" in recover_readme
     assert b"cutionPolicy" in recover_readme
     start_bat = zf.read(prefix + "Start.bat")
     cn_bat = zf.read(prefix + "启动同传.bat")

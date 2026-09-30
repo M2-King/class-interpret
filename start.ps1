@@ -282,6 +282,13 @@ function Ensure-LocalPip {
     $dest = Split-Path -Parent $Exe
     Enable-EmbeddableSite -Dest $dest
     if (Test-PipModule -Exe $Exe) { return }
+    Write-Host 'pip module missing; installing pip.pyz...'
+    $pyz = Join-Path $PSScriptRoot 'pip.pyz'
+    if ((Test-Path -LiteralPath $pyz) -and ((Get-Item -LiteralPath $pyz).Length -gt 10000)) {
+        Invoke-Native -FilePath $Exe -ArgumentList @($pyz, 'install', '--no-warn-script-location', 'pip')
+        Enable-EmbeddableSite -Dest $dest
+        if (Test-PipModule -Exe $Exe) { return }
+    }
     Write-Host 'pip module missing; installing get-pip.py...'
     $getPip = Join-Path $RuntimeDir 'get-pip.py'
     $pipUrls = @(
@@ -464,6 +471,12 @@ if ($script:LastNativeExit -eq 0 -and $cert) {
     $env:CURL_CA_BUNDLE = $env:SSL_CERT_FILE
 }
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '-r', 'requirements.txt')
+Write-Host 'Trying NVIDIA CUDA libs for this GPU (optional, large download)...'
+try {
+    Install-WithPip -PythonExe $venvPython -PipArgs @('install', 'nvidia-cublas-cu12', 'nvidia-cudnn-cu12')
+} catch {
+    Write-Host 'CUDA libs skipped (CPU still works).'
+}
 Invoke-Native -FilePath $venvPython -ArgumentList @('setup_models.py')
 if ($script:LastNativeExit -ne 0) {
     Write-Warning 'Translation model not installed yet. Use the yellow button in the webpage. If campus Wi-Fi fails, use a phone hotspot.'
