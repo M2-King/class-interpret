@@ -11,7 +11,14 @@ assert "Start.bat" in html
 assert "ClassInterpreter-mac-0.3.3.zip" in html
 assert "ClassInterpreter-windows-0.3.3.zip" in html
 assert "windows-extract-guard-b27d" in html
+assert "win-bat-crlf-b27d" in html
+assert html.count("win-bat-crlf-b27d/ClassInterpreter-windows-0.3.3.zip") >= 2
+assert html.count("windows-extract-guard-b27d/ClassInterpreter-mac-0.3.3.zip") >= 2
 assert "OPEN-THIS.bat" in html
+assert "Extract All" in html
+assert "听课搭子手机" in html or "trycloudflare" in html
+assert "iPhone" in html or "iPad" in html
+assert ".venv" in html
 assert "assets/app-preview.png" in html
 assert "sk-" not in html
 assert "sk-" not in css
