@@ -38,12 +38,18 @@ if not exist "%~dp0server.py" (
 )
 
 if exist "%~dp0.venv\Scripts\python.exe" goto :VENV
+if exist "%~dp0..\.venv\Scripts\python.exe" goto :PARENTVENV
 if exist "%~dp0.runtime\python\python.exe" goto :BUNDLE
 goto :NEEDPS
 
 :VENV
 echo Using the existing .venv on this laptop.
 "%~dp0.venv\Scripts\python.exe" -u "%~dp0win_bootstrap.py"
+goto :CHECK
+
+:PARENTVENV
+echo Using the existing .venv in the parent folder.
+"%~dp0..\.venv\Scripts\python.exe" -u "%~dp0win_bootstrap.py"
 goto :CHECK
 
 :BUNDLE

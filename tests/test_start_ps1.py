@@ -98,7 +98,9 @@ assert b"0.3.3" in start_bat
 assert b"win_bootstrap.py" in start_bat
 assert b".runtime\\python\\python.exe" in start_bat
 assert b".venv\\Scripts\\python.exe" in start_bat
+assert b"..\\.venv\\Scripts\\python.exe" in start_bat
 assert start_bat.find(b".venv\\Scripts\\python.exe") < start_bat.find(b"ExecutionPolicy")
+assert start_bat.find(b"..\\.venv\\Scripts\\python.exe") < start_bat.find(b".runtime\\python\\python.exe")
 
 cn_bat = (root / "启动同传.bat").read_bytes()
 assert all(byte < 128 for byte in cn_bat), "启动同传.bat must be ASCII"

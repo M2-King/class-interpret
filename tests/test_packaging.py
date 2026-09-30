@@ -83,6 +83,7 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b"0.3.3" in start_bat
     assert b"%TEMP%" in start_bat
     assert b"win_bootstrap.py" in start_bat
+    assert b"..\\.venv\\Scripts\\python.exe" in start_bat
     cn_bat = zf.read(f"{inner}/启动同传.bat")
     assert cn_bat == start_bat
     assert b"\xe5\x90\xaf\xe5\x8a\xa8\xe5\xa4\xb1" not in cn_bat
