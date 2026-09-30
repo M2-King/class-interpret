@@ -77,14 +77,25 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b"Downloading official Python" in start_ps1
     start_bat = zf.read(f"{inner}/Start.bat")
     assert all(byte < 128 for byte in start_bat)
+    assert b"\r\n" in start_bat
+    assert b"\n" not in start_bat.replace(b"\r\n", b"")
     assert b"ExecutionPolicy Bypass" in start_bat
     assert b"0.3.3" in start_bat
     assert b"%TEMP%" in start_bat
     assert b"win_bootstrap.py" in start_bat
+    assert b"..\\.venv\\Scripts\\python.exe" in start_bat
+    cn_bat = zf.read(f"{inner}/启动同传.bat")
+    assert cn_bat == start_bat
+    assert b"\xe5\x90\xaf\xe5\x8a\xa8\xe5\xa4\xb1" not in cn_bat
+    bootstrap = zf.read(f"{inner}/win_bootstrap.py")
+    assert b"def stop_listener" in bootstrap
+    assert b"api/shutdown" in bootstrap
     got = zf.read(f"{inner}/VERSION").decode().strip()
     assert got == version, got
     assert f"{inner}/win_bootstrap.py" in names
     assert f"{inner}/get-pip.py" in names
+    assert f"{inner}/pip.pyz" in names
+    assert len(zf.read(f"{inner}/pip.pyz")) > 10000
     assert f"{inner}/.runtime/python/python.exe" in names
     pth = zf.read(f"{inner}/.runtime/python/python312._pth")
     assert b"import site" in pth
@@ -96,5 +107,23 @@ with zipfile.ZipFile(win_zip) as zf:
     assert enc.startswith(b"CI1.")
     assert b"sk-" not in enc
     assert not any(name.endswith("secrets/deepseek.api") or name.endswith("/deepseek.api") for name in names)
+
+recover_zip = root / f"ClassInterpreter-recover-{version}.zip"
+assert recover_zip.is_file(), f"rebuild {recover_zip.name}"
+with zipfile.ZipFile(recover_zip) as zf:
+    names = zf.namelist()
+    prefix = f"ClassInterpreter-recover-{version}/"
+    assert "READ-ME-FIRST.txt" in names, names
+    recover_readme = zf.read("READ-ME-FIRST.txt")
+    assert all(byte < 128 for byte in recover_readme)
+    assert b"Keep .venv" in recover_readme or b"DELETED .venv" in recover_readme
+    assert b"cutionPolicy" in recover_readme
+    start_bat = zf.read(prefix + "Start.bat")
+    cn_bat = zf.read(prefix + "启动同传.bat")
+    assert start_bat == cn_bat
+    assert b"\r\n" in start_bat
+    assert b"\n" not in start_bat.replace(b"\r\n", b"")
+    assert b"def stop_listener" in zf.read(prefix + "win_bootstrap.py")
+    assert not any(".runtime" in name for name in names)
 
 print("packaging ok")

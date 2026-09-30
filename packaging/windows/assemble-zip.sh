@@ -14,6 +14,11 @@ done
 if [[ -f "$ROOT/deepseek_api.enc" ]]; then
   cp "$ROOT/deepseek_api.enc" "$DEST/"
 fi
+if [[ -f "$ROOT/pip.pyz" ]]; then
+  cp "$ROOT/pip.pyz" "$DEST/"
+elif [[ -f "$ROOT/packaging/windows/cache/pip.pyz" ]]; then
+  cp "$ROOT/packaging/windows/cache/pip.pyz" "$DEST/pip.pyz"
+fi
 cp "$ROOT/packaging/windows/HOW-TO-START.txt" "$DEST/"
 cp "$ROOT/packaging/windows/使用说明.txt" "$DEST/"
 cp "$ROOT/packaging/windows/READ-ME-FIRST.txt" "$STAGE/READ-ME-FIRST.txt"
@@ -31,6 +36,15 @@ if any(ord(ch) > 127 for ch in text):
 p.write_bytes(b"\xef\xbb\xbf" + text.encode("utf-8"))
 howto = dest / "使用说明.txt"
 howto.write_bytes(b"\xef\xbb\xbf" + howto.read_text(encoding="utf-8-sig").encode("utf-8"))
+for bat_name in ("Start.bat", "启动同传.bat"):
+    bat = dest / bat_name
+    body = bat.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+    if not all(byte < 128 for byte in body):
+        raise SystemExit(bat_name + " must stay ASCII")
+    bat.write_bytes(body)
+open_this = Path(os.environ["DEST"]).parent / "OPEN-THIS.bat"
+open_body = open_this.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+open_this.write_bytes(open_body)
 PY
 OUT_VER="$ROOT/ClassInterpreter-windows-${VERSION}.zip"
 OUT_STABLE="$ROOT/ClassInterpreter-windows.zip"
@@ -40,6 +54,74 @@ rm -f "$OUT_VER" "$OUT_STABLE"
   zip -r "$OUT_VER" READ-ME-FIRST.txt OPEN-THIS.bat "$DEST_NAME"
 )
 cp "$OUT_VER" "$OUT_STABLE"
+export ROOT VERSION
+python3 - <<'PY'
+from pathlib import Path
+import os
+import zipfile
+
+root = Path(os.environ["ROOT"])
+version = os.environ["VERSION"]
+out = root / f"ClassInterpreter-recover-{version}.zip"
+inner = f"ClassInterpreter-recover-{version}"
+names = [
+    "Start.bat",
+    "启动同传.bat",
+    "start.ps1",
+    "win_bootstrap.py",
+    "server.py",
+    "setup_models.py",
+    "setup_whisper.py",
+    "setup_deepseek.py",
+    "ssl_certs.py",
+    "whisper_hub.py",
+    "deepseek_hub.py",
+    "deepseek_api.py",
+    "secret_box.py",
+    "requirements.txt",
+    "index.html",
+    "app.js",
+    "style.css",
+    "VERSION",
+    "README.md",
+    "pip.pyz",
+]
+readme = (
+    "STOP. Recover pack after a broken launch or a deleted .venv.\r\n"
+    "\r\n"
+    "1. Right-click this zip -> Extract All.\r\n"
+    "2. If you still have a .venv folder, copy files into THAT folder and keep .venv.\r\n"
+    "3. If you DELETED .venv: copy files into ClassInterpreter-0.3.3\r\n"
+    "   (the folder that already has .runtime). Replace files.\r\n"
+    "4. Phone hotspot (campus Wi-Fi often fails pip).\r\n"
+    "5. Double-click Start.bat. First run recreates packages (several minutes).\r\n"
+    "   First line must be Class Interpreter 0.3.3\r\n"
+    "   Status must say 0.3.3, not v0.2.2.\r\n"
+    "\r\n"
+    "Do not click OPEN-THIS.bat from inside the zip window.\r\n"
+    "If the black window says cutionPolicy, you clicked the old starter.\r\n"
+).encode("ascii")
+with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    zf.writestr("READ-ME-FIRST.txt", readme)
+    for name in names:
+        path = root / name
+        if not path.is_file():
+            continue
+        data = path.read_bytes()
+        if name.endswith(".bat"):
+            data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        zf.writestr(f"{inner}/{name}", data)
+    howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
+    zf.writestr(f"{inner}/HOW-TO-START.txt", howto.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
+    zh = (root / "packaging/windows/使用说明.txt").read_bytes()
+    if not zh.startswith(b"\xef\xbb\xbf"):
+        zh = b"\xef\xbb\xbf" + zh
+    zf.writestr(f"{inner}/使用说明.txt", zh)
+    enc = root / "deepseek_api.enc"
+    if enc.is_file():
+        zf.writestr(f"{inner}/deepseek_api.enc", enc.read_bytes())
+print("Wrote", out)
+PY
 rm -rf "$STAGE"
 echo "Wrote $OUT_VER"
 echo "Wrote $OUT_STABLE"
