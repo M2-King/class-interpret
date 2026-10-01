@@ -14,8 +14,15 @@ windows_setup = root / "ClassInterpreter-Setup-Windows.bat"
 assert windows_setup.is_file()
 windows_setup_bytes = windows_setup.read_bytes()
 assert all(byte < 128 for byte in windows_setup_bytes)
-assert b"fix.ps1" in windows_setup_bytes
-assert b"-InstallMode" in windows_setup_bytes
+assert b"ClassInterpreter-Setup-Windows.ps1" in windows_setup_bytes
+assert b"-WindowStyle Hidden" in windows_setup_bytes
+windows_setup_gui = root / "ClassInterpreter-Setup-Windows.ps1"
+assert windows_setup_gui.is_file()
+gui_bytes = windows_setup_gui.read_bytes()
+assert all(byte < 128 for byte in gui_bytes)
+assert b"System.Windows.Forms" in gui_bytes
+assert b"Downloading application" in gui_bytes
+assert b"-QuietLaunch" in gui_bytes
 
 mac_setup_command = root / "ClassInterpreter-Setup-Mac.command"
 assert mac_setup_command.is_file()

@@ -1,6 +1,7 @@
 param(
     [string]$TargetPath = '',
     [string]$DefaultInstallPath = '',
+    [switch]$QuietLaunch,
     [switch]$NoLaunch
 )
 
@@ -190,7 +191,11 @@ try {
     Write-RepairLog 'Repair checks completed. Recordings, models, and settings were preserved.'
     if (-not $NoLaunch) {
         Write-RepairLog 'Starting Class Interpreter...'
-        Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'Start.bat') -WorkingDirectory $target
+        if ($QuietLaunch) {
+            Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'Start.bat') -WorkingDirectory $target -WindowStyle Hidden
+        } else {
+            Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'Start.bat') -WorkingDirectory $target
+        }
     }
     exit 0
 } catch {

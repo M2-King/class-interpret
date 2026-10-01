@@ -29,6 +29,7 @@ jobs:
           fi
           assets=(
             "ClassInterpreter-Setup-Windows.bat"
+            "ClassInterpreter-Setup-Windows.ps1"
             "ClassInterpreter-Setup-Mac.zip"
             "ClassInterpreter-windows-${version}.zip"
             "ClassInterpreter-mac-${version}.zip"
