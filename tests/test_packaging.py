@@ -120,6 +120,8 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b".repair-backup" in repair
     assert b"Stop-AppForRepair" in repair
     assert b"Close every Class Interpreter or Python window" in repair
+    assert b"$target = [string]$selectedTarget" in repair
+    assert b"$target = @($candidates" not in repair
     start_ps1 = zf.read(f"{inner}/start.ps1")
     assert start_ps1.startswith(b"\xef\xbb\xbf")
     assert all(byte < 128 for byte in start_ps1[3:])

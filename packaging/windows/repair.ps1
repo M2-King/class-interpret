@@ -138,9 +138,10 @@ try {
 
     $source = Join-Path $PSScriptRoot ('ClassInterpreter-' + $Version)
     if (-not (Test-AppFolder -Path $source)) {
-        $source = @(Get-ChildItem -LiteralPath $PSScriptRoot -Directory -Filter ('ClassInterpreter-*' + $Version) -ErrorAction SilentlyContinue |
+        $selectedSource = Get-ChildItem -LiteralPath $PSScriptRoot -Directory -Filter ('ClassInterpreter-*' + $Version) -ErrorAction SilentlyContinue |
             Where-Object { Test-AppFolder -Path $_.FullName } |
-            Select-Object -First 1 -ExpandProperty FullName)
+            Select-Object -First 1 -ExpandProperty FullName
+        $source = [string]$selectedSource
     }
     if ((-not (Test-AppFolder -Path $source)) -or -not (Test-Path -LiteralPath (Join-Path $source 'server.py'))) {
         throw 'The clean application folder is missing. Extract the complete Windows zip first.'
@@ -160,7 +161,8 @@ try {
                    (Join-Path $env:USERPROFILE 'Documents'))
         $roots += @(Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue | ForEach-Object { $_.Root })
         $candidates = @(Find-AppFolders -Roots $roots)
-        $target = @($candidates | Sort-Object -Property @{ Expression = { Get-CandidateScore -Path $_ -SourcePath $source }; Descending = $true } | Select-Object -First 1)
+        $selectedTarget = $candidates | Sort-Object -Property @{ Expression = { Get-CandidateScore -Path $_ -SourcePath $source }; Descending = $true } | Select-Object -First 1
+        $target = [string]$selectedTarget
         if (-not $target -or (Get-CandidateScore -Path $target -SourcePath $source) -lt 0) {
             if ($DefaultInstallPath) {
                 $target = [IO.Path]::GetFullPath($DefaultInstallPath).TrimEnd('\')
@@ -170,6 +172,7 @@ try {
             }
         }
     }
+    if ($target -isnot [string] -or -not $target) { throw 'Could not resolve the installation folder to a valid path.' }
     Write-RepairLog ('Detected installation: ' + $target)
 
     $backup = Join-Path $target ('.repair-backup\' + $Stamp)
