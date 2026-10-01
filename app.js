@@ -17,7 +17,8 @@ const ui = {
   modelBanner: $('model-banner'), modelBannerText: $('model-banner-text'),
   installWhisper: $('install-whisper'), installDeepseek: $('install-deepseek'),
   installDeepseekPage: $('install-deepseek-page'),
-  deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text')
+  deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text'),
+  courseTitleSide: $('course-title-side'), dockRecord: document.querySelector('[data-record-proxy]')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
@@ -87,6 +88,13 @@ function updateClock() {
   if (ui.elapsed) ui.elapsed.textContent = formatClock(sessionSeconds());
 }
 
+function syncDockRecord(recording, label) {
+  if (!ui.dockRecord) return;
+  ui.dockRecord.classList.toggle('recording', recording);
+  const text = ui.dockRecord.querySelector('span');
+  if (text) text.textContent = label;
+}
+
 function extractConcepts(session) {
   const glossary = ui.glossary.value.split(/[,;\n]/).map(item => item.trim()).filter(Boolean);
   const stop = new Set(['about','after','again','also','because','before','being','between','could','from','have','into','just','more','most','other','some','such','than','that','their','there','these','they','this','through','today','using','very','what','when','where','which','will','with','would','your']);
@@ -149,6 +157,16 @@ if (ui.model) {
     if (lastStatus) applyStatus(lastStatus);
   });
 }
+if (ui.courseTitleSide) {
+  ui.courseTitleSide.addEventListener('input', () => { ui.title.value = ui.courseTitleSide.value; });
+  ui.title.addEventListener('input', () => { ui.courseTitleSide.value = ui.title.value; });
+}
+document.querySelectorAll('[data-record-proxy]').forEach(button => {
+  button.addEventListener('click', () => ui.record.click());
+});
+document.querySelectorAll('[data-new-session-proxy]').forEach(button => {
+  button.addEventListener('click', () => $('new-session').click());
+});
 if ($('dual-view')) {
   $('dual-view').addEventListener('change', event => {
     $('view-live').classList.toggle('mono', !event.target.checked);
@@ -248,7 +266,8 @@ function formatTime(seconds) {
 
 function drawSession() {
   const session = state.session;
-  ui.heading.textContent = session ? session.title : '准备开始听课';
+  ui.heading.textContent = state.recording ? 'Listening to lecture audio…' : session ? session.title : 'Ready to listen';
+  if (ui.courseTitleSide) ui.courseTitleSide.value = session?.title || ui.title.value || '';
   ui.meta.textContent = session ? `创建于 ${new Date(session.created).toLocaleString('zh-CN')} · 自动保存` : '选择声音来源，开始后将自动保存课堂记录。';
   ui.count.textContent = `${session?.entries.length || 0} 条`;
   ui.transcript.replaceChildren();
@@ -494,7 +513,8 @@ async function startRecording() {
   ui.record.classList.add('recording'); ui.record.lastElementChild.textContent = '结束听课';
   const recordIcon = ui.record.querySelector('i');
   if (recordIcon) recordIcon.textContent = 'Ⅱ';
-  ui.indicator.classList.add('active'); ui.recordStatus.textContent = '正在听课';
+  ui.indicator.classList.add('active'); ui.recordStatus.textContent = 'Listening…';
+  syncDockRecord(true, 'Stop');
   ui.micHealth.textContent = '已连接'; ui.audioHealth.textContent = '检测语音中';
   clearInterval(clockTimer); clockTimer = setInterval(updateClock, 1000); updateClock();
   ui.model.disabled = true; ui.source.disabled = true;
@@ -515,7 +535,8 @@ async function stopRecording() {
   ui.record.classList.remove('recording'); ui.record.lastElementChild.textContent = '继续同传';
   const recordIcon = ui.record.querySelector('i');
   if (recordIcon) recordIcon.textContent = '▶';
-  ui.indicator.classList.remove('active'); ui.recordStatus.textContent = '已结束录音';
+  ui.indicator.classList.remove('active'); ui.recordStatus.textContent = 'Recording saved';
+  syncDockRecord(false, 'Continue');
   ui.micHealth.textContent = '已断开'; ui.audioHealth.textContent = '等待语音';
   clearInterval(clockTimer); clockTimer = null; updateClock();
   ui.model.disabled = false; ui.source.disabled = false;
@@ -537,6 +558,7 @@ $('new-session').addEventListener('click', async () => {
   ui.record.lastElementChild.textContent = '开始同传';
   const recordIcon = ui.record.querySelector('i');
   if (recordIcon) recordIcon.textContent = '▶';
+  syncDockRecord(false, 'Start');
   drawSession(); loadHistory();
   notice('新课堂已准备好。输入课程名称后即可开始同传。');
 });
@@ -567,7 +589,7 @@ $('global-search').addEventListener('input', event => {
 ui.summary.addEventListener('click', async () => {
   if (!state.session) return;
   const sessionId = state.session.id;
-  ui.summary.disabled = true; ui.summary.textContent = '正在整理课堂内容…';
+  ui.summary.disabled = true; ui.summary.textContent = 'Generating summary…';
   notice('正在生成课后总结；已安装本机 DeepSeek 时会自动使用，否则给出课堂摘录。');
   try {
     await state.uploadQueue;
@@ -580,7 +602,7 @@ ui.summary.addEventListener('click', async () => {
       notice(`课后总结已生成：${result.source}。`);
     }
   } catch (error) { notice(`总结失败：${error.message}`, true); }
-  finally { ui.summary.textContent = '生成课程总结'; ui.summary.disabled = !state.session?.entries.length; }
+  finally { ui.summary.textContent = '✦ Generate Full Summary'; ui.summary.disabled = !state.session?.entries.length; }
 });
 
 function safeFileName(title) {
@@ -629,6 +651,7 @@ document.querySelectorAll('[data-export-format]').forEach(button => {
 async function init() {
   greeting();
   syncModelCards();
+  syncDockRecord(false, 'Start');
   activateRailTab(localStorage.getItem('class-interpreter-rail-tab') || 'summary');
   showView('live');
   drawSession();

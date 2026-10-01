@@ -43,7 +43,9 @@ assert "退出本地服务" in html
 assert 'class="rail-tabs"' in html
 assert 'id="timestamp-view"' in html
 assert 'data-export-format="pdf"' in html
-assert "fff4cc" in Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
+style = Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
+assert ".live-workspace" in style
+assert ".insight-rail" in style
 
 with urllib.request.urlopen(base + "/app.js?v=0.3.3") as response:
     script = response.read().decode()
