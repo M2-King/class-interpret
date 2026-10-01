@@ -22,7 +22,9 @@ gui_bytes = windows_setup_gui.read_bytes()
 assert all(byte < 128 for byte in gui_bytes)
 assert b"System.Windows.Forms" in gui_bytes
 assert b"Downloading application" in gui_bytes
-assert b"-QuietLaunch" in gui_bytes
+assert b"-NoLaunch" in gui_bytes
+assert b"api/status" in gui_bytes
+assert b"startup.log" in gui_bytes
 
 mac_setup_command = root / "ClassInterpreter-Setup-Mac.command"
 assert mac_setup_command.is_file()

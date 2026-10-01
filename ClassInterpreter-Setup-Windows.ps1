@@ -175,7 +175,7 @@ $workerScript = {
         $repair = Get-ChildItem -LiteralPath $extractPath -File -Filter 'repair.ps1' -Recurse | Select-Object -First 1
         if (-not $repair) { throw 'The repair component is missing from the package.' }
         Set-InstallState 'Installing and repairing' 'Preserving your data and checking Python...' 80
-        $argumentText = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $repair.FullName + '" -QuietLaunch'
+        $argumentText = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $repair.FullName + '" -NoLaunch'
         if ($RequestedTarget) {
             $argumentText += ' -TargetPath "' + $RequestedTarget.Replace('"', '""') + '"'
         } else {
@@ -198,7 +198,51 @@ $workerScript = {
             throw ([string]$reason -replace '^.*?FAILED:\s*', '')
         }
 
-        Set-InstallState 'Installation complete' 'Class Interpreter is starting in your browser.' 100 'complete'
+        $detectedLine = $null
+        if (Test-Path -LiteralPath $repairLog) {
+            $detectedLine = @(Get-Content -LiteralPath $repairLog | Where-Object { $_ -match 'Detected installation:\s*(.+)$' } | Select-Object -Last 1)
+        }
+        $detectedMatch = [regex]::Match([string]$detectedLine, 'Detected installation:\s*(.+)$')
+        if (-not $detectedMatch.Success) {
+            throw 'Repair completed, but the installed application path was not returned.'
+        }
+        $installedPath = $detectedMatch.Groups[1].Value.Trim()
+        if (-not (Test-Path -LiteralPath (Join-Path $installedPath 'Start.bat'))) {
+            throw ('Start.bat is missing from the repaired folder: ' + $installedPath)
+        }
+
+        Set-InstallState 'Starting application' 'Preparing Python packages. First launch can take several minutes...' 90
+        $startupLog = Join-Path $savedLogFolder 'startup.log'
+        $startupErrorLog = Join-Path $savedLogFolder 'startup-error.log'
+        Remove-Item -LiteralPath $startupLog, $startupErrorLog -Force -ErrorAction SilentlyContinue
+        $starter = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d', '/c', 'Start.bat') -WorkingDirectory $installedPath -WindowStyle Hidden -RedirectStandardOutput $startupLog -RedirectStandardError $startupErrorLog -PassThru
+        $ready = $false
+        foreach ($attempt in 1..450) {
+            try {
+                $service = Invoke-RestMethod -Uri 'http://127.0.0.1:8765/api/status' -TimeoutSec 2
+                if ([string]$service.version -eq $Version) {
+                    $ready = $true
+                    break
+                }
+            } catch { }
+            if ($starter.HasExited) {
+                $startupReason = $null
+                if (Test-Path -LiteralPath $startupErrorLog) {
+                    $startupReason = @(Get-Content -LiteralPath $startupErrorLog | Where-Object { $_.Trim() } | Select-Object -Last 1)
+                }
+                if (-not $startupReason -and (Test-Path -LiteralPath $startupLog)) {
+                    $startupReason = @(Get-Content -LiteralPath $startupLog | Where-Object { $_.Trim() } | Select-Object -Last 1)
+                }
+                if (-not $startupReason) { $startupReason = 'The application startup process closed before the local service became ready.' }
+                throw ([string]$startupReason)
+            }
+            $elapsed = $attempt * 2
+            $startupProgress = 90 + [Math]::Min(9, [int](($attempt * 9) / 450))
+            Set-InstallState 'Starting application' ("Installing packages and starting the local service... {0}s" -f $elapsed) $startupProgress
+            Start-Sleep -Seconds 2
+        }
+        if (-not $ready) { throw 'Startup timed out after 15 minutes. See startup.log in LocalAppData\ClassInterpreter.' }
+        Set-InstallState 'Installation complete' 'Class Interpreter is ready and opening in your browser.' 100 'complete'
     } catch {
         Set-InstallState 'Installation needs attention' $_.Exception.Message 100 'failed'
     } finally {
