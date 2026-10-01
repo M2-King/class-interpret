@@ -18,11 +18,14 @@ const ui = {
   installWhisper: $('install-whisper'), installDeepseek: $('install-deepseek'),
   installDeepseekPage: $('install-deepseek-page'),
   deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text'),
-  courseTitleSide: $('course-title-side'), dockRecord: document.querySelector('[data-record-proxy]')
+  courseTitleSide: $('course-title-side'), dockRecord: document.querySelector('[data-record-proxy]'),
+  subtitleButton: $('subtitle-window-button'), livePreview: $('live-preview'),
+  livePreviewEn: $('live-preview-en'), livePreviewZh: $('live-preview-zh')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
-  uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0 };
+  uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0,
+  captureMode: 'batch', socket: null, stopResolver: null, lastCaption: null };
 const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
 const MODEL_LABELS = { small: 'Small', medium: 'Medium', 'large-v3': 'Large v3' };
 let clockTimer = null;
@@ -320,7 +323,7 @@ function makeEntry(entry) {
   zhTag.className = 'language-tag';
   zhTag.textContent = '中';
   const zhText = document.createElement('p');
-  zhText.textContent = entry.zh || '中文翻译尚不可用，请安装翻译模型。';
+  zhText.textContent = entry.zh || (entry.translation_status === 'pending' ? '正在生成中文翻译…' : '中文翻译尚不可用，请安装翻译模型。');
   zh.append(zhTag, zhText);
   copy.append(en, zh);
   const tools = document.createElement('div');
@@ -434,6 +437,139 @@ function flatten(chunks, length) {
   return data;
 }
 
+function showLiveCaption(english, chinese = '', partial = false) {
+  state.lastCaption = {english: english || '', chinese: chinese || '', partial};
+  if (ui.livePreview) ui.livePreview.hidden = !(english || chinese);
+  if (ui.livePreviewEn) ui.livePreviewEn.textContent = english || 'Waiting for speech…';
+  if (ui.livePreviewZh) ui.livePreviewZh.textContent = chinese || (partial ? '正在识别…' : '等待翻译…');
+  window.SubtitleWindow?.publish({
+    status: state.recording ? (partial ? 'Listening…' : 'Live') : 'Saved',
+    english: english || '', chinese: chinese || '', partial
+  });
+}
+
+function applyStreamEntry(entry) {
+  if (!entry || !state.session) return;
+  const existing = state.session.entries.find(item => item.id === entry.id);
+  if (existing) Object.assign(existing, entry);
+  else state.session.entries.push(entry);
+  state.session.summary = ''; state.session.summary_source = '';
+  drawSession();
+  loadHistory();
+}
+
+function handleStreamMessage(event) {
+  let message;
+  try { message = JSON.parse(event.data); }
+  catch { return; }
+  if (message.type === 'partial') {
+    showLiveCaption(message.text, '', true);
+  } else if (message.type === 'final' && message.entry) {
+    applyStreamEntry(message.entry);
+    showLiveCaption(message.entry.en, '', false);
+  } else if (message.type === 'translation' && message.entry) {
+    applyStreamEntry(message.entry);
+    showLiveCaption(message.entry.en, message.entry.zh, false);
+    if (ui.speak.checked && message.entry.zh && 'speechSynthesis' in window) {
+      const speech = new SpeechSynthesisUtterance(message.entry.zh);
+      speech.lang = 'zh-CN'; speech.rate = 1.1;
+      window.speechSynthesis.speak(speech);
+    }
+  } else if (message.type === 'translation_error') {
+    notice(`英文字幕已保存；中文翻译暂不可用：${message.message}`, true);
+  } else if (message.type === 'error') {
+    notice(`实时识别正在恢复：${humanizeChunkError(message.message)}`, true);
+  } else if (message.type === 'ready_to_stop') {
+    state.stopResolver?.(); state.stopResolver = null;
+  }
+}
+
+async function connectStreaming() {
+  if (!['127.0.0.1', 'localhost', '::1'].includes(location.hostname)) return false;
+  if (!window.WebSocket || !window.AudioWorkletNode) return false;
+  let config;
+  try { config = await api('/api/stream/config'); }
+  catch { return false; }
+  if (!config.enabled || !config.url || !config.token) return false;
+  return new Promise(resolve => {
+    const socket = new WebSocket(config.url);
+    const timeout = setTimeout(() => { try { socket.close(); } catch {} resolve(false); }, 5000);
+    socket.binaryType = 'arraybuffer';
+    socket.onopen = () => socket.send(JSON.stringify({
+      type: 'start', token: config.token, session_id: state.session.id,
+      model: ui.model.value, glossary: ui.glossary.value, base_elapsed: state.baseElapsed
+    }));
+    socket.onmessage = event => {
+      let first;
+      try { first = JSON.parse(event.data); } catch { first = {}; }
+      if (first.type !== 'ready') return;
+      clearTimeout(timeout);
+      state.socket = socket;
+      socket.onmessage = handleStreamMessage;
+      socket.onerror = () => {};
+      socket.onclose = () => {
+        state.socket = null;
+        if (state.recording && state.captureMode === 'stream') {
+          state.captureMode = 'batch';
+          state.chunks = []; state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+          notice('实时字幕通道中断，已自动切换到兼容模式；课堂录音会继续保存。', 'warn');
+        }
+      };
+      resolve(true);
+    };
+    socket.onerror = () => { clearTimeout(timeout); resolve(false); };
+  });
+}
+
+function pcm16(samples) {
+  const buffer = new ArrayBuffer(samples.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < samples.length; i++) {
+    const value = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(i * 2, value < 0 ? value * 32768 : value * 32767, true);
+  }
+  return buffer;
+}
+
+function processBatchSamples(part) {
+  state.chunks.push(part); state.samples += part.length;
+  let energy = 0;
+  for (const sample of part) energy += sample * sample;
+  const quiet = Math.sqrt(energy / Math.max(1, part.length)) < 0.006;
+  if (quiet) state.quietSamples += part.length;
+  else { state.voicedSamples += part.length; state.quietSamples = 0; }
+  if (state.quietSamples >= RATE * 0.55 && state.voicedSamples >= RATE * 0.6) flushAudio(false, true);
+  else flushAudio();
+}
+
+function processStreamSamples(part) {
+  if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
+    state.captureMode = 'batch';
+    processBatchSamples(part);
+    return;
+  }
+  state.socket.send(pcm16(part));
+  state.samples += part.length;
+  let energy = 0;
+  for (const sample of part) energy += sample * sample;
+  const quiet = Math.sqrt(energy / Math.max(1, part.length)) < 0.006;
+  if (quiet) state.quietSamples += part.length;
+  else { state.voicedSamples += part.length; state.quietSamples = 0; }
+  const naturalPause = state.quietSamples >= RATE * 0.55 && state.voicedSamples >= RATE * 0.6;
+  if (naturalPause || state.samples >= RATE * 15) {
+    state.socket.send(JSON.stringify({type: 'commit', elapsed: sessionSeconds()}));
+    state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+  }
+}
+
+function handleCaptured(input) {
+  if (!state.recording) return;
+  const part = downsample(input, state.audioContext.sampleRate);
+  if (!part.length) return;
+  if (state.captureMode === 'stream') processStreamSamples(part);
+  else processBatchSamples(part);
+}
+
 function queueAudio(samples, elapsed) {
   const sessionId = state.session.id;
   const model = ui.model.value;
@@ -451,6 +587,7 @@ function queueAudio(samples, elapsed) {
       if (response.entry && state.session?.id === sessionId) {
         state.session.entries.push(response.entry);
         state.session.summary = ''; state.session.summary_source = '';
+        showLiveCaption(response.entry.en, response.entry.zh, false);
         drawSession(); loadHistory();
         if (ui.speak.checked && response.entry.zh && 'speechSynthesis' in window) {
           const speech = new SpeechSynthesisUtterance(response.entry.zh);
@@ -491,24 +628,25 @@ async function startRecording() {
   }
   state.audioContext = new AudioContext();
   state.sourceNode = state.audioContext.createMediaStreamSource(state.stream);
-  state.processor = state.audioContext.createScriptProcessor(8192, 1, 1);
-  state.silent = state.audioContext.createGain(); state.silent.gain.value = 0;
-  state.sourceNode.connect(state.processor); state.processor.connect(state.silent); state.silent.connect(state.audioContext.destination);
   state.chunks = []; state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
   state.baseElapsed = state.session.entries.length ? state.session.entries.at(-1).at + 1 : 0;
-  state.startedAt = performance.now(); state.recording = true;
-  state.processor.onaudioprocess = event => {
-    if (!state.recording) return;
-    const part = downsample(event.inputBuffer.getChannelData(0), state.audioContext.sampleRate);
-    state.chunks.push(part); state.samples += part.length;
-    let energy = 0;
-    for (const sample of part) energy += sample * sample;
-    const quiet = Math.sqrt(energy / part.length) < 0.006;
-    if (quiet) state.quietSamples += part.length;
-    else { state.voicedSamples += part.length; state.quietSamples = 0; }
-    if (state.quietSamples >= RATE * 0.55 && state.voicedSamples >= RATE * 0.6) flushAudio(false, true);
-    else flushAudio();
-  };
+  state.startedAt = performance.now();
+  state.captureMode = await connectStreaming() ? 'stream' : 'batch';
+  state.silent = state.audioContext.createGain(); state.silent.gain.value = 0;
+  try {
+    await state.audioContext.audioWorklet.addModule('/audio-worklet.js?v=0.3.3-stream');
+    state.processor = new AudioWorkletNode(state.audioContext, 'class-interpreter-capture');
+    state.processor.port.onmessage = event => handleCaptured(event.data);
+  } catch {
+    if (state.captureMode === 'stream') {
+      try { state.socket?.close(); } catch {}
+      state.socket = null; state.captureMode = 'batch';
+    }
+    state.processor = state.audioContext.createScriptProcessor(8192, 1, 1);
+    state.processor.onaudioprocess = event => handleCaptured(event.inputBuffer.getChannelData(0));
+  }
+  state.sourceNode.connect(state.processor); state.processor.connect(state.silent); state.silent.connect(state.audioContext.destination);
+  state.recording = true;
   state.stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => { if (state.recording) stopRecording(); }));
   ui.record.classList.add('recording'); ui.record.lastElementChild.textContent = '结束听课';
   const recordIcon = ui.record.querySelector('i');
@@ -518,16 +656,30 @@ async function startRecording() {
   ui.micHealth.textContent = '已连接'; ui.audioHealth.textContent = '检测语音中';
   clearInterval(clockTimer); clockTimer = setInterval(updateClock, 1000); updateClock();
   ui.model.disabled = true; ui.source.disabled = true;
-  notice(matchMedia('(max-width: 750px)').matches
-    ? '正在录音。手机请保持页面在前台并避免锁屏；译文按停顿或约 8 秒更新。'
-    : '正在录音。每约 8 秒生成一段译文；首次使用时模型下载会等待较久。');
+  notice(state.captureMode === 'stream'
+    ? '低延迟字幕已连接：英文会持续更新，停顿后自动保存并翻译。'
+    : (matchMedia('(max-width: 750px)').matches
+      ? '正在使用兼容模式。手机请保持页面在前台并避免锁屏；译文按停顿更新。'
+      : '实时通道不可用，已使用兼容模式；课堂录音仍会自动保存。'));
 }
 
 async function stopRecording() {
   if (!state.recording) return;
+  const endElapsed = sessionSeconds();
   state.recording = false;
-  state.processor.onaudioprocess = null;
-  flushAudio(true);
+  if (state.processor?.port) {
+    state.processor.port.postMessage('flush');
+    state.processor.port.onmessage = null;
+  } else if (state.processor) state.processor.onaudioprocess = null;
+  if (state.captureMode === 'stream' && state.socket?.readyState === WebSocket.OPEN) {
+    const finished = new Promise(resolve => { state.stopResolver = resolve; });
+    state.socket.send(JSON.stringify({type: 'stop', elapsed: endElapsed}));
+    await Promise.race([finished, new Promise(resolve => setTimeout(resolve, 30000))]);
+    try { state.socket.close(); } catch {}
+    state.socket = null; state.stopResolver = null;
+  } else {
+    flushAudio(true);
+  }
   state.sourceNode.disconnect(); state.processor.disconnect(); state.silent.disconnect();
   state.stream.getTracks().forEach(track => track.stop());
   await state.audioContext.close();
@@ -551,6 +703,22 @@ ui.record.addEventListener('click', async () => {
   catch (error) { notice(`无法开始录音：${error.message}`, true); }
   finally { ui.record.disabled = false; }
 });
+
+if (ui.subtitleButton) {
+  ui.subtitleButton.addEventListener('click', async () => {
+    ui.subtitleButton.disabled = true;
+    try {
+      await window.SubtitleWindow.open();
+      window.SubtitleWindow.publish(state.lastCaption || {
+        status: state.recording ? 'Listening…' : 'Ready', english: '', chinese: '', partial: false
+      });
+    } catch (error) {
+      notice(`无法打开字幕窗口：${error.message}`, true);
+    } finally {
+      ui.subtitleButton.disabled = false;
+    }
+  });
+}
 
 $('new-session').addEventListener('click', async () => {
   if (state.recording) await stopRecording();

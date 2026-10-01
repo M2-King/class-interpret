@@ -30,6 +30,11 @@ assert "ollama" in data
 assert "whisper" in data
 assert "whisper_models" in data
 
+with urllib.request.urlopen(base + "/api/stream/config") as response:
+    stream = json.loads(response.read().decode())
+assert stream["enabled"] is False
+assert stream["sample_rate"] == 16000
+
 with urllib.request.urlopen(base + "/") as response:
     html = response.read().decode()
     assert "no-store" in (response.headers.get("Cache-Control") or "")
@@ -46,6 +51,8 @@ assert 'id="quit-app"' in html
 assert "退出本地服务" in html
 assert 'class="rail-tabs"' in html
 assert 'id="timestamp-view"' in html
+assert 'id="subtitle-window-button"' in html
+assert 'id="live-preview"' in html
 assert 'data-export-format="pdf"' in html
 style = Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
 assert ".live-workspace" in style
@@ -59,6 +66,12 @@ assert "/api/deepseek/install" in script
 assert "/api/shutdown" in script
 assert "AbortSignal.timeout" not in script
 assert "modelBanner.classList.toggle" in script
+assert "/api/stream/config" in script
+assert "AudioWorkletNode" in script
+
+for path in ("/audio-worklet.js", "/subtitle-window.js", "/subtitle.html", "/subtitle.css"):
+    with urllib.request.urlopen(base + path) as response:
+        assert response.status == 200
 
 req = urllib.request.Request(base + "/api/shutdown", data=b"", method="POST")
 with urllib.request.urlopen(req) as response:

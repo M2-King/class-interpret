@@ -272,6 +272,8 @@ input, select, textarea { outline: none; }
 .language-pair small { color: #848c8d; font-weight: 500; }
 .language-arrow { height: 38px; display: grid; place-items: center; color: #c4c9c8; }
 .view-toggles { height: 38px; display: flex; justify-content: flex-end; align-items: center; gap: 15px; }
+.subtitle-window-button { min-height: 29px; padding: 5px 10px; border: 1px solid #3c4545; border-radius: 8px; background: #151b1c; color: #dce2e0; font-size: 9px; white-space: nowrap; }
+.subtitle-window-button:hover { border-color: #75807f; background: #1d2425; }
 .switch { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .switch > span { margin: 0 !important; color: #afb5b4 !important; }
 .switch input { position: absolute; opacity: 0; pointer-events: none; }
@@ -306,6 +308,12 @@ input, select, textarea { outline: none; }
 .notice:empty { display: none; }
 .notice.error { border-color: rgba(255,92,87,.30); background: rgba(125,35,33,.19); color: #ffaaa7; }
 .notice.warn { border-color: rgba(233,189,103,.24); background: rgba(117,82,22,.16); color: #e5c785; }
+.live-preview { margin: 0 0 8px; padding: 10px 12px; display: grid; grid-template-columns: 42px 1fr; gap: 11px; border: 1px solid rgba(75,214,139,.25); border-radius: 10px; background: linear-gradient(100deg,rgba(35,112,69,.15),rgba(255,255,255,.018)); }
+.live-preview[hidden] { display: none; }
+.live-preview > span { align-self: start; padding: 4px 6px; border-radius: 5px; background: rgba(54,217,130,.13); color: #65e49e; font-size: 8px; font-weight: 800; letter-spacing: .08em; text-align: center; }
+.live-preview p, .live-preview strong { display: block; margin: 0; overflow-wrap: anywhere; line-height: 1.45; }
+.live-preview p { color: #d7dddb; font-size: 11px; }
+.live-preview strong { margin-top: 3px; color: #9ea8a5; font-size: 12px; }
 .transcript-head { min-height: 27px; padding: 5px 4px; display: grid; grid-template-columns: 62px 1fr 38px; gap: 9px; color: #687173; font-size: 8px; }
 .transcript { min-height: 0; flex: 1; padding: 0 0 60px; overflow: auto; scrollbar-width: thin; scrollbar-color: #33393a transparent; }
 .empty { min-height: 240px; display: grid; place-content: center; text-align: center; color: #747d7e; }

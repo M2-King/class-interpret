@@ -176,10 +176,12 @@ try {
     Write-RepairLog ('Detected installation: ' + $target)
 
     $backup = Join-Path $target ('.repair-backup\' + $Stamp)
-    $files = @('Start.bat', 'start.ps1', 'win_bootstrap.py', 'server.py', 'setup_models.py',
+    $files = @('Start.bat', 'start.ps1', 'win_bootstrap.py', 'server.py', 'streaming_server.py',
+               'streaming_hub.py', 'translation_hub.py', 'setup_models.py',
                'setup_whisper.py', 'setup_deepseek.py', 'ssl_certs.py', 'whisper_hub.py',
                'deepseek_hub.py', 'deepseek_api.py', 'secret_box.py', 'requirements.txt',
-               'index.html', 'app.js', 'style.css', 'VERSION', 'README.md', 'pip.pyz',
+               'index.html', 'app.js', 'audio-worklet.js', 'subtitle-window.js', 'subtitle.html',
+               'style.css', 'subtitle.css', 'VERSION', 'README.md', 'pip.pyz',
                'get-pip.py', 'deepseek_api.enc', 'HOW-TO-START.txt')
     $extraBatch = @(Get-ChildItem -LiteralPath $source -File -Filter '*.bat' -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -ne 'Start.bat' } | Select-Object -ExpandProperty Name)

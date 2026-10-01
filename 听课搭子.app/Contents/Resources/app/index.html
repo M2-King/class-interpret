@@ -124,6 +124,7 @@
                   <span class="language-arrow" aria-hidden="true">⇄</span>
                   <div class="language-pair"><span>Translate to</span><strong>Chinese <small>简体中文</small></strong></div>
                   <div class="view-toggles">
+                    <button id="subtitle-window-button" class="subtitle-window-button" type="button">▣ Floating subtitles</button>
                     <label class="switch"><span>Bilingual View</span><input id="dual-view" type="checkbox" checked><i></i></label>
                     <label class="switch"><span>Show Timestamps</span><input id="timestamp-view" type="checkbox" checked><i></i></label>
                     <label class="switch speak-toggle"><span>朗读译文</span><input id="speak" type="checkbox"><i></i></label>
@@ -141,6 +142,9 @@
                   </div>
 
                   <p id="notice" class="notice" role="status" aria-live="polite">系统已准备好。开始后会按自然停顿生成双语记录。</p>
+                  <div id="live-preview" class="live-preview" hidden aria-live="polite">
+                    <span>LIVE</span><div><p id="live-preview-en"></p><strong id="live-preview-zh">正在识别…</strong></div>
+                  </div>
                   <div class="transcript-head" aria-hidden="true"><span>Time</span><span>Transcript</span><span></span></div>
                   <div id="transcript" class="transcript"></div>
 
@@ -244,6 +248,7 @@
       </div>
     </div>
   </div>
-  <script src="/app.js?v=0.3.3-golden" defer></script>
+  <script src="/subtitle-window.js?v=0.3.3-stream" defer></script>
+  <script src="/app.js?v=0.3.3-stream" defer></script>
 </body>
 </html>

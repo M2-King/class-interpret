@@ -7,8 +7,8 @@ DEST_NAME="ClassInterpreter-${VERSION}"
 DEST="$STAGE/$DEST_NAME"
 export DEST
 mkdir -p "$DEST"
-for f in Start.bat 启动同传.bat FIX-CLASS-INTERPRETER.bat start.ps1 fix.ps1 win_bootstrap.py server.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
-         deepseek_api.py secret_box.py requirements.txt index.html app.js style.css VERSION README.md; do
+for f in Start.bat 启动同传.bat FIX-CLASS-INTERPRETER.bat start.ps1 fix.ps1 win_bootstrap.py server.py streaming_server.py streaming_hub.py translation_hub.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
+         deepseek_api.py secret_box.py requirements.txt index.html app.js audio-worklet.js subtitle-window.js subtitle.html style.css subtitle.css VERSION README.md; do
   cp "$ROOT/$f" "$DEST/"
 done
 if [[ -f "$ROOT/deepseek_api.enc" ]]; then
@@ -90,6 +90,9 @@ names = [
     "fix.ps1",
     "win_bootstrap.py",
     "server.py",
+    "streaming_server.py",
+    "streaming_hub.py",
+    "translation_hub.py",
     "setup_models.py",
     "setup_whisper.py",
     "setup_deepseek.py",
@@ -101,7 +104,11 @@ names = [
     "requirements.txt",
     "index.html",
     "app.js",
+    "audio-worklet.js",
+    "subtitle-window.js",
+    "subtitle.html",
     "style.css",
+    "subtitle.css",
     "VERSION",
     "README.md",
     "pip.pyz",

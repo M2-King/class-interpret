@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Class Interpreter Subtitles</title>
+  <link rel="stylesheet" href="/subtitle.css">
+</head>
+<body>
+  <main class="subtitle-stage">
+    <header><span class="live-dot"></span><b>CLASS INTERPRETER</b><small id="subtitle-status">Ready</small></header>
+    <section>
+      <p id="subtitle-en" class="subtitle-en">Waiting for speech…</p>
+      <p id="subtitle-zh" class="subtitle-zh">等待课堂语音…</p>
+    </section>
+  </main>
+  <script>
+    const channel = new BroadcastChannel('class-interpreter-subtitles');
+    channel.onmessage = ({data}) => {
+      document.getElementById('subtitle-status').textContent = data.status || (data.partial ? 'Listening…' : 'Live');
+      document.getElementById('subtitle-en').textContent = data.english || 'Waiting for speech…';
+      document.getElementById('subtitle-zh').textContent = data.chinese || (data.partial ? '正在识别…' : '等待翻译…');
+      document.body.classList.toggle('is-partial', Boolean(data.partial));
+    };
+  </script>
+</body>
+</html>

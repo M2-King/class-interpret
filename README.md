@@ -4,6 +4,8 @@
 
 这是一个运行在自己电脑上的英语课堂同传。浏览器采集麦克风或网课声音，给出英文原文和中文译文。课后可点 **生成课后总结**。上课同传不需要付费语音 API。
 
+新版同传会在本机使用低延迟流式通道持续显示英文草稿，停顿后保存定稿并生成中文；点击 **Floating subtitles** 可打开适合叠在课件上的独立字幕窗。流式通道不可用时会自动切回兼容录音模式，课堂不会因为新功能而无法继续。
+
 ## Windows 怎么用
 
 1. 下载并双击 [ClassInterpreter-Setup-Windows.bat](https://raw.githubusercontent.com/M2-King/class-interpret/codex/ui2-cross-platform/ClassInterpreter-Setup-Windows.bat)。
@@ -51,10 +53,10 @@
 | 模式 | 适合情况 |
 | --- | --- |
 | Small | 普通笔记本、希望尽量跟上课堂 |
-| Medium（默认） | 口音较重、电脑性能较好 |
+| Medium | 口音较重、电脑性能较好 |
 | Large v3 | 有较强显卡或能容忍较长延迟、优先准确率 |
 
-本应用直接使用开源 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) 识别，支持 CTranslate2 的 CPU/GPU 推理；中文翻译使用 [Argos Translate](https://github.com/argosopentech/argos-translate) 的免费离线模型。录音按自然停顿或最长约 8 秒切段，避免固定位置频繁切断单词。模型大小、麦克风距离、教室噪声、术语提示都会影响结果；**无法保证每句完全准确或严格零延迟**。课堂笔记可直接点击“修正识别 / 译文”。
+本应用直接使用开源 [faster-whisper](https://github.com/SYSTRAN/faster-whisper) 识别，支持 CTranslate2 的 CPU/GPU 推理；中文翻译优先使用已配置的 DeepSeek 云接口并验证输出，失败时安全回退到 [Argos Translate](https://github.com/argosopentech/argos-translate) 离线模型。流式模式按短间隔刷新英文草稿、按自然停顿定稿；兼容模式仍按自然停顿或最长约 8 秒切段。模型大小、麦克风距离、教室噪声、术语提示都会影响结果；**无法保证每句完全准确或严格零延迟**。课堂笔记可直接点击“修正识别 / 译文”。
 
 本机若有 NVIDIA 显卡，可选装免费的 CUDA 推理库，以显著缩短等待时间；安装包较大（合计约 1.4 GB），应用也能自动回退 CPU：
 

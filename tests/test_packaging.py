@@ -81,6 +81,8 @@ with zipfile.ZipFile(mac_zip) as zf:
             assert b"repair-backups" in repair
 
     assert any("deepseek_api.py" in name for name in names)
+    for required in ("streaming_server.py", "streaming_hub.py", "translation_hub.py", "audio-worklet.js", "subtitle-window.js", "subtitle.html", "subtitle.css"):
+        assert any(name.endswith(required) for name in names), required
     assert any(name.endswith("deepseek_api.enc") for name in names)
     assert not any(name.endswith("deepseek.api") for name in names)
     for name in names:
@@ -166,6 +168,8 @@ with zipfile.ZipFile(win_zip) as zf:
     assert len(zf.read(f"{inner}/get-pip.py")) > 10000
     assert f"{inner}/secret_box.py" in names
     assert f"{inner}/deepseek_api.py" in names
+    for required in ("streaming_server.py", "streaming_hub.py", "translation_hub.py", "audio-worklet.js", "subtitle-window.js", "subtitle.html", "subtitle.css"):
+        assert f"{inner}/{required}" in names, required
     assert f"{inner}/deepseek_api.enc" in names
     enc = zf.read(f"{inner}/deepseek_api.enc")
     assert enc.startswith(b"CI1.")
@@ -186,6 +190,8 @@ with zipfile.ZipFile(recover_zip) as zf:
     assert b"cutionPolicy" in recover_readme
     assert prefix + "FIX-CLASS-INTERPRETER.bat" in names
     assert prefix + "fix.ps1" in names
+    for required in ("streaming_server.py", "streaming_hub.py", "translation_hub.py", "audio-worklet.js", "subtitle-window.js", "subtitle.html", "subtitle.css"):
+        assert prefix + required in names, required
     start_bat = zf.read(prefix + "Start.bat")
     cn_bat = zf.read(prefix + "启动同传.bat")
     assert start_bat == cn_bat
