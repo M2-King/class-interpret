@@ -21,6 +21,9 @@ assert 'href="ClassInterpreter-windows-' not in html
 assert "raw/cursor/" not in html
 assert "OPEN-THIS.bat" in html
 assert "Extract All" in html
+assert "ClassInterpreter-Setup-Windows.bat" in html
+assert "ClassInterpreter-Setup-Mac.command" in html
+assert "FIX-CLASS-INTERPRETER" in html
 assert "听课搭子手机" in html or "trycloudflare" in html
 assert "iPhone" in html or "iPad" in html
 assert ".venv" in html

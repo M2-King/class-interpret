@@ -46,8 +46,13 @@ assert "OPEN-THIS.bat" in notes
 assert "Open.command" in notes
 assert "zipball" not in notes.lower()
 readme = (root / "README.md").read_text(encoding="utf-8")
-assert "releases/latest/download/ClassInterpreter-mac.zip" in readme
-assert "releases/latest/download/ClassInterpreter-windows.zip" in readme
+assert "releases/latest/download/ClassInterpreter-Setup-Windows.bat" in readme
+assert "releases/latest/download/ClassInterpreter-Setup-Mac.zip" in readme
+assert f"releases/latest/download/ClassInterpreter-mac-{version}.zip" in readme
+assert f"releases/latest/download/ClassInterpreter-windows-{version}.zip" in readme
+assert f"releases/latest/download/ClassInterpreter-recover-{version}.zip" in readme
+assert "FIX-CLASS-INTERPRETER" in readme
+assert "v0.2.0" not in readme
 assert "python3 packaging/publish_site_packs.py" in readme
 assert "api.github.com/repos/M2-King/class-interpret/releases/latest" in readme
 assert "ClassInterpreter-windows-" in readme
