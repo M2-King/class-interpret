@@ -29,6 +29,8 @@ assert b"taskkill.exe" in gui_bytes
 assert b"api/shutdown" in gui_bytes
 assert b"ClassInterpreter-Model-Small.zip" in gui_bytes
 assert b"Downloading speech model" in gui_bytes
+assert b"setup.log" in gui_bytes
+assert b"Move-Item -LiteralPath $next" not in gui_bytes
 
 mac_setup_command = root / "ClassInterpreter-Setup-Mac.command"
 assert mac_setup_command.is_file()

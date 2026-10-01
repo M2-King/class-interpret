@@ -103,13 +103,19 @@ $workerScript = {
     param($StatePath, $RequestedTarget, $Version)
     $ErrorActionPreference = 'Stop'
     $tempRoot = Join-Path $env:TEMP ('ClassInterpreter-install-' + [Guid]::NewGuid().ToString('N'))
+    $savedLogFolder = Join-Path $env:LOCALAPPDATA 'ClassInterpreter'
+    $setupLog = Join-Path $savedLogFolder 'setup.log'
+    New-Item -ItemType Directory -Force -Path $savedLogFolder | Out-Null
+    [IO.File]::WriteAllText($setupLog, ('Class Interpreter setup started ' + (Get-Date) + [Environment]::NewLine), (New-Object Text.UTF8Encoding($false)))
 
     function Set-InstallState {
         param([string]$Phase, [string]$Message, [int]$Progress, [string]$State = 'working')
         $payload = @{ phase = $Phase; message = $Message; progress = $Progress; state = $State } | ConvertTo-Json -Compress
-        $next = $StatePath + '.new'
-        [IO.File]::WriteAllText($next, $payload, (New-Object Text.UTF8Encoding($false)))
-        Move-Item -LiteralPath $next -Destination $StatePath -Force
+        # A single worker owns this file. Direct writes avoid Windows PowerShell's
+        # intermittent "file already exists" collision when Move-Item replaces it.
+        $stateStream = New-Object IO.FileStream($StatePath, [IO.FileMode]::Create, [IO.FileAccess]::Write, [IO.FileShare]::ReadWrite)
+        $stateWriter = New-Object IO.StreamWriter($stateStream, (New-Object Text.UTF8Encoding($false)))
+        try { $stateWriter.Write($payload) } finally { $stateWriter.Dispose() }
     }
 
     try {
@@ -184,8 +190,6 @@ $workerScript = {
         }
         $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentText -WindowStyle Hidden -Wait -PassThru
         $repairLog = Join-Path $repair.DirectoryName 'INSTALL-OR-REPAIR.log'
-        $savedLogFolder = Join-Path $env:LOCALAPPDATA 'ClassInterpreter'
-        New-Item -ItemType Directory -Force -Path $savedLogFolder | Out-Null
         if (Test-Path -LiteralPath $repairLog) {
             Copy-Item -LiteralPath $repairLog -Destination (Join-Path $savedLogFolder 'installer.log') -Force -ErrorAction SilentlyContinue
         }
@@ -321,6 +325,8 @@ $workerScript = {
         if (-not $ready) { throw 'Startup timed out after 15 minutes. See startup.log in LocalAppData\ClassInterpreter.' }
         Set-InstallState 'Installation complete' 'Class Interpreter is ready and opening in your browser.' 100 'complete'
     } catch {
+        $setupFailure = ((Get-Date).ToString('s') + '  FAILED: ' + $_.Exception.Message + [Environment]::NewLine + $_.ScriptStackTrace + [Environment]::NewLine)
+        try { [IO.File]::AppendAllText($setupLog, $setupFailure, (New-Object Text.UTF8Encoding($false))) } catch { }
         Set-InstallState 'Installation needs attention' $_.Exception.Message 100 'failed'
     } finally {
         if (Test-Path -LiteralPath $tempRoot) { Remove-Item -LiteralPath $tempRoot -Recurse -Force -ErrorAction SilentlyContinue }
