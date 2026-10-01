@@ -1,0 +1,48 @@
+name: Publish install packs
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stamp docs packs
+        run: python3 packaging/publish_site_packs.py
+
+      - name: GitHub Release with stable and versioned zip names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          TAG="v${VERSION}"
+          MAC="docs/ClassInterpreter-mac.zip"
+          WIN="docs/ClassInterpreter-windows.zip"
+          MAC_VER="docs/ClassInterpreter-mac-${VERSION}.zip"
+          WIN_VER="docs/ClassInterpreter-windows-${VERSION}.zip"
+          NOTES="docs/release-body.md"
+          test -s "$MAC"
+          test -s "$WIN"
+          test -s "$MAC_VER"
+          test -s "$WIN_VER"
+          test -s "$NOTES"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$MAC" "$WIN" "$MAC_VER" "$WIN_VER" --clobber
+            gh release edit "$TAG" --title "听课搭子 ${VERSION}" --notes-file "$NOTES"
+          else
+            gh release create "$TAG" "$MAC" "$WIN" "$MAC_VER" "$WIN_VER" \
+              --title "听课搭子 ${VERSION}" \
+              --notes-file "$NOTES" \
+              --target "${GITHUB_SHA}" \
+              --latest
+          fi

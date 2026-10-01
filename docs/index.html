@@ -23,8 +23,8 @@
           <a href="#guide">Guide</a>
         </nav>
         <div class="nav-actions">
-          <a class="pill ghost" href="ClassInterpreter-mac-0.3.3.zip">Mac 下载</a>
-          <a class="pill light" href="ClassInterpreter-windows-0.3.3.zip">Windows 下载</a>
+          <a class="pill ghost" href="ClassInterpreter-mac.zip">Mac 下载</a>
+          <a class="pill light" href="ClassInterpreter-windows.zip">Windows 下载</a>
         </div>
       </header>
 
@@ -32,12 +32,12 @@
         <div class="copy">
           <p class="eyebrow">Local classroom interpreter · 0.3.3</p>
           <h1>听懂每一句，<br>跟上每一堂课。</h1>
-          <p class="lede">Free English→Chinese live captions on your laptop.<br>No paid API for speech. 安装包就是下面这两个 zip。</p>
+          <p class="lede">Free English→Chinese live captions on your laptop.<br>No paid API for speech. GitHub Latest 已是 v0.3.3：可先下 Setup，或下完整 zip。</p>
           <div class="hero-actions" id="download">
-            <a class="btn dark" href="ClassInterpreter-mac-0.3.3.zip">下载<br><b>Mac 0.3.3</b></a>
-            <a class="btn light" href="ClassInterpreter-windows-0.3.3.zip">下载<br><b>Windows 0.3.3</b></a>
+            <a class="btn dark" href="ClassInterpreter-mac.zip">下载<br><b>Mac 0.3.3</b></a>
+            <a class="btn light" href="ClassInterpreter-windows.zip">下载<br><b>Windows 0.3.3</b></a>
           </div>
-          <p class="fine">等 Chrome 下完，不要打开 .crdownload · Mac 用 Open.command · Windows 右键 Extract All 再 OPEN-THIS.bat · 校园网请换手机热点</p>
+          <p class="fine">官方 Release：Setup-Windows.bat / Setup-Mac.command · 完整包 Extract All 再 OPEN-THIS.bat · 等 Chrome 下完 · 校园网请换手机热点</p>
         </div>
         <figure class="product">
           <img src="assets/app-preview.png" alt="听课搭子 Live Class 界面：英文原文与中文译文">
@@ -64,23 +64,23 @@
         <div class="device-grid">
           <article>
             <h3>Windows 笔记本</h3>
-            <p>安装包：<b>ClassInterpreter-windows-0.3.3.zip</b></p>
+            <p>安装：<b>ClassInterpreter-Setup-Windows.bat</b>（完整包 ClassInterpreter-windows.zip，当前 0.3.3）</p>
             <ol>
-              <li>右键 zip → <b>Extract All</b>。不要在压缩包窗口里双击。</li>
-              <li>双击 <b>OPEN-THIS.bat</b>。黑窗口不要关。第一行必须是 <b>Class Interpreter 0.3.3</b>。</li>
+              <li>先下 <b>ClassInterpreter-Setup-Windows.bat</b>，双击。安装器会下载、解压、修复并启动。</li>
+              <li>或右键完整 zip → <b>Extract All</b>。不要在压缩包窗口里双击。再双击 <b>OPEN-THIS.bat</b> 或 <b>INSTALL-OR-REPAIR.bat</b>。</li>
+              <li>黑窗口不要关。第一行必须是 <b>Class Interpreter 0.3.3</b>。以后损坏用 <b>FIX-CLASS-INTERPRETER.bat</b>。</li>
               <li>浏览器打开 <b>http://127.0.0.1:8765/</b>，左上角必须是 0.3.3，点黄色按钮，模型选 <b>Small</b>。</li>
-              <li>若提示 SmartScreen：更多信息 → 仍要运行。</li>
-              <li>已经删掉 <b>.venv</b>：换手机热点，解压到新文件夹再 OPEN-THIS.bat。第一次会重新装包几分钟。</li>
+              <li>若提示 SmartScreen：更多信息 → 仍要运行。已经删掉 <b>.venv</b>：换手机热点，Setup 或解压到新文件夹再启动。第一次会重新装包几分钟。</li>
             </ol>
             <p class="path">解压后路径：<code>ClassInterpreter-0.3.3\Start.bat</code> · 环境 <code>.venv\</code> · 模型 <code>hf\</code> · 笔记 <code>data\</code></p>
           </article>
           <article>
             <h3>Mac</h3>
-            <p>安装包：<b>ClassInterpreter-mac-0.3.3.zip</b></p>
+            <p>安装：<b>ClassInterpreter-Setup-Mac.zip</b>（完整包 ClassInterpreter-mac.zip，当前 0.3.3）</p>
             <ol>
-              <li>双击 zip 解压，进入 <b>ClassInterpreter-mac-0.3.3</b>。</li>
-              <li>双击 <b>Open.command</b>。不要只点「听课搭子」图标。</li>
-              <li>若无法打开：Control 点 Open.command → 打开；或系统设置 → 隐私与安全性 → 仍要打开。</li>
+              <li>解压 Setup zip，双击 <b>ClassInterpreter-Setup-Mac.command</b>，它会下载并安装完整应用。</li>
+              <li>或双击完整 zip 解压，进入 <b>ClassInterpreter-mac-0.3.3</b>，双击 <b>Open.command</b>。不要只点「听课搭子」图标。</li>
+              <li>若无法打开：Control 点 `.command` → 打开；或系统设置 → 隐私与安全性 → 仍要打开。以后损坏用 <b>FIX-CLASS-INTERPRETER.command</b>。</li>
               <li>左上角应为 <b>Class Interpreter · 0.3.3</b>。黄色条下载模型，建议 Small / Medium。</li>
               <li>苹果芯片用 CPU。可把 <b>听课搭子.app</b> 拖到「应用程序」。</li>
             </ol>
@@ -105,9 +105,9 @@
         <div>
           <h2>开始使用</h2>
           <ol>
-            <li>只下载上面的 0.3.3 zip。等 Chrome 下完。页面左上角必须显示 <b>0.3.3</b>。</li>
-            <li>Mac：解压后双击 <b>Open.command</b>。</li>
-            <li>Windows：Extract All，再双击 <b>OPEN-THIS.bat</b> 或文件夹里的 <b>Start.bat</b>。不要覆盖已经能用且仍有 .venv 的旧文件夹。</li>
+            <li>从 GitHub Release v0.3.3 下载 Setup 或完整 zip。等 Chrome 下完。页面左上角必须显示 <b>0.3.3</b>。</li>
+            <li>Mac：双击 <b>ClassInterpreter-Setup-Mac.command</b>，或解压后双击 <b>Open.command</b>。</li>
+            <li>Windows：双击 <b>ClassInterpreter-Setup-Windows.bat</b>；或 Extract All 再 <b>OPEN-THIS.bat</b>。不要覆盖已经能用且仍有 .venv 的旧文件夹。损坏时用 <b>FIX-CLASS-INTERPRETER.bat</b>。</li>
             <li>校园网失败时换手机热点，用黄色按钮下载语音/翻译模型（建议 Small）。</li>
             <li>下课后点「生成课后总结」。DeepSeek 已打进这个 zip，朋友不用再填 key。</li>
           </ol>
