@@ -25,6 +25,8 @@ assert b"Downloading application" in gui_bytes
 assert b"-NoLaunch" in gui_bytes
 assert b"api/status" in gui_bytes
 assert b"startup.log" in gui_bytes
+assert b"taskkill.exe" in gui_bytes
+assert b"Class Interpreter was already ready" in gui_bytes
 
 mac_setup_command = root / "ClassInterpreter-Setup-Mac.command"
 assert mac_setup_command.is_file()

@@ -211,6 +211,26 @@ $workerScript = {
             throw ('Start.bat is missing from the repaired folder: ' + $installedPath)
         }
 
+        try {
+            $existingService = Invoke-RestMethod -Uri 'http://127.0.0.1:8765/api/status' -TimeoutSec 2
+            if ([string]$existingService.version -eq $Version) {
+                Start-Process ('http://127.0.0.1:8765/?v=' + $Version)
+                Set-InstallState 'Installation complete' 'Class Interpreter was already ready and is opening in your browser.' 100 'complete'
+                return
+            }
+        } catch { }
+
+        try { Invoke-WebRequest -Method POST -Uri 'http://127.0.0.1:8765/api/shutdown' -TimeoutSec 2 -UseBasicParsing | Out-Null } catch { }
+        $venvPrefix = [IO.Path]::GetFullPath((Join-Path $installedPath '.venv')).TrimEnd('\') + '\'
+        foreach ($oldProcess in @(Get-Process -Name 'python' -ErrorAction SilentlyContinue)) {
+            $oldPath = $null
+            try { $oldPath = [string]$oldProcess.Path } catch { }
+            if ($oldPath -and $oldPath.StartsWith($venvPrefix, [StringComparison]::OrdinalIgnoreCase)) {
+                & taskkill.exe /PID $oldProcess.Id /T /F *> $null
+            }
+        }
+        Start-Sleep -Milliseconds 700
+
         Set-InstallState 'Starting application' 'Preparing Python packages. First launch can take several minutes...' 90
         $startupLog = Join-Path $savedLogFolder 'startup.log'
         $startupErrorLog = Join-Path $savedLogFolder 'startup-error.log'
