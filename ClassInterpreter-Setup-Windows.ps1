@@ -183,7 +183,20 @@ $workerScript = {
             $argumentText += ' -DefaultInstallPath "' + $defaultPath.Replace('"', '""') + '"'
         }
         $process = Start-Process -FilePath 'powershell.exe' -ArgumentList $argumentText -WindowStyle Hidden -Wait -PassThru
-        if ($process.ExitCode -ne 0) { throw ('Repair process returned exit code ' + $process.ExitCode + '.') }
+        $repairLog = Join-Path $repair.DirectoryName 'INSTALL-OR-REPAIR.log'
+        $savedLogFolder = Join-Path $env:LOCALAPPDATA 'ClassInterpreter'
+        New-Item -ItemType Directory -Force -Path $savedLogFolder | Out-Null
+        if (Test-Path -LiteralPath $repairLog) {
+            Copy-Item -LiteralPath $repairLog -Destination (Join-Path $savedLogFolder 'installer.log') -Force -ErrorAction SilentlyContinue
+        }
+        if ($process.ExitCode -ne 0) {
+            $reason = $null
+            if (Test-Path -LiteralPath $repairLog) {
+                $reason = @(Get-Content -LiteralPath $repairLog | Where-Object { $_ -match 'FAILED:' } | Select-Object -Last 1)
+            }
+            if (-not $reason) { $reason = 'Repair process returned exit code ' + $process.ExitCode + '.' }
+            throw ([string]$reason -replace '^.*?FAILED:\s*', '')
+        }
 
         Set-InstallState 'Installation complete' 'Class Interpreter is starting in your browser.' 100 'complete'
     } catch {
@@ -219,7 +232,7 @@ $timer.Add_Tick({
             } elseif ($current.state -eq 'failed') {
                 $wave.ForeColor = [System.Drawing.Color]::FromArgb(239, 91, 91)
                 $progress.ForeColor = [System.Drawing.Color]::FromArgb(239, 91, 91)
-                $stage.Text = 'Check your internet connection and try again.'
+                $stage.Text = 'Review the message above, then try again.'
                 $closeButton.Text = 'Close'
                 $closeButton.Visible = $true
             }

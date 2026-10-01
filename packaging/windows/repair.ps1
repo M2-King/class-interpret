@@ -40,6 +40,25 @@ function Test-Python {
     return $ok
 }
 
+function Stop-AppForRepair {
+    param([string]$VenvPath)
+    try {
+        Invoke-WebRequest -Method POST -Uri 'http://127.0.0.1:8765/api/shutdown' -TimeoutSec 2 -UseBasicParsing | Out-Null
+        Start-Sleep -Milliseconds 800
+    } catch { }
+    try {
+        $prefix = [IO.Path]::GetFullPath($VenvPath).TrimEnd('\') + '\'
+        foreach ($process in @(Get-Process -ErrorAction SilentlyContinue)) {
+            $processPath = $null
+            try { $processPath = [string]$process.Path } catch { }
+            if ($processPath -and $processPath.StartsWith($prefix, [StringComparison]::OrdinalIgnoreCase)) {
+                Stop-Process -Id $process.Id -Force -ErrorAction SilentlyContinue
+            }
+        }
+        Start-Sleep -Milliseconds 500
+    } catch { }
+}
+
 function Add-AppCandidate {
     param([string]$Path, [hashtable]$Table)
     if (-not (Test-AppFolder -Path $Path)) { return }
@@ -183,8 +202,26 @@ try {
     $venv = Join-Path $target '.venv'
     $venvPython = Join-Path $venv 'Scripts\python.exe'
     if ((Test-Path -LiteralPath $venv) -and -not (Test-Python -Exe $venvPython)) {
+        Write-RepairLog 'Closing the old application before rebuilding Python...'
+        Stop-AppForRepair -VenvPath $venv
         $quarantine = Join-Path $target ('.venv-broken-' + $Stamp)
-        Move-Item -LiteralPath $venv -Destination $quarantine
+        if (Test-Path -LiteralPath $quarantine) {
+            $quarantine += '-' + [Guid]::NewGuid().ToString('N').Substring(0, 6)
+        }
+        $moveError = $null
+        foreach ($attempt in 1..3) {
+            try {
+                Move-Item -LiteralPath $venv -Destination $quarantine -ErrorAction Stop
+                $moveError = $null
+                break
+            } catch {
+                $moveError = $_.Exception.Message
+                Start-Sleep -Seconds 1
+            }
+        }
+        if (Test-Path -LiteralPath $venv) {
+            throw ('Could not preserve the broken .venv. Close every Class Interpreter or Python window and retry. ' + $moveError)
+        }
         Write-RepairLog ('Quarantined broken environment: ' + $quarantine)
     }
 
