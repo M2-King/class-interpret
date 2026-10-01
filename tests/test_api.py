@@ -15,6 +15,10 @@ thread.start()
 host, port = httpd.server_address
 base = f"http://{host}:{port}"
 
+with urllib.request.urlopen(base + "/api/health") as response:
+    health = json.loads(response.read().decode())
+assert health == {"ready": True, "version": "0.3.3"}
+
 with urllib.request.urlopen(base + "/api/status") as response:
     data = json.loads(response.read().decode())
 assert data.get("version") == "0.3.3"

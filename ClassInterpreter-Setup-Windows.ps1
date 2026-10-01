@@ -300,7 +300,7 @@ $workerScript = {
         $ready = $false
         foreach ($attempt in 1..450) {
             try {
-                $service = Invoke-RestMethod -Uri 'http://127.0.0.1:8765/api/status' -TimeoutSec 2
+                $service = Invoke-RestMethod -Uri 'http://127.0.0.1:8765/api/health' -TimeoutSec 5
                 if ([string]$service.version -eq $Version) {
                     $ready = $true
                     break

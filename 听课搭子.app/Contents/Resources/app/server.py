@@ -289,6 +289,10 @@ class Handler(BaseHTTPRequestHandler):
             return self.serve_file("index.html", "text/html; charset=utf-8")
         if method == "GET" and path in ("/app.js", "/style.css"):
             return self.serve_file(path[1:], "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8")
+        if method == "GET" and path == "/api/health":
+            # Installer readiness must stay fast and must not probe optional AI
+            # services. The full /api/status endpoint intentionally does more.
+            return self.respond(200, {"ready": True, "version": VERSION})
         if method == "GET" and path == "/api/status":
             models = whisper_hub.cached_models()
             deepseek = deepseek_hub.snapshot()

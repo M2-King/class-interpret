@@ -23,7 +23,7 @@ assert all(byte < 128 for byte in gui_bytes)
 assert b"System.Windows.Forms" in gui_bytes
 assert b"Downloading application" in gui_bytes
 assert b"-NoLaunch" in gui_bytes
-assert b"api/status" in gui_bytes
+assert b"api/health" in gui_bytes
 assert b"startup.log" in gui_bytes
 assert b"taskkill.exe" in gui_bytes
 assert b"api/shutdown" in gui_bytes
