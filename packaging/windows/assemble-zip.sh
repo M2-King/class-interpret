@@ -7,7 +7,7 @@ DEST_NAME="ClassInterpreter-${VERSION}"
 DEST="$STAGE/$DEST_NAME"
 export DEST
 mkdir -p "$DEST"
-for f in Start.bat 启动同传.bat start.ps1 win_bootstrap.py server.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
+for f in Start.bat 启动同传.bat FIX-CLASS-INTERPRETER.bat start.ps1 fix.ps1 win_bootstrap.py server.py setup_models.py setup_whisper.py setup_deepseek.py ssl_certs.py whisper_hub.py deepseek_hub.py \
          deepseek_api.py secret_box.py requirements.txt index.html app.js style.css VERSION README.md; do
   cp "$ROOT/$f" "$DEST/"
 done
@@ -23,6 +23,8 @@ cp "$ROOT/packaging/windows/HOW-TO-START.txt" "$DEST/"
 cp "$ROOT/packaging/windows/使用说明.txt" "$DEST/"
 cp "$ROOT/packaging/windows/READ-ME-FIRST.txt" "$STAGE/READ-ME-FIRST.txt"
 cp "$ROOT/packaging/windows/OPEN-THIS.bat" "$STAGE/OPEN-THIS.bat"
+cp "$ROOT/packaging/windows/INSTALL-OR-REPAIR.bat" "$STAGE/INSTALL-OR-REPAIR.bat"
+cp "$ROOT/packaging/windows/repair.ps1" "$STAGE/repair.ps1"
 export DEST
 python3 "$ROOT/packaging/windows/bundle_runtime.py"
 python3 - <<'PY'
@@ -45,13 +47,16 @@ for bat_name in ("Start.bat", "启动同传.bat"):
 open_this = Path(os.environ["DEST"]).parent / "OPEN-THIS.bat"
 open_body = open_this.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
 open_this.write_bytes(open_body)
+installer = Path(os.environ["DEST"]).parent / "INSTALL-OR-REPAIR.bat"
+installer_body = installer.read_bytes().replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+installer.write_bytes(installer_body)
 PY
 OUT_VER="$ROOT/ClassInterpreter-windows-${VERSION}.zip"
 OUT_STABLE="$ROOT/ClassInterpreter-windows.zip"
 rm -f "$OUT_VER" "$OUT_STABLE"
 (
   cd "$STAGE"
-  zip -r "$OUT_VER" READ-ME-FIRST.txt OPEN-THIS.bat "$DEST_NAME"
+  zip -r "$OUT_VER" READ-ME-FIRST.txt OPEN-THIS.bat INSTALL-OR-REPAIR.bat repair.ps1 "$DEST_NAME"
 )
 cp "$OUT_VER" "$OUT_STABLE"
 export ROOT VERSION
@@ -67,7 +72,9 @@ inner = f"ClassInterpreter-recover-{version}"
 names = [
     "Start.bat",
     "启动同传.bat",
+    "FIX-CLASS-INTERPRETER.bat",
     "start.ps1",
+    "fix.ps1",
     "win_bootstrap.py",
     "server.py",
     "setup_models.py",
@@ -90,11 +97,10 @@ readme = (
     "STOP. Recover pack after a broken launch or a deleted .venv.\r\n"
     "\r\n"
     "1. Right-click this zip -> Extract All.\r\n"
-    "2. If you still have a .venv folder, copy files into THAT folder and keep .venv.\r\n"
-    "3. If you DELETED .venv: copy files into ClassInterpreter-0.3.3\r\n"
-    "   (the folder that already has .runtime). Replace files.\r\n"
-    "4. Phone hotspot (campus Wi-Fi often fails pip).\r\n"
-    "5. Double-click Start.bat. First run recreates packages (several minutes).\r\n"
+    "2. Double-click INSTALL-OR-REPAIR.bat. It finds the old app folder.\r\n"
+    "3. It preserves data/models, backs up app files, and rebuilds broken .venv.\r\n"
+    "4. Phone hotspot only if package download fails.\r\n"
+    "5. Keep the black window open while first-run packages install.\r\n"
     "   First line must be Class Interpreter 0.3.3\r\n"
     "   Status must say 0.3.3, not v0.2.2.\r\n"
     "\r\n"
@@ -103,6 +109,11 @@ readme = (
 ).encode("ascii")
 with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
     zf.writestr("READ-ME-FIRST.txt", readme)
+    for outer in ("INSTALL-OR-REPAIR.bat", "repair.ps1"):
+        data = (root / "packaging/windows" / outer).read_bytes()
+        if outer.endswith(".bat"):
+            data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
+        zf.writestr(outer, data)
     for name in names:
         path = root / name
         if not path.is_file():

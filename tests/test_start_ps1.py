@@ -47,6 +47,9 @@ for token in (
     "python-3.12.10-arm64.exe",
     "nvidia-cublas-cu12",
     "CUDA libs skipped",
+    "Existing .venv is broken",
+    ".venv-broken-",
+    "Test-PythonExe -Exe $venvPython",
 ):
     assert token in script, token
 assert "curl.exe @curlArgs 2>$null" not in script
@@ -102,6 +105,8 @@ assert b"win_bootstrap.py" in start_bat
 assert b".runtime\\python\\python.exe" in start_bat
 assert b".venv\\Scripts\\python.exe" in start_bat
 assert b"..\\.venv\\Scripts\\python.exe" in start_bat
+assert b"-c \"import sys\"" in start_bat
+assert b"Existing .venv is broken" in start_bat
 assert start_bat.find(b".venv\\Scripts\\python.exe") < start_bat.find(b"ExecutionPolicy")
 assert start_bat.find(b"..\\.venv\\Scripts\\python.exe") < start_bat.find(b".runtime\\python\\python.exe")
 assert b"if exist \"%~dp0start.ps1\" goto :NEEDPS" in start_bat
@@ -126,6 +131,24 @@ assert_crlf_bat(open_this, "OPEN-THIS.bat")
 assert b"Extract All" in open_this
 assert b"ClassInterpreter-0.3.3" in open_this
 assert b"Start.bat" in open_this
+
+installer = (root / "packaging/windows/INSTALL-OR-REPAIR.bat").read_bytes()
+assert all(byte < 128 for byte in installer), "INSTALL-OR-REPAIR.bat must be ASCII"
+assert_crlf_bat(installer, "INSTALL-OR-REPAIR.bat")
+assert b"repair.ps1" in installer
+repair = (root / "packaging/windows/repair.ps1").read_bytes()
+assert all(byte < 128 for byte in repair), "repair.ps1 must remain Windows PowerShell 5.1-safe ASCII"
+assert b"Find-AppFolders" in repair
+assert b"Quarantined broken environment" in repair
+
+fix_bat = (root / "FIX-CLASS-INTERPRETER.bat").read_bytes()
+assert all(byte < 128 for byte in fix_bat), "FIX-CLASS-INTERPRETER.bat must be ASCII"
+assert_crlf_bat(fix_bat, "FIX-CLASS-INTERPRETER.bat")
+assert b"fix.ps1" in fix_bat
+fix_ps1 = (root / "fix.ps1").read_bytes()
+assert all(byte < 128 for byte in fix_ps1), "fix.ps1 must remain Windows PowerShell 5.1-safe ASCII"
+assert b"ClassInterpreter-windows-0.3.3.zip" in fix_ps1
+assert b"-DefaultInstallPath" in fix_ps1
 assert b"%TEMP%" in open_this
 
 howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()

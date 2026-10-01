@@ -13,6 +13,7 @@ VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip()
 PREFIX = f"ClassInterpreter-mac-{VERSION}"
 OUT = ROOT / f"ClassInterpreter-mac-{VERSION}.zip"
 STABLE = ROOT / "ClassInterpreter-mac.zip"
+SETUP_OUT = ROOT / "ClassInterpreter-Setup-Mac.zip"
 
 
 def unix_attr(path: Path) -> int:
@@ -44,6 +45,8 @@ def main() -> None:
     with zipfile.ZipFile(OUT, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         for src, name in (
             (ROOT / "packaging/macos/Open.command", f"{PREFIX}/Open.command"),
+            (ROOT / "packaging/macos/INSTALL-OR-REPAIR.command", f"{PREFIX}/INSTALL-OR-REPAIR.command"),
+            (ROOT / "packaging/macos/FIX-CLASS-INTERPRETER.command", f"{PREFIX}/FIX-CLASS-INTERPRETER.command"),
             (ROOT / "packaging/macos/使用说明.txt", f"{PREFIX}/使用说明.txt"),
         ):
             os.chmod(src, 0o755 if src.suffix == ".command" else 0o644)
@@ -52,8 +55,15 @@ def main() -> None:
             rel = path.relative_to(APP)
             add(zf, path, f"{PREFIX}/听课搭子.app/{rel.as_posix()}")
     STABLE.write_bytes(OUT.read_bytes())
+    if SETUP_OUT.exists():
+        SETUP_OUT.unlink()
+    setup = ROOT / "ClassInterpreter-Setup-Mac.command"
+    os.chmod(setup, 0o755)
+    with zipfile.ZipFile(SETUP_OUT, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+        add(zf, setup, setup.name)
     print(f"Wrote {OUT}")
     print(f"Wrote {STABLE}")
+    print(f"Wrote {SETUP_OUT}")
 
 
 if __name__ == "__main__":

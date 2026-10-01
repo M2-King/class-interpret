@@ -37,8 +37,16 @@ if not exist "%~dp0server.py" (
   exit /b 1
 )
 
-if exist "%~dp0.venv\Scripts\python.exe" goto :VENV
-if exist "%~dp0..\.venv\Scripts\python.exe" goto :PARENTVENV
+if exist "%~dp0.venv\Scripts\python.exe" (
+  "%~dp0.venv\Scripts\python.exe" -c "import sys" >nul 2>&1
+  if not errorlevel 1 goto :VENV
+  echo Existing .venv is broken or points to a removed Python. Rebuilding it...
+)
+if exist "%~dp0..\.venv\Scripts\python.exe" (
+  "%~dp0..\.venv\Scripts\python.exe" -c "import sys" >nul 2>&1
+  if not errorlevel 1 goto :PARENTVENV
+  echo Parent .venv is broken; ignoring it.
+)
 if exist "%~dp0start.ps1" goto :NEEDPS
 if exist "%~dp0.runtime\python\python.exe" goto :BUNDLE
 goto :NEEDPS

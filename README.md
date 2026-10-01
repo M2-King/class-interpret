@@ -6,24 +6,24 @@
 
 ## Windows 怎么用
 
-1. 下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/docs/ClassInterpreter-windows-0.3.3.zip)。等 Chrome 下完，不要打开 `.crdownload`。
-2. 右键 zip → **Extract All**。不要在压缩包窗口里双击任何文件。
-3. 双击 **OPEN-THIS.bat**。黑窗口不要关。第一行必须是 **Class Interpreter 0.3.3**。
+1. 下载并双击 [ClassInterpreter-Setup-Windows.bat](https://raw.githubusercontent.com/M2-King/class-interpret/codex/ui2-cross-platform/ClassInterpreter-Setup-Windows.bat)。
+2. 安装器会自动下载完整应用、解压、检测旧安装路径、修复并启动。
+3. 以后如有损坏，双击主文件夹里的 **FIX-CLASS-INTERPRETER.bat**。
 4. 浏览器打开 `http://127.0.0.1:8765/`，必须显示 **0.3.3**。点黄色按钮，模型选 **Small**。校园网失败请换手机热点。
 5. 若提示「Windows 已保护你的电脑」：更多信息 → 仍要运行。
-6. 如果已经删掉 `.venv`：把 zip 解压到**新文件夹**，换热点后再双击 OPEN-THIS.bat。第一次会重新装包，要几分钟。
+6. 如果已经删掉或损坏 `.venv`，安装器会自动隔离并重建。第一次会重新装包，要几分钟。
 7. 解压后路径：`ClassInterpreter-0.3.3\Start.bat` · 环境 `.venv\` · 模型 `hf\` · 笔记 `data\`。
 
-已经能用且还留着 `.venv` 的电脑（例如 R9000P）：继续用旧文件夹，不要用新 zip 覆盖。
+完整便携包仍可下载：[ClassInterpreter-windows-0.3.3.zip](https://raw.githubusercontent.com/M2-King/class-interpret/codex/ui2-cross-platform/ClassInterpreter-windows-0.3.3.zip)。
 
 ## Mac 怎么用
 
-1. 下载 [ClassInterpreter-mac-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/docs/ClassInterpreter-mac-0.3.3.zip)。
-2. 双击解压，进入 **ClassInterpreter-mac-0.3.3**。
-3. 双击 **Open.command**。不要只点「听课搭子」图标。
+1. 下载 [ClassInterpreter-Setup-Mac.zip](https://raw.githubusercontent.com/M2-King/class-interpret/codex/ui2-cross-platform/ClassInterpreter-Setup-Mac.zip)。
+2. 解压后双击 **ClassInterpreter-Setup-Mac.command**，它会自动下载并安装完整应用。
+3. 以后如有损坏，双击应用旁的 **FIX-CLASS-INTERPRETER.command**。
 4. 若无法打开：按住 Control 点 Open.command → 打开；或系统设置 → 隐私与安全性 → 仍要打开。
 5. 左上角应为 **Class Interpreter · 0.3.3**。黄色条下载模型，建议 **Small** 或 **Medium**。校园网请换手机热点。
-6. 可把 `听课搭子.app` 拖到「应用程序」。依赖在 `~/Library/Application Support/ClassInterpret`，日志在 `~/Library/Logs/class-interpret.log`。
+6. 完整便携包：[ClassInterpreter-mac-0.3.3.zip](https://raw.githubusercontent.com/M2-King/class-interpret/codex/ui2-cross-platform/ClassInterpreter-mac-0.3.3.zip)。依赖在 `~/Library/Application Support/ClassInterpret`，日志在 `~/Library/Logs/class-interpret.log`。
 7. 下课后点 **退出听课搭子**。上课请让 Mac 保持清醒。
 
 苹果芯片用 CPU，不是 NVIDIA。页面：`http://127.0.0.1:8765/`。
@@ -32,9 +32,9 @@
 
 ## 已经能用的电脑（例如 R9000P）
 
-**不要换成 Downloads 里的新 zip 覆盖 `.venv`。** 原来那个文件夹里的 `.venv`、模型和显卡加速都还在，延迟才会小。
+运行独立安装器即可；它会检测旧路径、保留 `.venv`/模型/笔记，并备份被替换的应用文件。
 
-修复包（只覆盖启动器和页面，保留旧文件夹）：[ClassInterpreter-recover-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-recover-0.3.3.zip)
+修复包：[ClassInterpreter-recover-0.3.3.zip](https://raw.githubusercontent.com/M2-King/class-interpret/codex/ui2-cross-platform/ClassInterpreter-recover-0.3.3.zip)
 
 **如果已经删掉 `.venv`：** 用手机热点，按上面的 Windows 步骤解压新包。第一次会重新装包，黑窗口要留着。装好后页面必须是 **0.3.3**，再点黄色按钮下载 Small。显卡加速会尽量重装 CUDA 库；失败时仍可用 CPU。
 
