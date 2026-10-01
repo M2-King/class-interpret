@@ -26,8 +26,9 @@ cp "$ROOT/packaging/windows/OPEN-THIS.bat" "$STAGE/OPEN-THIS.bat"
 cp "$ROOT/packaging/windows/INSTALL-OR-REPAIR.bat" "$STAGE/INSTALL-OR-REPAIR.bat"
 cp "$ROOT/packaging/windows/repair.ps1" "$STAGE/repair.ps1"
 export DEST
-python3 "$ROOT/packaging/windows/bundle_runtime.py"
-python3 - <<'PY'
+PYTHON="${PYTHON:-python3}"
+"$PYTHON" "$ROOT/packaging/windows/bundle_runtime.py"
+"$PYTHON" - <<'PY'
 from pathlib import Path
 import os
 dest = Path(os.environ["DEST"])
@@ -54,13 +55,25 @@ PY
 OUT_VER="$ROOT/ClassInterpreter-windows-${VERSION}.zip"
 OUT_STABLE="$ROOT/ClassInterpreter-windows.zip"
 rm -f "$OUT_VER" "$OUT_STABLE"
-(
-  cd "$STAGE"
-  zip -r "$OUT_VER" READ-ME-FIRST.txt OPEN-THIS.bat INSTALL-OR-REPAIR.bat repair.ps1 "$DEST_NAME"
-)
+export STAGE DEST_NAME OUT_VER
+"$PYTHON" - <<'PY'
+from pathlib import Path
+import os
+import zipfile
+
+stage = Path(os.environ["STAGE"])
+out = Path(os.environ["OUT_VER"])
+dest_name = os.environ["DEST_NAME"]
+with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+    for name in ("READ-ME-FIRST.txt", "OPEN-THIS.bat", "INSTALL-OR-REPAIR.bat", "repair.ps1"):
+        zf.write(stage / name, name)
+    for path in (stage / dest_name).rglob("*"):
+        if path.is_file():
+            zf.write(path, path.relative_to(stage).as_posix())
+PY
 cp "$OUT_VER" "$OUT_STABLE"
 export ROOT VERSION
-python3 - <<'PY'
+"$PYTHON" - <<'PY'
 from pathlib import Path
 import os
 import zipfile

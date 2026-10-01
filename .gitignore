@@ -8,3 +8,4 @@ __pycache__/
 secrets/deepseek.api
 .env
 packaging/windows/cache/
+ClassInterpreter-Model-Small.zip

@@ -27,10 +27,14 @@ assert b"api/status" in gui_bytes
 assert b"startup.log" in gui_bytes
 assert b"taskkill.exe" in gui_bytes
 assert b"Class Interpreter was already ready" in gui_bytes
+assert b"ClassInterpreter-Model-Small.zip" in gui_bytes
+assert b"Downloading speech model" in gui_bytes
 
 mac_setup_command = root / "ClassInterpreter-Setup-Mac.command"
 assert mac_setup_command.is_file()
-assert b"ClassInterpreter-mac-0.3.3.zip" in mac_setup_command.read_bytes()
+mac_setup_bytes = mac_setup_command.read_bytes()
+assert b"ClassInterpreter-mac-${VERSION}.zip" in mac_setup_bytes
+assert b"ClassInterpreter-Model-Small.zip" in mac_setup_bytes
 
 
 def unix_mode(info: zipfile.ZipInfo) -> int:

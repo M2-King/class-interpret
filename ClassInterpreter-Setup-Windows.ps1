@@ -136,7 +136,7 @@ $workerScript = {
                 $output.Write($buffer, 0, $count)
                 $received += $count
                 if ($total -gt 0) {
-                    $percent = 5 + [int](($received * 55) / $total)
+                    $percent = 5 + [int](($received * 30) / $total)
                     $mb = [Math]::Round($received / 1MB, 1)
                     Set-InstallState 'Downloading application' ("Downloaded {0} MB" -f $mb) $percent
                 }
@@ -148,7 +148,7 @@ $workerScript = {
         }
         if ((Get-Item -LiteralPath $zipPath).Length -lt 1000000) { throw 'The downloaded application package is incomplete.' }
 
-        Set-InstallState 'Extracting application' 'Unpacking verified application files...' 63
+        Set-InstallState 'Extracting application' 'Unpacking verified application files...' 38
         $archive = [IO.Compression.ZipFile]::OpenRead($zipPath)
         try {
             $entries = @($archive.Entries)
@@ -165,7 +165,7 @@ $workerScript = {
                     [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $destination, $true)
                 }
                 if (($index % 15) -eq 0 -and $entries.Count -gt 0) {
-                    Set-InstallState 'Extracting application' 'Preparing the local application folder...' (63 + [int](($index * 14) / $entries.Count))
+                    Set-InstallState 'Extracting application' 'Preparing the local application folder...' (38 + [int](($index * 10) / $entries.Count))
                 }
             }
         } finally {
@@ -174,7 +174,7 @@ $workerScript = {
 
         $repair = Get-ChildItem -LiteralPath $extractPath -File -Filter 'repair.ps1' -Recurse | Select-Object -First 1
         if (-not $repair) { throw 'The repair component is missing from the package.' }
-        Set-InstallState 'Installing and repairing' 'Preserving your data and checking Python...' 80
+        Set-InstallState 'Installing and repairing' 'Preserving your data and checking Python...' 52
         $argumentText = '-NoLogo -NoProfile -ExecutionPolicy Bypass -File "' + $repair.FullName + '" -NoLaunch'
         if ($RequestedTarget) {
             $argumentText += ' -TargetPath "' + $RequestedTarget.Replace('"', '""') + '"'
@@ -209,6 +209,72 @@ $workerScript = {
         $installedPath = $detectedMatch.Groups[1].Value.Trim()
         if (-not (Test-Path -LiteralPath (Join-Path $installedPath 'Start.bat'))) {
             throw ('Start.bat is missing from the repaired folder: ' + $installedPath)
+        }
+
+        $bundledModelFolder = Join-Path $installedPath 'hf\bundled\faster-whisper-small'
+        $bundledModel = Join-Path $bundledModelFolder 'model.bin'
+        $legacyModel = Join-Path $installedPath 'hf\modelscope\gpustack--faster-whisper-small\model.bin'
+        if (-not (Test-Path -LiteralPath $bundledModel) -and -not (Test-Path -LiteralPath $legacyModel)) {
+            $modelZip = Join-Path $tempRoot 'ClassInterpreter-Model-Small.zip'
+            $modelTarget = Join-Path $installedPath 'hf\bundled'
+            New-Item -ItemType Directory -Force -Path $modelTarget | Out-Null
+            Set-InstallState 'Downloading speech model' 'Adding the ready-to-use Small offline model...' 57
+            $modelUrl = 'https://github.com/M2-King/class-interpret/releases/download/v' + $Version + '/ClassInterpreter-Model-Small.zip'
+            $modelClient = New-Object Net.Http.HttpClient
+            try {
+                $modelResponse = $modelClient.GetAsync($modelUrl, [Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
+                $modelResponse.EnsureSuccessStatusCode() | Out-Null
+                $modelTotal = [long]$modelResponse.Content.Headers.ContentLength
+                $modelInput = $modelResponse.Content.ReadAsStreamAsync().Result
+                $modelOutput = [IO.File]::Create($modelZip)
+                try {
+                    $modelBuffer = New-Object byte[] 131072
+                    $modelReceived = [long]0
+                    while (($modelCount = $modelInput.Read($modelBuffer, 0, $modelBuffer.Length)) -gt 0) {
+                        $modelOutput.Write($modelBuffer, 0, $modelCount)
+                        $modelReceived += $modelCount
+                        if ($modelTotal -gt 0) {
+                            $modelPercent = 57 + [int](($modelReceived * 28) / $modelTotal)
+                            $modelMb = [Math]::Round($modelReceived / 1MB, 1)
+                            Set-InstallState 'Downloading speech model' ("Downloaded {0} MB of the offline model" -f $modelMb) $modelPercent
+                        }
+                    }
+                } finally {
+                    $modelOutput.Dispose()
+                    $modelInput.Dispose()
+                }
+            } finally {
+                $modelClient.Dispose()
+            }
+            if ((Get-Item -LiteralPath $modelZip).Length -lt 400MB) { throw 'The downloaded Small speech model is incomplete.' }
+
+            Set-InstallState 'Installing speech model' 'Making offline transcription ready...' 86
+            if (Test-Path -LiteralPath $bundledModelFolder) {
+                Remove-Item -LiteralPath $bundledModelFolder -Recurse -Force
+            }
+            $modelArchive = [IO.Compression.ZipFile]::OpenRead($modelZip)
+            try {
+                $modelRootFull = [IO.Path]::GetFullPath($modelTarget + [IO.Path]::DirectorySeparatorChar)
+                foreach ($modelEntry in $modelArchive.Entries) {
+                    $modelDestination = [IO.Path]::GetFullPath((Join-Path $modelTarget $modelEntry.FullName))
+                    if (-not $modelDestination.StartsWith($modelRootFull, [StringComparison]::OrdinalIgnoreCase)) {
+                        throw 'Unsafe path found in speech model package.'
+                    }
+                    if ($modelEntry.FullName.EndsWith('/')) {
+                        New-Item -ItemType Directory -Force -Path $modelDestination | Out-Null
+                    } else {
+                        New-Item -ItemType Directory -Force -Path (Split-Path -Parent $modelDestination) | Out-Null
+                        [IO.Compression.ZipFileExtensions]::ExtractToFile($modelEntry, $modelDestination, $true)
+                    }
+                }
+            } finally {
+                $modelArchive.Dispose()
+            }
+            if (-not (Test-Path -LiteralPath $bundledModel) -or (Get-Item -LiteralPath $bundledModel).Length -lt 400MB) {
+                throw 'The Small speech model could not be installed correctly.'
+            }
+        } else {
+            Set-InstallState 'Speech model ready' 'Preserved the existing Small offline model.' 86
         }
 
         try {
