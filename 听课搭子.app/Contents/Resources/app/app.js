@@ -25,7 +25,8 @@ const ui = {
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
   uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0,
-  captureMode: 'batch', socket: null, stopResolver: null, lastCaption: null };
+  captureMode: 'batch', socket: null, stopResolver: null, lastCaption: null,
+  streamVoiceActive: false, streamPreRoll: [], streamPreRollSamples: 0, streamError: '' };
 const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
 const MODEL_LABELS = { small: 'Small', medium: 'Medium', 'large-v3': 'Large v3' };
 let clockTimer = null;
@@ -470,7 +471,8 @@ function handleStreamMessage(event) {
   } else if (message.type === 'translation' && message.entry) {
     applyStreamEntry(message.entry);
     showLiveCaption(message.entry.en, message.entry.zh, false);
-    if (ui.speak.checked && message.entry.zh && 'speechSynthesis' in window) {
+    const provisional = message.entry.translation_status === 'provisional';
+    if (ui.speak.checked && message.entry.zh && (!provisional || !lastStatus?.deepseek_cloud) && 'speechSynthesis' in window) {
       const speech = new SpeechSynthesisUtterance(message.entry.zh);
       speech.lang = 'zh-CN'; speech.rate = 1.1;
       window.speechSynthesis.speak(speech);
@@ -486,14 +488,25 @@ function handleStreamMessage(event) {
 
 async function connectStreaming() {
   if (!['127.0.0.1', 'localhost', '::1'].includes(location.hostname)) return false;
-  if (!window.WebSocket || !window.AudioWorkletNode) return false;
+  state.streamError = '';
+  if (!window.WebSocket || !window.AudioWorkletNode) {
+    state.streamError = '浏览器不支持 AudioWorklet/WebSocket';
+    return false;
+  }
   let config;
   try { config = await api('/api/stream/config'); }
-  catch { return false; }
-  if (!config.enabled || !config.url || !config.token) return false;
+  catch (error) { state.streamError = error.message; return false; }
+  if (!config.enabled || !config.url || !config.token) {
+    state.streamError = config.error || '实时字幕服务未启动';
+    return false;
+  }
   return new Promise(resolve => {
     const socket = new WebSocket(config.url);
-    const timeout = setTimeout(() => { try { socket.close(); } catch {} resolve(false); }, 5000);
+    const timeout = setTimeout(() => {
+      state.streamError = '实时字幕连接超时';
+      try { socket.close(); } catch {}
+      resolve(false);
+    }, 5000);
     socket.binaryType = 'arraybuffer';
     socket.onopen = () => socket.send(JSON.stringify({
       type: 'start', token: config.token, session_id: state.session.id,
@@ -512,12 +525,13 @@ async function connectStreaming() {
         if (state.recording && state.captureMode === 'stream') {
           state.captureMode = 'batch';
           state.chunks = []; state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+          state.streamVoiceActive = false; state.streamPreRoll = []; state.streamPreRollSamples = 0;
           notice('实时字幕通道中断，已自动切换到兼容模式；课堂录音会继续保存。', 'warn');
         }
       };
       resolve(true);
     };
-    socket.onerror = () => { clearTimeout(timeout); resolve(false); };
+    socket.onerror = () => { state.streamError = 'WebSocket 连接失败'; clearTimeout(timeout); resolve(false); };
   });
 }
 
@@ -548,17 +562,41 @@ function processStreamSamples(part) {
     processBatchSamples(part);
     return;
   }
-  state.socket.send(pcm16(part));
-  state.samples += part.length;
   let energy = 0;
   for (const sample of part) energy += sample * sample;
-  const quiet = Math.sqrt(energy / Math.max(1, part.length)) < 0.006;
+  const rms = Math.sqrt(energy / Math.max(1, part.length));
+  const quietThreshold = ui.source.value === 'screen'
+    ? (state.streamVoiceActive ? 0.0008 : 0.0015)
+    : (state.streamVoiceActive ? 0.002 : 0.004);
+  const quiet = rms < quietThreshold;
+
+  // Browser-side VAC: don't spend Whisper inference on room silence. Keep a
+  // short pre-roll so the first consonant isn't cut when speech begins.
+  if (!state.streamVoiceActive && quiet) {
+    state.streamPreRoll.push(part);
+    state.streamPreRollSamples += part.length;
+    while (state.streamPreRollSamples > RATE * 0.25 && state.streamPreRoll.length > 1) {
+      state.streamPreRollSamples -= state.streamPreRoll.shift().length;
+    }
+    return;
+  }
+  if (!state.streamVoiceActive) {
+    state.streamVoiceActive = true;
+    for (const preRoll of state.streamPreRoll) {
+      state.socket.send(pcm16(preRoll));
+      state.samples += preRoll.length;
+    }
+    state.streamPreRoll = []; state.streamPreRollSamples = 0;
+  }
+  state.socket.send(pcm16(part));
+  state.samples += part.length;
   if (quiet) state.quietSamples += part.length;
   else { state.voicedSamples += part.length; state.quietSamples = 0; }
   const naturalPause = state.quietSamples >= RATE * 0.55 && state.voicedSamples >= RATE * 0.6;
   if (naturalPause || state.samples >= RATE * 15) {
     state.socket.send(JSON.stringify({type: 'commit', elapsed: sessionSeconds()}));
     state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+    state.streamVoiceActive = false; state.streamPreRoll = []; state.streamPreRollSamples = 0;
   }
 }
 
@@ -629,6 +667,7 @@ async function startRecording() {
   state.audioContext = new AudioContext();
   state.sourceNode = state.audioContext.createMediaStreamSource(state.stream);
   state.chunks = []; state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+  state.streamVoiceActive = false; state.streamPreRoll = []; state.streamPreRollSamples = 0;
   state.baseElapsed = state.session.entries.length ? state.session.entries.at(-1).at + 1 : 0;
   state.startedAt = performance.now();
   state.captureMode = await connectStreaming() ? 'stream' : 'batch';
@@ -660,7 +699,7 @@ async function startRecording() {
     ? '低延迟字幕已连接：英文会持续更新，停顿后自动保存并翻译。'
     : (matchMedia('(max-width: 750px)').matches
       ? '正在使用兼容模式。手机请保持页面在前台并避免锁屏；译文按停顿更新。'
-      : '实时通道不可用，已使用兼容模式；课堂录音仍会自动保存。'));
+      : `实时通道不可用${state.streamError ? `（${state.streamError}）` : ''}，已使用兼容模式；课堂录音仍会自动保存。`));
 }
 
 async function stopRecording() {

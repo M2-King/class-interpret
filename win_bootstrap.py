@@ -96,7 +96,7 @@ def pip_ok(exe: str) -> bool:
 
 
 def packages_ok(exe: str) -> bool:
-    return run(exe, ["-c", "import faster_whisper, argostranslate"]) == 0
+    return run(exe, ["-c", "import faster_whisper, argostranslate, websockets"]) == 0
 
 
 def ensure_pip(root: Path, exe: str) -> None:

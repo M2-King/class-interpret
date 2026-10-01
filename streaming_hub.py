@@ -52,12 +52,14 @@ class LiveBuffer:
     def __init__(
         self,
         *,
-        min_partial_seconds: float = 0.75,
-        partial_step_seconds: float = 0.65,
+        min_partial_seconds: float = 1.0,
+        partial_step_seconds: float = 1.0,
+        partial_window_seconds: float = 6.0,
         max_seconds: float = 16.0,
     ) -> None:
         self.min_partial_bytes = int(RATE * BYTES_PER_SAMPLE * min_partial_seconds)
         self.partial_step_bytes = int(RATE * BYTES_PER_SAMPLE * partial_step_seconds)
+        self.partial_window_bytes = int(RATE * BYTES_PER_SAMPLE * partial_window_seconds)
         self.max_bytes = int(RATE * BYTES_PER_SAMPLE * max_seconds)
         self.lock = threading.RLock()
         self.current = bytearray()
@@ -112,7 +114,9 @@ class LiveBuffer:
             self.last_partial_size = size
             return DecodeJob(
                 utterance_id=self.utterance_id,
-                pcm=bytes(self.current),
+                # Preview only the newest bounded window. The final pass still
+                # receives the entire utterance, so saved notes remain complete.
+                pcm=bytes(self.current[-self.partial_window_bytes:]),
                 elapsed=max(0.0, float(elapsed)),
                 final=False,
                 created_at=time.monotonic(),

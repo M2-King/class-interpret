@@ -192,8 +192,8 @@ def transcribe_live(job, settings: dict) -> str:
         segments, _ = selected_model.transcribe(
             io.BytesIO(pcm_wav(job.pcm)),
             language="en",
-            beam_size=1 if not job.final else 3,
-            best_of=1 if not job.final else 3,
+            beam_size=1,
+            best_of=1,
             condition_on_previous_text=False,
             initial_prompt=("Classroom terminology: " + glossary[:500]) if glossary else None,
             vad_filter=job.final,
@@ -235,28 +235,48 @@ def save_live_entry(job, english: str, settings: dict) -> dict | None:
         return entry
 
 
-def translate_live_entry(entry: dict, settings: dict) -> dict:
+def translate_live_entry(entry: dict, settings: dict):
     session_id = settings["session_id"]
     with LOCK:
         session = read_session(session_id)
         position = next((index for index, item in enumerate(session["entries"]) if item["id"] == entry["id"]), -1)
         context = [item.get("en", "") for item in session["entries"][max(0, position - 3):position]]
-    chinese, provider, quality = translation_hub.best_translation(
-        entry["en"],
-        translate,
-        glossary=settings.get("glossary", ""),
-        context=context,
-    )
-    with LOCK:
-        session = read_session(session_id)
-        stored = next((item for item in session["entries"] if item["id"] == entry["id"]), None)
-        if stored is None:
-            raise FileNotFoundError("没有找到这一条课堂记录")
-        stored["zh"] = chinese
-        stored["translation_provider"] = provider
-        stored["translation_status"] = quality
-        save_session(session)
-        return dict(stored)
+    delivered = False
+
+    def store(chinese: str, provider: str, quality: str) -> dict:
+        with LOCK:
+            current = read_session(session_id)
+            stored = next((item for item in current["entries"] if item["id"] == entry["id"]), None)
+            if stored is None:
+                raise FileNotFoundError("没有找到这一条课堂记录")
+            stored["zh"] = chinese
+            stored["translation_provider"] = provider
+            stored["translation_status"] = quality
+            save_session(current)
+            return dict(stored)
+
+    # Show a local preview first instead of leaving Chinese blank while a cloud
+    # request is in flight. Contaminated Argos output is rejected by the guard.
+    try:
+        preview = translation_hub.offline_preview(entry["en"], translate)
+        delivered = True
+        yield store(preview, "argos", "provisional")
+    except Exception:
+        pass
+
+    if deepseek_api.available():
+        try:
+            refined = translation_hub.cloud_translation(
+                entry["en"],
+                glossary=settings.get("glossary", ""),
+                context=context,
+            )
+            yield store(refined, "deepseek", "final")
+        except Exception:
+            if not delivered:
+                raise
+    elif not delivered:
+        raise RuntimeError("中文翻译模型尚未就绪")
 
 
 def remove_overlap(previous: str, current: str) -> str:

@@ -21,7 +21,7 @@ class StreamingServer:
         port: int,
         decode: Callable[[DecodeJob, dict], str],
         save_final: Callable[[DecodeJob, str, dict], dict | None],
-        translate_final: Callable[[dict, dict], dict],
+        translate_final: Callable[[dict, dict], object],
     ) -> None:
         self.host = host
         self.port = port
@@ -106,9 +106,12 @@ class StreamingServer:
 
         def translate(entry: dict) -> None:
             try:
-                translated = self.translate_final(entry, settings)
-                if translated:
-                    send({"type": "translation", "entry": translated})
+                updates = self.translate_final(entry, settings)
+                if isinstance(updates, dict):
+                    updates = (updates,)
+                for translated in updates or ():
+                    if translated:
+                        send({"type": "translation", "entry": translated})
             except Exception as exc:
                 send({"type": "translation_error", "entry_id": entry.get("id"), "message": str(exc)})
 

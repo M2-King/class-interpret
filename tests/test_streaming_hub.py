@@ -43,4 +43,14 @@ short = LiveBuffer()
 short.feed(b"\x00\x00" * int(RATE * 0.1), 0.1)
 assert not short.commit(0.1)
 
+capped = LiveBuffer(min_partial_seconds=0.1, partial_step_seconds=0.1, partial_window_seconds=0.15)
+capped.feed(frame, 0.1)
+capped.feed(frame, 0.2)
+capped_job = capped.next_job(0.2)
+assert capped_job and len(capped_job.pcm) == int(RATE * BYTES_PER_SAMPLE * 0.15)
+capped.feed(frame, 0.3)
+capped.commit(0.3)
+capped_final = capped.next_job(0.3)
+assert capped_final and len(capped_final.pcm) == len(frame) * 3
+
 print("streaming_hub ok")
