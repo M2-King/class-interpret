@@ -277,15 +277,6 @@ $workerScript = {
             Set-InstallState 'Speech model ready' 'Preserved the existing Small offline model.' 86
         }
 
-        try {
-            $existingService = Invoke-RestMethod -Uri 'http://127.0.0.1:8765/api/status' -TimeoutSec 2
-            if ([string]$existingService.version -eq $Version) {
-                Start-Process ('http://127.0.0.1:8765/?v=' + $Version)
-                Set-InstallState 'Installation complete' 'Class Interpreter was already ready and is opening in your browser.' 100 'complete'
-                return
-            }
-        } catch { }
-
         try { Invoke-WebRequest -Method POST -Uri 'http://127.0.0.1:8765/api/shutdown' -TimeoutSec 2 -UseBasicParsing | Out-Null } catch { }
         $venvPrefix = [IO.Path]::GetFullPath((Join-Path $installedPath '.venv')).TrimEnd('\') + '\'
         foreach ($oldProcess in @(Get-Process -Name 'python' -ErrorAction SilentlyContinue)) {

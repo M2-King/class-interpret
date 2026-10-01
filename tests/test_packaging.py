@@ -26,7 +26,7 @@ assert b"-NoLaunch" in gui_bytes
 assert b"api/status" in gui_bytes
 assert b"startup.log" in gui_bytes
 assert b"taskkill.exe" in gui_bytes
-assert b"Class Interpreter was already ready" in gui_bytes
+assert b"api/shutdown" in gui_bytes
 assert b"ClassInterpreter-Model-Small.zip" in gui_bytes
 assert b"Downloading speech model" in gui_bytes
 
