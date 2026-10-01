@@ -1,12 +1,23 @@
 # 听课搭子：免费本地课堂同传
 
-介绍页：仓库 [`docs/index.html`](docs/index.html)（同目录已带 Mac / Windows 安装包）。
+介绍页：仓库 [`docs/index.html`](docs/index.html)。下载按钮永远是 **ClassInterpreter-mac.zip** / **ClassInterpreter-windows.zip**，发新版本时覆盖这两个文件，链接不用改。
+
+长期下载（打 tag 发 GitHub Release 之后，文件名永远不变）：
+
+- Mac：https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-mac.zip
+- Windows：https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-windows.zip
+- 当前版本号：[docs/latest.json](docs/latest.json)
+
+现在 GitHub 上标成 Latest 的还是旧的 **v0.2.0 Mac-only**。在打 `v0.3.3` tag 之前，用介绍页同目录的包：
+
+- [ClassInterpreter-mac.zip](https://github.com/M2-King/class-interpret/raw/cursor/long-term-packs-b27d/docs/ClassInterpreter-mac.zip)
+- [ClassInterpreter-windows.zip](https://github.com/M2-King/class-interpret/raw/cursor/long-term-packs-b27d/docs/ClassInterpreter-windows.zip)
 
 这是一个运行在自己电脑上的英语课堂同传。浏览器采集麦克风或网课声音，给出英文原文和中文译文。课后可点 **生成课后总结**。上课同传不需要付费语音 API。
 
 ## Windows 怎么用
 
-1. 下载 [ClassInterpreter-windows-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/docs/ClassInterpreter-windows-0.3.3.zip)。等 Chrome 下完，不要打开 `.crdownload`。
+1. 下载 [ClassInterpreter-windows.zip](https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-windows.zip)（名字以后发新版本也不变）。若该链接 404 或仍是旧 Mac 包，改用 [当前 Windows 包](https://github.com/M2-King/class-interpret/raw/cursor/long-term-packs-b27d/docs/ClassInterpreter-windows.zip)。等 Chrome 下完，不要打开 `.crdownload`。
 2. 右键 zip → **Extract All**。不要在压缩包窗口里双击任何文件。
 3. 双击 **OPEN-THIS.bat**。黑窗口不要关。第一行必须是 **Class Interpreter 0.3.3**。
 4. 浏览器打开 `http://127.0.0.1:8765/`，必须显示 **0.3.3**。点黄色按钮，模型选 **Small**。校园网失败请换手机热点。
@@ -18,7 +29,7 @@
 
 ## Mac 怎么用
 
-1. 下载 [ClassInterpreter-mac-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/docs/ClassInterpreter-mac-0.3.3.zip)。
+1. 下载 [ClassInterpreter-mac.zip](https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-mac.zip)（名字以后发新版本也不变）。若该链接还是 v0.2.0，改用 [当前 Mac 包](https://github.com/M2-King/class-interpret/raw/cursor/long-term-packs-b27d/docs/ClassInterpreter-mac.zip)。
 2. 双击解压，进入 **ClassInterpreter-mac-0.3.3**。
 3. 双击 **Open.command**。不要只点「听课搭子」图标。
 4. 若无法打开：按住 Control 点 Open.command → 打开；或系统设置 → 隐私与安全性 → 仍要打开。
@@ -30,11 +41,21 @@
 
 **iPhone / iPad：** 手机不能单独装同传。先在 Mac 打开听课搭子，再双击 `听课搭子手机.app`，把 `https://….trycloudflare.com` 用 Safari / Chrome 打开（不要用微信内置浏览器）。
 
+## 发新版本（安装包长期更新）
+
+不要改介绍页上的下载文件名。每次发版：
+
+1. 改 `VERSION`，打好仓库根目录的 `ClassInterpreter-mac-<版本>.zip` 和 `ClassInterpreter-windows-<版本>.zip`。
+2. 运行 `python3 packaging/publish_site_packs.py`。它会覆盖 `docs/ClassInterpreter-mac.zip`、`docs/ClassInterpreter-windows.zip`，把介绍页版本号改成新号，并写 `docs/latest.json`。
+3. 提交 `docs/`（两个稳定名 zip + `latest.json` + `index.html`）。
+4. 打 tag 并推送：`git tag v0.3.4 && git push origin v0.3.4`（号与 `VERSION` 一致）。
+5. GitHub Action **Publish install packs** 会把这两个稳定名 zip 上传到 GitHub Release。外部网页 / Gemini 一直用 `/releases/latest/download/ClassInterpreter-mac.zip` 和 `ClassInterpreter-windows.zip`。也可以在 Actions 里手动 Run workflow。
+
 ## 已经能用的电脑（例如 R9000P）
 
 **不要换成 Downloads 里的新 zip 覆盖 `.venv`。** 原来那个文件夹里的 `.venv`、模型和显卡加速都还在，延迟才会小。
 
-修复包（只覆盖启动器和页面，保留旧文件夹）：[ClassInterpreter-recover-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/win-bat-crlf-b27d/ClassInterpreter-recover-0.3.3.zip)
+修复包（只覆盖启动器和页面，保留旧文件夹）：[ClassInterpreter-recover-0.3.3.zip](https://github.com/M2-King/class-interpret/raw/cursor/long-term-packs-b27d/ClassInterpreter-recover-0.3.3.zip)
 
 **如果已经删掉 `.venv`：** 用手机热点，按上面的 Windows 步骤解压新包。第一次会重新装包，黑窗口要留着。装好后页面必须是 **0.3.3**，再点黄色按钮下载 Small。显卡加速会尽量重装 CUDA 库；失败时仍可用 CPU。
 

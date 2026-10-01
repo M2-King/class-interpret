@@ -1,0 +1,53 @@
+name: Publish install packs
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Stamp docs packs
+        run: python3 packaging/publish_site_packs.py
+
+      - name: GitHub Release with stable zip names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION=$(tr -d '[:space:]' < VERSION)
+          TAG="v${VERSION}"
+          MAC="docs/ClassInterpreter-mac.zip"
+          WIN="docs/ClassInterpreter-windows.zip"
+          test -s "$MAC"
+          test -s "$WIN"
+          NOTES=$(cat <<EOF
+          听课搭子 ${VERSION}
+
+          Mac and Windows install packs. These file names stay the same on every release:
+
+          https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/ClassInterpreter-mac.zip
+          https://github.com/${GITHUB_REPOSITORY}/releases/latest/download/ClassInterpreter-windows.zip
+
+          Current version is also recorded in docs/latest.json.
+          EOF
+          )
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" "$MAC" "$WIN" --clobber
+            gh release edit "$TAG" --title "听课搭子 ${VERSION}" --notes "$NOTES"
+          else
+            gh release create "$TAG" "$MAC" "$WIN" \
+              --title "听课搭子 ${VERSION}" \
+              --notes "$NOTES" \
+              --target "${GITHUB_SHA}" \
+              --latest
+          fi

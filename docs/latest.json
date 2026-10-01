@@ -1,0 +1,7 @@
+{
+  "version": "0.3.3",
+  "mac": "ClassInterpreter-mac.zip",
+  "windows": "ClassInterpreter-windows.zip",
+  "github_mac": "https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-mac.zip",
+  "github_windows": "https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-windows.zip"
+}
