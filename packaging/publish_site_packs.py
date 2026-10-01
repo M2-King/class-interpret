@@ -60,15 +60,65 @@ def copy_pack(root: Path, docs: Path, kind: str, version: str) -> None:
     shutil.copyfile(src, versioned)
 
 
-def latest_payload(version: str, repo: str | None = None) -> dict[str, str]:
-    base = release_base(repo)
+def pack_names(version: str) -> dict[str, str]:
     return {
         "version": version,
+        "tag": f"v{version}",
         "mac": MAC,
         "windows": WIN,
-        "github_mac": f"{base}/{MAC}",
-        "github_windows": f"{base}/{WIN}",
+        "mac_versioned": f"ClassInterpreter-mac-{version}.zip",
+        "windows_versioned": f"ClassInterpreter-windows-{version}.zip",
+        "mac_folder": f"ClassInterpreter-mac-{version}",
+        "windows_folder": f"ClassInterpreter-{version}",
+        "banner": f"Class Interpreter {version}",
     }
+
+
+def latest_payload(version: str, repo: str | None = None) -> dict[str, str]:
+    name = repo or os.environ.get("GITHUB_REPOSITORY") or DEFAULT_REPO
+    base = release_base(name)
+    names = pack_names(version)
+    names.update(
+        {
+            "github_mac": f"{base}/{MAC}",
+            "github_windows": f"{base}/{WIN}",
+            "github_mac_versioned": f"{base}/{names['mac_versioned']}",
+            "github_windows_versioned": f"{base}/{names['windows_versioned']}",
+            "api_latest": f"https://api.github.com/repos/{name}/releases/latest",
+        }
+    )
+    return names
+
+
+def release_body(version: str, repo: str | None = None) -> str:
+    names = pack_names(version)
+    name = repo or os.environ.get("GITHUB_REPOSITORY") or DEFAULT_REPO
+    base = release_base(name)
+    return (
+        f"# 听课搭子 {version}\n"
+        "\n"
+        "GitHub Live Auto-Sync reads this Release. Download the Assets zips, "
+        "not the GitHub Source code archive.\n"
+        "\n"
+        "## Downloads\n"
+        "\n"
+        f"- Windows: `{names['windows']}` and `{names['windows_versioned']}` (same pack)\n"
+        f"- Mac: `{names['mac']}` and `{names['mac_versioned']}` (same pack)\n"
+        "\n"
+        f"- {base}/{names['windows']}\n"
+        f"- {base}/{names['mac']}\n"
+        "\n"
+        "## Extracted folders\n"
+        "\n"
+        f"- Windows: `{names['windows_folder']}\\`\n"
+        f"- Mac: `{names['mac_folder']}/`\n"
+        f"- Black window first line: `{names['banner']}`\n"
+        "\n"
+        "## Install\n"
+        "\n"
+        "Windows: Extract All → OPEN-THIS.bat → http://127.0.0.1:8765/\n"
+        "Mac: Open.command. Do not use a .exe or .dmg; this project ships zip packs only.\n"
+    )
 
 
 def publish(root: Path, repo: str | None = None) -> None:
@@ -87,6 +137,7 @@ def publish(root: Path, repo: str | None = None) -> None:
         json.dumps(payload, indent=2) + "\n",
         encoding="utf-8",
     )
+    (docs / "release-body.md").write_text(release_body(version, repo), encoding="utf-8")
 
 
 def main(argv: list[str] | None = None) -> int:

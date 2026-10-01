@@ -46,10 +46,18 @@
 不要改介绍页上的下载文件名。每次发版：
 
 1. 改 `VERSION`，打好仓库根目录的 `ClassInterpreter-mac-<版本>.zip` 和 `ClassInterpreter-windows-<版本>.zip`。
-2. 运行 `python3 packaging/publish_site_packs.py`。它会覆盖 `docs/ClassInterpreter-mac.zip`、`docs/ClassInterpreter-windows.zip`，把介绍页版本号改成新号，并写 `docs/latest.json`。
-3. 提交 `docs/`（两个稳定名 zip + `latest.json` + `index.html`）。
+2. 运行 `python3 packaging/publish_site_packs.py`。它会覆盖 `docs/ClassInterpreter-mac.zip`、`docs/ClassInterpreter-windows.zip`，同时保留带版本号的副本（Gemini 网站用 `ClassInterpreter-windows-*.zip` / `ClassInterpreter-mac-*.zip` 匹配），把介绍页版本号改成新号，并写 `docs/latest.json` 和 `docs/release-body.md`。
+3. 提交 `docs/`（稳定名 zip + 带版本号 zip + `latest.json` + `release-body.md` + `index.html`）。
 4. 打 tag 并推送：`git tag v0.3.4 && git push origin v0.3.4`（号与 `VERSION` 一致）。
-5. GitHub Action **Publish install packs** 会把这两个稳定名 zip 上传到 GitHub Release。外部网页 / Gemini 一直用 `/releases/latest/download/ClassInterpreter-mac.zip` 和 `ClassInterpreter-windows.zip`。也可以在 Actions 里手动 Run workflow。
+5. GitHub Action **Publish install packs** 会把四个 zip 上传到 GitHub Release：`ClassInterpreter-mac.zip`、`ClassInterpreter-mac-0.3.4.zip`、`ClassInterpreter-windows.zip`、`ClassInterpreter-windows-0.3.4.zip`。Release Notes 来自 `docs/release-body.md`（含黑窗口首行 `Class Interpreter 0.3.4` 和文件夹 `ClassInterpreter-0.3.4\`）。
+
+Gemini GitHub Live Auto-Sync 读的就是：
+
+`https://api.github.com/repos/M2-King/class-interpret/releases/latest`
+
+现在这条 API 还停在 **v0.2.0**，Assets 只有 `ClassInterpreter-mac.zip`，没有 Windows。网站若按 `ClassInterpreter-windows-*.zip` 找包，会找不到，然后误用 Source code zipball。打 `v0.3.3` tag 之后，Latest 会带上 Windows / Mac 两套名字。不要下载 zipball。没有 `.exe` / `.dmg`。
+
+也可以在 Actions 里手动 Run workflow。
 
 ## 已经能用的电脑（例如 R9000P）
 

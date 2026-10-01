@@ -1,7 +1,16 @@
 {
   "version": "0.3.3",
+  "tag": "v0.3.3",
   "mac": "ClassInterpreter-mac.zip",
   "windows": "ClassInterpreter-windows.zip",
+  "mac_versioned": "ClassInterpreter-mac-0.3.3.zip",
+  "windows_versioned": "ClassInterpreter-windows-0.3.3.zip",
+  "mac_folder": "ClassInterpreter-mac-0.3.3",
+  "windows_folder": "ClassInterpreter-0.3.3",
+  "banner": "Class Interpreter 0.3.3",
   "github_mac": "https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-mac.zip",
-  "github_windows": "https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-windows.zip"
+  "github_windows": "https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-windows.zip",
+  "github_mac_versioned": "https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-mac-0.3.3.zip",
+  "github_windows_versioned": "https://github.com/M2-King/class-interpret/releases/latest/download/ClassInterpreter-windows-0.3.3.zip",
+  "api_latest": "https://api.github.com/repos/M2-King/class-interpret/releases/latest"
 }
