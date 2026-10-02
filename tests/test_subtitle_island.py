@@ -8,12 +8,23 @@ style = (root / "subtitle.css").read_text(encoding="utf-8")
 app = (root / "app.js").read_text(encoding="utf-8")
 index = (root / "index.html").read_text(encoding="utf-8")
 
-# Preferred shell plus both required fallbacks.
+# The preferred shell is a real OS-managed media Picture-in-Picture window.
+assert "pictureInPictureEnabled" in script
+assert "requestPictureInPicture" in script
+assert "captureStream(15)" in script
+assert "pipCanvas.width = 1440" in script
+assert "pipCanvas.height = 264" in script
+
+# Document PiP is retained as a secondary system surface, followed by the
+# in-page draggable island. A normal browser popup must never be used.
 assert "documentPictureInPicture" in script
 assert "requestWindow({width: 720, height: 132})" in script
-assert "popup,width=720,height=165,resizable=yes" in script
+assert "window.open('/subtitle.html'" not in script
+assert "popup,width" not in script
 assert "createEmbeddedFallback" in script
 assert "subtitle-island-fallback" in script
+assert "class-interpreter-subtitle-drag-start" in script
+assert "class-interpreter-subtitle-drag-move" in script
 
 # One shared renderer/state contract, with retained state and a postMessage
 # fallback when BroadcastChannel is unavailable.
@@ -48,6 +59,6 @@ assert "state.lastCaption?.entryId === message.entry.id" in app
 assert "englishState" in app and "chineseState" in app
 assert "subtitlewindowchange" in app
 assert "aria-pressed=\"false\"" in index
-assert "0.3.3-island" in index
+assert "0.3.3-island2" in index
 
 print("subtitle_island ok")

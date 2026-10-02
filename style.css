@@ -287,6 +287,7 @@ input, select, textarea { outline: none; }
   border-radius: 36px;
   background: transparent;
   filter: drop-shadow(0 18px 42px rgba(0, 0, 0, .42));
+  touch-action: none;
 }
 .switch { display: flex; align-items: center; gap: 7px; white-space: nowrap; }
 .switch > span { margin: 0 !important; color: #afb5b4 !important; }

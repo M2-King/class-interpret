@@ -781,11 +781,7 @@ if (ui.subtitleButton) {
         mode: state.recording ? 'listening' : 'ready', entryId: '', english: '', englishState: 'waiting',
         chinese: '', chineseState: 'hidden', connected: true, recording: state.recording, partial: false
       });
-      if (result?.kind === 'popup' && !sessionStorage.getItem('subtitle-popup-explained')) {
-        sessionStorage.setItem('subtitle-popup-explained', '1');
-        notice('当前浏览器使用紧凑字幕弹窗；顶部浏览器栏由浏览器控制。', 'warn');
-      }
-      if (result?.kind === 'embedded') notice('浏览器阻止了外部字幕窗，已在页面顶部显示字幕岛。', 'warn');
+      if (result?.kind === 'embedded') notice('浏览器不支持系统悬浮字幕，已在页面顶部显示可拖动字幕岛。', 'warn');
     } catch (error) {
       notice(`无法打开字幕窗口：${error.message}`, true);
     } finally {

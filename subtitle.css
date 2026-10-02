@@ -69,6 +69,14 @@ body.subtitle-surface {
   line-height: 1;
 }
 
+body[data-embedded="true"] .island-meta {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+body[data-embedded="true"] .island-meta:active { cursor: grabbing; }
+
 .live-dot {
   width: 9px;
   height: 9px;

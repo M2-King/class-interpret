@@ -8,8 +8,10 @@ Backend impact: None
 
 ## 1. Decision
 
-Implement the compact subtitle experience as a browser-native **Document
-Picture-in-Picture island**, with the existing compact popup as a fallback.
+Implement the compact subtitle experience as a browser-native **media
+Picture-in-Picture island** rendered from a live canvas. Retain Document
+Picture-in-Picture as a secondary system surface and use a draggable in-page
+island as the final fallback. Never open a normal browser popup.
 
 Do not introduce Electron, Tauri, PyQt, or another native desktop shell in this
 phase. The subtitle state and rendering should remain portable so a Tauri shell
@@ -50,7 +52,7 @@ The target experience is the supplied golden reference:
 - Show Chinese only when it belongs to the same finalized English utterance.
 - Collapse naturally when Chinese is unavailable or late.
 - Keep microphone capture, streaming, sessions, and translation in the main app.
-- Preserve the current popup as a compatibility fallback.
+- Never expose a browser address bar or page-sized popup as a subtitle surface.
 - Keep the release package effectively the same size.
 
 ## 4. Non-Goals
@@ -65,10 +67,12 @@ The target experience is the supplied golden reference:
 
 ## 5. Window Strategy
 
-### 5.1 Preferred path: Document Picture-in-Picture
+### 5.1 Preferred path: media Picture-in-Picture
 
-When `documentPictureInPicture` is available, request a Picture-in-Picture
-window sized approximately `720 x 120` CSS pixels.
+Render the current island state to a `1440 x 264` canvas, publish it as a small
+video stream, and request standard media Picture-in-Picture. The operating
+system owns this window, so it is always-on-top, draggable, resizable, and has
+no browser address bar.
 
 The Picture-in-Picture document should:
 
@@ -83,24 +87,17 @@ The Picture-in-Picture document should:
 The app must create this window only from a direct user gesture, because browser
 policies require it.
 
-### 5.2 Fallback path: compact popup
+### 5.2 Secondary path: Document Picture-in-Picture
 
-If Document Picture-in-Picture is unavailable or rejected, open
-`subtitle.html` using `window.open()` at approximately `720 x 165`.
-
-The fallback cannot remove browser chrome. It should still:
-
-- eliminate the large empty body area;
-- use the same island component and visual tokens;
-- resize its content to one compact card;
-- receive the same subtitle state;
-- display a one-time explanation that browser chrome is expected.
+If standard media Picture-in-Picture is unavailable, use Document
+Picture-in-Picture with the interactive HTML island. This path must still be
+opened directly from the user's click.
 
 ### 5.3 Last fallback: in-page island
 
-If both external window paths fail, render the island fixed at the top center of
-the main page. This mode must remain closable and must not cover the primary
-recording controls.
+If both system window paths fail, render the island at the top center of the
+main page. Its label row is a drag handle, it remains closable, and it must not
+cover the primary recording controls.
 
 ## 6. Island States
 
@@ -245,9 +242,10 @@ The island is display-only.
 
 Use this order for synchronization:
 
-1. Direct renderer call for Document Picture-in-Picture.
-2. `BroadcastChannel` for popup synchronization.
-3. `postMessage` as a fallback for browsers without `BroadcastChannel`.
+1. Direct canvas render for media Picture-in-Picture.
+2. Direct renderer call for Document Picture-in-Picture.
+3. `BroadcastChannel` for the HTML fallback synchronization.
+4. `postMessage` as a fallback for browsers without `BroadcastChannel`.
 
 When an island opens, immediately publish the current retained state so it does
 not remain blank until the next spoken word.
@@ -256,11 +254,12 @@ not remain blank until the next spoken word.
 
 ### `subtitle-window.js`
 
-- Add capability detection for Document Picture-in-Picture.
+- Add capability detection for media and Document Picture-in-Picture.
+- Render the active subtitle state into the media Picture-in-Picture canvas.
 - Create and retain exactly one island window.
 - Build the island document and copy/load `subtitle.css`.
 - Publish retained subtitle state.
-- Handle Picture-in-Picture and popup lifecycle events.
+- Handle both Picture-in-Picture lifecycle events.
 - Fall back without interrupting recording.
 - Store presentation preferences in `localStorage`.
 
@@ -269,7 +268,7 @@ not remain blank until the next spoken word.
 - Reduce markup to the shared island structure.
 - Remove page-style header and large empty layout.
 - Retain accessible live regions.
-- Remain usable as the compact popup fallback.
+- Remain usable as the draggable in-page fallback.
 
 ### `subtitle.css`
 
@@ -337,12 +336,12 @@ and macOS Retina scale.
 
 ### Phase 4 — Fallbacks and persistence
 
-- Apply the same renderer to the popup fallback.
 - Add the in-page fallback.
 - Remember font, opacity, and language layout preferences.
 - Handle refresh, close, and reopen behavior.
 
-Exit gate: all three window paths show the same current subtitle state.
+Exit gate: both system window paths and the in-page fallback show the same
+current subtitle state.
 
 ### Phase 5 — Packaging and release
 
@@ -415,8 +414,8 @@ Exit gate: all three window paths show the same current subtitle state.
 
 - Document Picture-in-Picture path in Chrome/Edge on Windows.
 - Document Picture-in-Picture path in Chrome on macOS.
-- Popup fallback.
-- Popup blocked behavior.
+- Media Picture-in-Picture path.
+- Document Picture-in-Picture fallback.
 - In-page fallback.
 - Browser refresh and island lifecycle.
 
@@ -467,8 +466,8 @@ Delivered:
 
 - canonical retained subtitle state in `app.js`;
 - shared renderer and lifecycle controller in `subtitle-window.js`;
-- Document Picture-in-Picture preferred shell;
-- compact popup and in-page iframe fallbacks;
+- media Picture-in-Picture preferred shell;
+- Document Picture-in-Picture and draggable in-page iframe fallbacks;
 - golden-reference island styling in `subtitle.css`;
 - ready, partial English, translating, bilingual, compatibility, saved, and
   reconnecting states;
