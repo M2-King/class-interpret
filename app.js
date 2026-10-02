@@ -438,15 +438,23 @@ function flatten(chunks, length) {
   return data;
 }
 
-function showLiveCaption(english, chinese = '', partial = false, entryId = '') {
-  state.lastCaption = {english: english || '', chinese: chinese || '', partial, entryId};
+function showLiveCaption(english, chinese = '', partial = false, entryId = '', chineseState = '') {
+  const mode = state.recording ? (state.captureMode === 'stream' ? 'listening' : 'compatibility') : (english ? 'saved' : 'ready');
+  state.lastCaption = {
+    mode,
+    entryId,
+    english: english || '',
+    englishState: partial ? 'partial' : (english ? 'final' : 'waiting'),
+    chinese: chinese || '',
+    chineseState: chineseState || (chinese ? 'final' : (partial ? 'hidden' : 'pending')),
+    connected: state.captureMode === 'stream' || !state.recording,
+    recording: state.recording,
+    partial
+  };
   if (ui.livePreview) ui.livePreview.hidden = !(english || chinese);
   if (ui.livePreviewEn) ui.livePreviewEn.textContent = english || 'Waiting for speech…';
   if (ui.livePreviewZh) ui.livePreviewZh.textContent = chinese || (partial ? '正在识别…' : '等待翻译…');
-  window.SubtitleWindow?.publish({
-    status: state.recording ? (partial ? 'Listening…' : 'Live') : 'Saved',
-    english: english || '', chinese: chinese || '', partial
-  });
+  window.SubtitleWindow?.publish(state.lastCaption);
 }
 
 function applyStreamEntry(entry) {
@@ -473,7 +481,7 @@ function handleStreamMessage(event) {
     // Never let a delayed translation replace a newer English subtitle.
     const isCurrentCaption = state.lastCaption?.entryId === message.entry.id && !state.lastCaption.partial;
     if (isCurrentCaption) {
-      showLiveCaption(message.entry.en, message.entry.zh, false, message.entry.id);
+      showLiveCaption(message.entry.en, message.entry.zh, false, message.entry.id, message.entry.translation_status);
     }
     const provisional = message.entry.translation_status === 'provisional';
     if (isCurrentCaption && ui.speak.checked && message.entry.zh && (!provisional || !lastStatus?.deepseek_cloud) && 'speechSynthesis' in window) {
@@ -530,6 +538,7 @@ async function connectStreaming() {
           state.captureMode = 'batch';
           state.chunks = []; state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
           state.streamVoiceActive = false; state.streamPreRoll = []; state.streamPreRollSamples = 0;
+          window.SubtitleWindow?.publish({...state.lastCaption, mode: 'compatibility', connected: false, recording: true});
           notice('实时字幕通道中断，已自动切换到兼容模式；课堂录音会继续保存。', 'warn');
         }
       };
@@ -629,7 +638,7 @@ function queueAudio(samples, elapsed) {
       if (response.entry && state.session?.id === sessionId) {
         state.session.entries.push(response.entry);
         state.session.summary = ''; state.session.summary_source = '';
-        showLiveCaption(response.entry.en, response.entry.zh, false, response.entry.id);
+        showLiveCaption(response.entry.en, response.entry.zh, false, response.entry.id, response.entry.translation_status);
         drawSession(); loadHistory();
         if (ui.speak.checked && response.entry.zh && 'speechSynthesis' in window) {
           const speech = new SpeechSynthesisUtterance(response.entry.zh);
@@ -690,6 +699,12 @@ async function startRecording() {
   }
   state.sourceNode.connect(state.processor); state.processor.connect(state.silent); state.silent.connect(state.audioContext.destination);
   state.recording = true;
+  state.lastCaption = {
+    mode: state.captureMode === 'stream' ? 'listening' : 'compatibility',
+    entryId: '', english: '', englishState: 'waiting', chinese: '', chineseState: 'hidden',
+    connected: state.captureMode === 'stream', recording: true, partial: false
+  };
+  window.SubtitleWindow?.publish(state.lastCaption);
   state.stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => { if (state.recording) stopRecording(); }));
   ui.record.classList.add('recording'); ui.record.lastElementChild.textContent = '结束听课';
   const recordIcon = ui.record.querySelector('i');
@@ -710,6 +725,10 @@ async function stopRecording() {
   if (!state.recording) return;
   const endElapsed = sessionSeconds();
   state.recording = false;
+  if (state.lastCaption) {
+    state.lastCaption = {...state.lastCaption, mode: state.lastCaption.english ? 'saved' : 'ready', connected: true, recording: false};
+    window.SubtitleWindow?.publish(state.lastCaption);
+  }
   if (state.processor?.port) {
     state.processor.port.postMessage('flush');
     state.processor.port.onmessage = null;
@@ -748,13 +767,25 @@ ui.record.addEventListener('click', async () => {
 });
 
 if (ui.subtitleButton) {
+  window.addEventListener('subtitlewindowchange', event => {
+    const open = Boolean(event.detail?.open);
+    ui.subtitleButton.classList.toggle('is-open', open);
+    ui.subtitleButton.setAttribute('aria-pressed', String(open));
+    ui.subtitleButton.textContent = open ? '▣ Subtitles open' : '▣ Floating subtitles';
+  });
   ui.subtitleButton.addEventListener('click', async () => {
     ui.subtitleButton.disabled = true;
     try {
-      await window.SubtitleWindow.open();
+      const result = await window.SubtitleWindow.open();
       window.SubtitleWindow.publish(state.lastCaption || {
-        status: state.recording ? 'Listening…' : 'Ready', english: '', chinese: '', partial: false
+        mode: state.recording ? 'listening' : 'ready', entryId: '', english: '', englishState: 'waiting',
+        chinese: '', chineseState: 'hidden', connected: true, recording: state.recording, partial: false
       });
+      if (result?.kind === 'popup' && !sessionStorage.getItem('subtitle-popup-explained')) {
+        sessionStorage.setItem('subtitle-popup-explained', '1');
+        notice('当前浏览器使用紧凑字幕弹窗；顶部浏览器栏由浏览器控制。', 'warn');
+      }
+      if (result?.kind === 'embedded') notice('浏览器阻止了外部字幕窗，已在页面顶部显示字幕岛。', 'warn');
     } catch (error) {
       notice(`无法打开字幕窗口：${error.message}`, true);
     } finally {
@@ -766,6 +797,11 @@ if (ui.subtitleButton) {
 $('new-session').addEventListener('click', async () => {
   if (state.recording) await stopRecording();
   state.session = null; ui.title.value = '';
+  state.lastCaption = {
+    mode: 'ready', entryId: '', english: '', englishState: 'waiting',
+    chinese: '', chineseState: 'hidden', connected: true, recording: false, partial: false
+  };
+  window.SubtitleWindow?.publish(state.lastCaption);
   ui.record.lastElementChild.textContent = '开始同传';
   const recordIcon = ui.record.querySelector('i');
   if (recordIcon) recordIcon.textContent = '▶';
