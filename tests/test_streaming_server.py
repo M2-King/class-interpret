@@ -23,6 +23,7 @@ with socket.socket() as probe:
 
 saved = []
 translated = threading.Event()
+partial_translated = threading.Event()
 
 
 def decode(job, settings):
@@ -41,7 +42,13 @@ def translate(entry, settings):
     return {**entry, "zh": "构建真值表", "translation_status": "final"}
 
 
-service = StreamingServer("127.0.0.1", port, decode, save, translate)
+def translate_partial(text, settings):
+    assert text == "forming the truth table"
+    partial_translated.set()
+    return "正在构建真值表"
+
+
+service = StreamingServer("127.0.0.1", port, decode, save, translate, translate_partial)
 service.start()
 assert service.ready, service.error
 
@@ -56,7 +63,10 @@ with connect(service.config()["url"], open_timeout=3) as websocket:
     }))
     ready = json.loads(websocket.recv(timeout=3))
     assert ready["type"] == "ready"
-    websocket.send((9000).to_bytes(2, "little", signed=True) * 8000)
+    websocket.send((9000).to_bytes(2, "little", signed=True) * 16000)
+    partial = json.loads(websocket.recv(timeout=5))
+    events.append(partial)
+    assert partial["type"] == "partial"
     websocket.send(json.dumps({"type": "commit", "elapsed": 2.5}))
     websocket.send(json.dumps({"type": "stop", "elapsed": 2.5}))
     while True:
@@ -68,5 +78,7 @@ with connect(service.config()["url"], open_timeout=3) as websocket:
 assert saved and saved[0]["at"] == 2.5
 assert any(event["type"] == "final" for event in events)
 assert translated.wait(2)
+assert partial_translated.wait(2)
+assert any(event["type"] == "partial_translation" and event["zh"] == "正在构建真值表" for event in events)
 service.stop()
 print("streaming_server ok")

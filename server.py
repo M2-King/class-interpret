@@ -320,6 +320,17 @@ def translate_live_entry(entry: dict, settings: dict):
         raise RuntimeError(detail)
 
 
+def translate_live_partial(english: str, settings: dict) -> str:
+    """Return a fast local preview without blocking live recognition."""
+    try:
+        return translation_hub.offline_preview(
+            english,
+            lambda text: translate(text, blocking=False),
+        )
+    except Exception:
+        return ""
+
+
 def remove_overlap(previous: str, current: str) -> str:
     """Remove words repeated by the short audio overlap between two chunks."""
     prior = previous.split()
@@ -674,6 +685,7 @@ def main() -> None:
         transcribe_live,
         save_live_entry,
         translate_live_entry,
+        translate_live_partial,
     )
     STREAMING_SERVICE.start()
     print(f"课堂同传已启动：{address}")

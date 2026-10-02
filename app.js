@@ -472,7 +472,15 @@ function handleStreamMessage(event) {
   try { message = JSON.parse(event.data); }
   catch { return; }
   if (message.type === 'partial') {
-    showLiveCaption(message.text, '', true);
+    showLiveCaption(message.text, '', true, `partial:${message.utterance_id || ''}`);
+  } else if (message.type === 'partial_translation') {
+    const partialId = `partial:${message.utterance_id || ''}`;
+    const isCurrentPartial = state.lastCaption?.partial
+      && state.lastCaption.entryId === partialId
+      && state.lastCaption.english === message.text;
+    if (isCurrentPartial) {
+      showLiveCaption(message.text, message.zh, true, partialId, message.translation_status || 'provisional');
+    }
   } else if (message.type === 'final' && message.entry) {
     applyStreamEntry(message.entry);
     showLiveCaption(message.entry.en, '', false, message.entry.id);
@@ -782,7 +790,8 @@ if (ui.subtitleButton) {
         mode: state.recording ? 'listening' : 'ready', entryId: '', english: '', englishState: 'waiting',
         chinese: '', chineseState: 'hidden', connected: true, recording: state.recording, partial: false
       });
-      if (result?.kind === 'embedded') notice('浏览器不支持系统悬浮字幕，已在页面顶部显示可拖动字幕岛。', 'warn');
+      if (result?.kind === 'embedded') notice('已显示可拖动字幕岛。若同时看到浏览器字幕框，请点其右上角 × 关闭浏览器 Live Caption。', 'warn');
+      else notice('悬浮字幕已打开。若同时看到浏览器字幕框，请关闭浏览器 Live Caption，避免重复。');
     } catch (error) {
       notice(`无法打开字幕窗口：${error.message}`, true);
     } finally {

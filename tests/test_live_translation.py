@@ -76,4 +76,9 @@ offline_only = list(server.translate_live_entry(entry, {
 assert len(offline_only) == 1
 assert offline_only[0]["zh"] == "仅离线翻译"
 assert offline_only[0]["translation_status"] == "offline"
+
+server.translate = lambda _text, **kwargs: "实时中文预览"
+assert server.translate_live_partial("live English", {}) == "实时中文预览"
+server.translate = lambda _text, **kwargs: (_ for _ in ()).throw(RuntimeError("model unavailable"))
+assert server.translate_live_partial("live English", {}) == ""
 print("live_translation ok")

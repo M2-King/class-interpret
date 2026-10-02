@@ -22,12 +22,14 @@ class StreamingServer:
         decode: Callable[[DecodeJob, dict], str],
         save_final: Callable[[DecodeJob, str, dict], dict | None],
         translate_final: Callable[[dict, dict], object],
+        translate_partial: Callable[[str, dict], str] | None = None,
     ) -> None:
         self.host = host
         self.port = port
         self.decode = decode
         self.save_final = save_final
         self.translate_final = translate_final
+        self.translate_partial = translate_partial
         self.token = secrets.token_urlsafe(24)
         self._server: Any = None
         self._thread: threading.Thread | None = None
@@ -96,6 +98,9 @@ class StreamingServer:
         stopped = threading.Event()
         work_ready = threading.Event()
         worker_done = threading.Event()
+        partial_lock = threading.Lock()
+        partial_pending: dict | None = None
+        partial_worker_running = False
 
         def send(payload: dict) -> None:
             try:
@@ -114,6 +119,45 @@ class StreamingServer:
                         send({"type": "translation", "entry": translated})
             except Exception as exc:
                 send({"type": "translation_error", "entry_id": entry.get("id"), "message": str(exc)})
+
+        def queue_partial_translation(event: dict) -> None:
+            nonlocal partial_pending, partial_worker_running
+            if self.translate_partial is None:
+                return
+            with partial_lock:
+                partial_pending = dict(event)
+                if partial_worker_running:
+                    return
+                partial_worker_running = True
+
+            def run() -> None:
+                nonlocal partial_pending, partial_worker_running
+                while not stopped.is_set():
+                    with partial_lock:
+                        current = partial_pending
+                        partial_pending = None
+                    if current is None:
+                        with partial_lock:
+                            if partial_pending is None:
+                                partial_worker_running = False
+                                return
+                        continue
+                    try:
+                        chinese = self.translate_partial(current["text"], settings)
+                    except Exception:
+                        chinese = ""
+                    with partial_lock:
+                        stale = partial_pending is not None
+                    if chinese and not stale and not stopped.is_set():
+                        send({
+                            "type": "partial_translation",
+                            "utterance_id": current.get("utterance_id"),
+                            "text": current["text"],
+                            "zh": chinese,
+                            "translation_status": "provisional",
+                        })
+
+            threading.Thread(target=run, name="partial-translator", daemon=True).start()
 
         def worker() -> None:
             try:
@@ -146,6 +190,7 @@ class StreamingServer:
                         event = buffer.accept_partial(job, text)
                         if event:
                             send(event)
+                            queue_partial_translation(event)
             finally:
                 send({"type": "ready_to_stop"})
                 worker_done.set()

@@ -70,6 +70,8 @@ assert "AbortSignal.timeout" not in script
 assert "modelBanner.classList.toggle" in script
 assert "/api/stream/config" in script
 assert "AudioWorkletNode" in script
+assert "partial_translation" in script
+assert "isCurrentPartial" in script
 
 for path in ("/audio-worklet.js", "/subtitle-window.js", "/subtitle.html", "/subtitle.css"):
     with urllib.request.urlopen(base + path) as response:
