@@ -775,6 +775,7 @@ if (ui.subtitleButton) {
   });
   ui.subtitleButton.addEventListener('click', async () => {
     ui.subtitleButton.disabled = true;
+    ui.subtitleButton.textContent = 'Opening subtitles…';
     try {
       const result = await window.SubtitleWindow.open();
       window.SubtitleWindow.publish(state.lastCaption || {
@@ -786,6 +787,7 @@ if (ui.subtitleButton) {
       notice(`无法打开字幕窗口：${error.message}`, true);
     } finally {
       ui.subtitleButton.disabled = false;
+      if (!window.SubtitleWindow.isOpen()) ui.subtitleButton.textContent = '▣ Floating subtitles';
     }
   });
 }

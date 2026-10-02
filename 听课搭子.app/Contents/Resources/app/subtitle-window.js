@@ -11,6 +11,8 @@
   let pipVideo = null;
   let pipStream = null;
   let pipFrame = 0;
+  let pipOpenedAt = 0;
+  let pipClosing = false;
   let lastSize = '';
   let preferences = loadPreferences();
   let last = normalizeState({mode: 'ready', connected: true, recording: false});
@@ -227,10 +229,17 @@
     pipStream = pipCanvas.captureStream(15);
     pipVideo.srcObject = pipStream;
     pipVideo.addEventListener('leavepictureinpicture', () => {
+      const failedImmediately = !pipClosing
+        && targetKind === 'system-picture-in-picture'
+        && performance.now() - pipOpenedAt < 1200;
       if (pipFrame) cancelAnimationFrame(pipFrame);
       pipFrame = 0;
       if (targetKind === 'system-picture-in-picture') targetKind = '';
-      emitWindowState(Boolean(embedded?.isConnected), embedded?.isConnected ? 'embedded' : '');
+      if (failedImmediately) {
+        createEmbeddedFallback();
+      } else {
+        emitWindowState(Boolean(embedded?.isConnected), embedded?.isConnected ? 'embedded' : '');
+      }
     });
     document.body.append(pipCanvas, pipVideo);
   }
@@ -372,10 +381,16 @@
 
     if (document.pictureInPictureEnabled && window.HTMLVideoElement && 'requestPictureInPicture' in window.HTMLVideoElement.prototype) {
       try {
+        pipClosing = false;
         ensureMediaPictureInPicture();
         drawMediaIsland(last);
-        await pipVideo.play();
+        if (pipVideo.paused) await pipVideo.play();
         await pipVideo.requestPictureInPicture();
+        pipOpenedAt = performance.now();
+        await new Promise(resolve => setTimeout(resolve, 220));
+        if (document.pictureInPictureElement !== pipVideo) {
+          throw new Error('Picture-in-Picture closed before it became visible');
+        }
         targetKind = 'system-picture-in-picture';
         animateMediaIsland();
         emitWindowState(true, targetKind);
@@ -415,7 +430,9 @@
 
   async function close() {
     if (document.pictureInPictureElement === pipVideo) {
+      pipClosing = true;
       try { await document.exitPictureInPicture(); } catch {}
+      finally { pipClosing = false; }
     }
     try { target?.close(); } catch {}
     clearTarget();
@@ -498,6 +515,11 @@
       }
     });
     window.SubtitleWindow = {open, close, publish, isOpen};
+    if (document.pictureInPictureEnabled && window.HTMLVideoElement && 'requestPictureInPicture' in window.HTMLVideoElement.prototype) {
+      ensureMediaPictureInPicture();
+      drawMediaIsland(last);
+      pipVideo.play().catch(() => {});
+    }
   }
 
   if (standalone) {

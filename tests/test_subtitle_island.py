@@ -12,6 +12,8 @@ index = (root / "index.html").read_text(encoding="utf-8")
 assert "pictureInPictureEnabled" in script
 assert "requestPictureInPicture" in script
 assert "captureStream(15)" in script
+assert "Picture-in-Picture closed before it became visible" in script
+assert "failedImmediately" in script
 assert "pipCanvas.width = 1440" in script
 assert "pipCanvas.height = 264" in script
 
@@ -59,6 +61,6 @@ assert "state.lastCaption?.entryId === message.entry.id" in app
 assert "englishState" in app and "chineseState" in app
 assert "subtitlewindowchange" in app
 assert "aria-pressed=\"false\"" in index
-assert "0.3.3-island2" in index
+assert "0.3.3-island3" in index
 
 print("subtitle_island ok")
