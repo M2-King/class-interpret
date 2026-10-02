@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Summary overflow fixture</title>
+  <link rel="stylesheet" href="/style.css?v=0.3.3-golden2">
+  <style>
+    body { width: 520px; height: 720px; padding: 16px; overflow: hidden; }
+    .insight-rail { width: 488px; height: 688px; }
+  </style>
+</head>
+<body>
+  <aside class="insight-rail">
+    <div class="rail-tabs"><button class="active">Summary</button><button>Key Points</button><button>Progress</button><button>System</button></div>
+    <section class="panel rail-panel active summary-card" id="summary-section">
+      <h3><span><i class="spark">✦</i> AI Summary — DeepSeek Chat</span><button class="collapse-mark">⌃</button></h3>
+      <div class="summary-content">
+## 课堂内容摘要
+- This deliberately long summary verifies that the content scrolls inside its own region.
+- The card must grow to contain its header, summary viewport, metadata, and action button.
+- The action button must never escape the summary card.
+- The export card must always begin below the action button.
+- Additional lecture detail line 1.
+- Additional lecture detail line 2.
+- Additional lecture detail line 3.
+- Additional lecture detail line 4.
+- Additional lecture detail line 5.
+- Additional lecture detail line 6.
+- Additional lecture detail line 7.
+- Additional lecture detail line 8.
+- Additional lecture detail line 9.
+- Additional lecture detail line 10.
+      </div>
+      <div class="summary-meta"><span>Source</span><small>DeepSeek</small></div>
+      <button class="button summary-action" id="summary-button">✦ Generate Full Summary</button>
+    </section>
+    <section class="panel export-card">
+      <h3><span>⇧ Export Notes</span><small>⌃</small></h3>
+      <div class="export-options"><button>PDF</button><button>Word</button><button>Markdown</button><button>Plain Text</button></div>
+    </section>
+    <section class="panel course-card"><h3>Create / Manage Course</h3><p class="course-help">The rail itself should scroll normally when its cards exceed the available height.</p></section>
+  </aside>
+</body>
+</html>

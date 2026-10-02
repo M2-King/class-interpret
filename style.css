@@ -388,6 +388,7 @@ input, select, textarea { outline: none; }
 .dock-record.recording i { background: var(--red); box-shadow: 0 0 9px rgba(255,92,87,.6); }
 
 .insight-rail { min-width: 0; height: 100%; overflow: auto; display: flex; flex-direction: column; gap: 9px; padding-right: 2px; scrollbar-width: thin; scrollbar-color: #33393a transparent; }
+.insight-rail > * { flex: 0 0 auto; }
 .rail-tabs { min-height: 49px; padding: 5px; display: grid; grid-template-columns: repeat(4,1fr); gap: 3px; border: 1px solid var(--line); border-radius: 12px; background: #0b0f11; }
 .rail-tabs button { border: 0; border-radius: 8px; background: transparent; color: #a1a8a7; font-size: 10px; }
 .rail-tabs button.active { background: linear-gradient(180deg,#353a3c,#24292b); color: #fff; box-shadow: inset 0 1px rgba(255,255,255,.08); }
@@ -399,8 +400,8 @@ input, select, textarea { outline: none; }
 
 .rail-panel { display: none; }
 .rail-panel.active { display: block; }
-.summary-card { min-height: 236px; }
-.summary-content { min-height: 90px; max-height: 190px; overflow: auto; white-space: pre-wrap; color: #d0d4d3; font-size: 11px; line-height: 1.52; }
+.summary-card { min-height: 236px; display: grid; grid-template-rows: auto minmax(90px, auto) auto auto; align-content: start; }
+.summary-content { min-height: 90px; max-height: 240px; overflow: auto; overscroll-behavior: contain; white-space: pre-wrap; color: #d0d4d3; font-size: 11px; line-height: 1.52; }
 .summary-content.muted { color: #a3aaaa; }
 .summary-meta { margin-top: 8px; display: flex; justify-content: space-between; color: #676f70; font-size: 8px; }
 .summary-action { width: 100%; margin-top: 10px; min-height: 42px; border-color: #fff; background: #f4f5f5; color: #101314; font-size: 10px; }

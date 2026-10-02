@@ -57,6 +57,8 @@ assert 'data-export-format="pdf"' in html
 style = Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
 assert ".live-workspace" in style
 assert ".insight-rail" in style
+assert ".insight-rail > * { flex: 0 0 auto; }" in style
+assert "grid-template-rows: auto minmax(90px, auto) auto auto" in style
 
 with urllib.request.urlopen(base + "/app.js?v=0.3.3") as response:
     script = response.read().decode()
