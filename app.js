@@ -438,8 +438,8 @@ function flatten(chunks, length) {
   return data;
 }
 
-function showLiveCaption(english, chinese = '', partial = false) {
-  state.lastCaption = {english: english || '', chinese: chinese || '', partial};
+function showLiveCaption(english, chinese = '', partial = false, entryId = '') {
+  state.lastCaption = {english: english || '', chinese: chinese || '', partial, entryId};
   if (ui.livePreview) ui.livePreview.hidden = !(english || chinese);
   if (ui.livePreviewEn) ui.livePreviewEn.textContent = english || 'Waiting for speech…';
   if (ui.livePreviewZh) ui.livePreviewZh.textContent = chinese || (partial ? '正在识别…' : '等待翻译…');
@@ -467,12 +467,16 @@ function handleStreamMessage(event) {
     showLiveCaption(message.text, '', true);
   } else if (message.type === 'final' && message.entry) {
     applyStreamEntry(message.entry);
-    showLiveCaption(message.entry.en, '', false);
+    showLiveCaption(message.entry.en, '', false, message.entry.id);
   } else if (message.type === 'translation' && message.entry) {
     applyStreamEntry(message.entry);
-    showLiveCaption(message.entry.en, message.entry.zh, false);
+    // Never let a delayed translation replace a newer English subtitle.
+    const isCurrentCaption = state.lastCaption?.entryId === message.entry.id && !state.lastCaption.partial;
+    if (isCurrentCaption) {
+      showLiveCaption(message.entry.en, message.entry.zh, false, message.entry.id);
+    }
     const provisional = message.entry.translation_status === 'provisional';
-    if (ui.speak.checked && message.entry.zh && (!provisional || !lastStatus?.deepseek_cloud) && 'speechSynthesis' in window) {
+    if (isCurrentCaption && ui.speak.checked && message.entry.zh && (!provisional || !lastStatus?.deepseek_cloud) && 'speechSynthesis' in window) {
       const speech = new SpeechSynthesisUtterance(message.entry.zh);
       speech.lang = 'zh-CN'; speech.rate = 1.1;
       window.speechSynthesis.speak(speech);
@@ -625,7 +629,7 @@ function queueAudio(samples, elapsed) {
       if (response.entry && state.session?.id === sessionId) {
         state.session.entries.push(response.entry);
         state.session.summary = ''; state.session.summary_source = '';
-        showLiveCaption(response.entry.en, response.entry.zh, false);
+        showLiveCaption(response.entry.en, response.entry.zh, false, response.entry.id);
         drawSession(); loadHistory();
         if (ui.speak.checked && response.entry.zh && 'speechSynthesis' in window) {
           const speech = new SpeechSynthesisUtterance(response.entry.zh);

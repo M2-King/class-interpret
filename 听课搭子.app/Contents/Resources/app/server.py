@@ -6,9 +6,11 @@ import io
 import gc
 import json
 import os
+import queue
 import re
 import sys
 import threading
+import time
 import uuid
 import webbrowser
 import wave
@@ -48,6 +50,7 @@ MODEL_CACHE: dict[str, object] = {}
 MODEL_DEVICE: dict[str, str] = {}
 CUDA_DLL_HANDLES: list[object] = []
 STREAMING_SERVICE: streaming_server.StreamingServer | None = None
+TRANSLATOR: object | None = None
 
 
 def now_iso() -> str:
@@ -97,17 +100,23 @@ def translation_available() -> bool:
         return False
 
 
-def translate(text: str) -> str:
-    with TRANSLATE_LOCK:
+def translate(text: str, *, blocking: bool = True) -> str:
+    global TRANSLATOR
+    if not TRANSLATE_LOCK.acquire(blocking=blocking):
+        raise RuntimeError("离线翻译器正忙")
+    try:
         import argostranslate.translate
 
-        languages = {item.code: item for item in argostranslate.translate.get_installed_languages()}
-        if "en" not in languages or "zh" not in languages:
-            raise RuntimeError("英语 → 中文翻译模型未安装")
-        translator = languages["en"].get_translation(languages["zh"])
-        if not translator:
-            raise RuntimeError("英语 → 中文翻译模型未安装")
-        return translator.translate(text).strip()
+        if TRANSLATOR is None:
+            languages = {item.code: item for item in argostranslate.translate.get_installed_languages()}
+            if "en" not in languages or "zh" not in languages:
+                raise RuntimeError("英语 → 中文翻译模型未安装")
+            TRANSLATOR = languages["en"].get_translation(languages["zh"])
+            if not TRANSLATOR:
+                raise RuntimeError("英语 → 中文翻译模型未安装")
+        return TRANSLATOR.translate(text).strip()
+    finally:
+        TRANSLATE_LOCK.release()
 
 
 def load_model(name: str):
@@ -241,8 +250,6 @@ def translate_live_entry(entry: dict, settings: dict):
         session = read_session(session_id)
         position = next((index for index, item in enumerate(session["entries"]) if item["id"] == entry["id"]), -1)
         context = [item.get("en", "") for item in session["entries"][max(0, position - 3):position]]
-    delivered = False
-
     def store(chinese: str, provider: str, quality: str) -> dict:
         with LOCK:
             current = read_session(session_id)
@@ -255,28 +262,62 @@ def translate_live_entry(entry: dict, settings: dict):
             save_session(current)
             return dict(stored)
 
-    # Show a local preview first instead of leaving Chinese blank while a cloud
-    # request is in flight. Contaminated Argos output is rejected by the guard.
-    try:
+    if not deepseek_api.available():
         preview = translation_hub.offline_preview(entry["en"], translate)
-        delivered = True
-        yield store(preview, "argos", "provisional")
-    except Exception:
-        pass
+        yield store(preview, "argos", "offline")
+        return
 
-    if deepseek_api.available():
+    # Argos and DeepSeek have very different latency on different laptops and
+    # networks. Race them instead of blocking DeepSeek behind local inference.
+    # The first safe result is displayed; a later cloud result may refine it.
+    results: queue.Queue = queue.Queue()
+
+    def calculate(provider: str, callback) -> None:
         try:
-            refined = translation_hub.cloud_translation(
-                entry["en"],
-                glossary=settings.get("glossary", ""),
-                context=context,
-            )
-            yield store(refined, "deepseek", "final")
-        except Exception:
-            if not delivered:
-                raise
-    elif not delivered:
-        raise RuntimeError("中文翻译模型尚未就绪")
+            results.put((provider, callback(), None))
+        except Exception as exc:
+            results.put((provider, None, exc))
+
+    threading.Thread(
+        target=calculate,
+        args=("argos", lambda: translation_hub.offline_preview(
+            entry["en"], lambda text: translate(text, blocking=False)
+        )),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=calculate,
+        args=("deepseek", lambda: translation_hub.cloud_translation(
+            entry["en"],
+            glossary=settings.get("glossary", ""),
+            context=context,
+            timeout=6,
+        )),
+        daemon=True,
+    ).start()
+
+    delivered = False
+    errors: list[str] = []
+    remaining = 2
+    deadline = time.monotonic() + 6.5
+    while remaining and time.monotonic() < deadline:
+        try:
+            provider, chinese, failure = results.get(timeout=max(0.05, deadline - time.monotonic()))
+        except queue.Empty:
+            break
+        remaining -= 1
+        if failure is not None:
+            errors.append(f"{provider}: {failure}")
+            continue
+        if provider == "deepseek":
+            yield store(chinese, "deepseek", "final")
+            return
+        delivered = True
+        yield store(chinese, "argos", "provisional")
+
+    if not delivered:
+        detail = "；".join(errors) if errors else "翻译响应超时"
+        raise RuntimeError(detail)
 
 
 def remove_overlap(previous: str, current: str) -> str:
