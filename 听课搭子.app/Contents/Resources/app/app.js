@@ -19,7 +19,7 @@ const ui = {
   installDeepseekPage: $('install-deepseek-page'),
   deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text'),
   courseTitleSide: $('course-title-side'), dockRecord: document.querySelector('[data-record-proxy]'),
-  subtitleButton: $('subtitle-window-button'), livePreview: $('live-preview'),
+  subtitleButton: $('subtitle-window-button'), themeToggle: $('theme-toggle'), livePreview: $('live-preview'),
   livePreviewEn: $('live-preview-en'), livePreviewZh: $('live-preview-zh')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
@@ -31,6 +31,23 @@ const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
 const MODEL_LABELS = { small: 'Small', medium: 'Medium', 'large-v3': 'Large v3' };
 let clockTimer = null;
 let lastStatus = null;
+const THEME_KEY = 'class-interpreter-theme';
+
+function applyTheme(theme) {
+  const selected = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = selected;
+  try { localStorage.setItem(THEME_KEY, selected); } catch {}
+  const meta = document.querySelector('meta[name="color-scheme"]');
+  if (meta) meta.content = selected;
+  if (ui.themeToggle) {
+    const light = selected === 'light';
+    ui.themeToggle.querySelector('span').textContent = light ? '☾' : '☀';
+    ui.themeToggle.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+    ui.themeToggle.title = light ? 'Switch to dark mode' : 'Switch to light mode';
+    ui.themeToggle.setAttribute('aria-pressed', String(light));
+  }
+  window.SubtitleWindow?.setTheme(selected);
+}
 
 function showView(name) {
   document.querySelectorAll('.view').forEach(view => { view.hidden = view.id !== `view-${name}`; });
@@ -171,6 +188,11 @@ document.querySelectorAll('[data-record-proxy]').forEach(button => {
 document.querySelectorAll('[data-new-session-proxy]').forEach(button => {
   button.addEventListener('click', () => $('new-session').click());
 });
+if (ui.themeToggle) {
+  ui.themeToggle.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+  });
+}
 if ($('dual-view')) {
   $('dual-view').addEventListener('change', event => {
     const liveBilingual = Boolean(event.target.checked);
@@ -918,6 +940,7 @@ document.querySelectorAll('[data-export-format]').forEach(button => {
 
 async function init() {
   greeting();
+  applyTheme(document.documentElement.dataset.theme);
   const liveBilingual = localStorage.getItem('class-interpreter-live-bilingual') === 'true';
   if ($('dual-view')) $('dual-view').checked = liveBilingual;
   if (ui.livePreviewZh) ui.livePreviewZh.hidden = !liveBilingual;

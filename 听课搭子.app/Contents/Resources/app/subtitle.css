@@ -11,6 +11,26 @@
   --amber: #efb75c;
 }
 
+:root[data-theme="light"] {
+  color-scheme: light;
+  --island-bg: rgba(248, 251, 250, .92);
+  --island-border: rgba(35, 62, 56, .24);
+  --primary: #17211f;
+  --secondary: rgba(44, 61, 57, .78);
+  --muted: #65736f;
+  --green: #12aa66;
+  --amber: #b97613;
+}
+:root[data-theme="light"] .subtitle-island { background: linear-gradient(115deg, rgba(255,255,255,.72), transparent 38%), var(--island-bg); box-shadow: 0 18px 50px rgba(30,53,48,.20), inset 0 1px 0 rgba(255,255,255,.75); }
+:root[data-theme="light"] .is-solid .subtitle-island { --island-bg: rgba(250,252,251,.99); }
+:root[data-theme="light"] .product-name { color: #35433f; }
+:root[data-theme="light"] .island-status { color: #72807c; }
+:root[data-theme="light"] .subtitle-island.is-ready .subtitle-en { color: #566460; }
+:root[data-theme="light"] .island-controls button { border-color: rgba(34,60,54,.15); background: rgba(34,60,54,.055); color: #465550; }
+:root[data-theme="light"] .island-controls button:hover,
+:root[data-theme="light"] .island-controls button:focus-visible,
+:root[data-theme="light"] .island-controls button.active { border-color: rgba(34,60,54,.35); background: rgba(34,60,54,.13); color: #101a17; }
+
 * { box-sizing: border-box; }
 
 html, body {

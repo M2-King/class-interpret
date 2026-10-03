@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
-  <meta name="color-scheme" content="dark">
+  <meta name="color-scheme" content="dark light">
   <title>听课搭子 · Class Interpreter</title>
-  <link rel="stylesheet" href="/style.css?v=0.3.3-golden2">
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('class-interpreter-theme')==='light'?'light':'dark'}catch{document.documentElement.dataset.theme='dark'}</script>
+  <link rel="stylesheet" href="/style.css?v=0.3.3-theme1">
 </head>
 <body>
   <div class="desktop">
@@ -35,7 +36,10 @@
             <strong>From Every Lecture<br>to Lasting Knowledge</strong>
             <p>Real-time translation,<br>AI summary, organized notes.</p>
           </section>
-          <button class="quiet-exit" id="quit-app" type="button">退出本地服务</button>
+          <div class="sidebar-footer">
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode"><span aria-hidden="true">☀</span></button>
+            <button class="quiet-exit" id="quit-app" type="button">退出本地服务</button>
+          </div>
         </aside>
 
         <main class="stage">
@@ -248,7 +252,7 @@
       </div>
     </div>
   </div>
-  <script src="/subtitle-window.js?v=0.3.3-island4" defer></script>
-  <script src="/app.js?v=0.3.3-stream6" defer></script>
+  <script src="/subtitle-window.js?v=0.3.3-island5" defer></script>
+  <script src="/app.js?v=0.3.3-stream7" defer></script>
 </body>
 </html>

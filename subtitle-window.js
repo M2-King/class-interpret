@@ -23,10 +23,11 @@
         fontScale: 1,
         languageMode: 'english',
         surface: 'glass',
+        theme: 'dark',
         ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
       };
     } catch {
-      return {fontScale: 1, languageMode: 'english', surface: 'glass'};
+      return {fontScale: 1, languageMode: 'english', surface: 'glass', theme: 'dark'};
     }
   }
 
@@ -37,6 +38,16 @@
 
   function setLanguageMode(mode) {
     preferences.languageMode = mode === 'bilingual' ? 'bilingual' : 'english';
+    savePreferences();
+    if (standalone) render(document, last);
+    else {
+      if (target && !target.closed) render(target.document, last);
+      drawMediaIsland(last);
+    }
+  }
+
+  function setTheme(theme) {
+    preferences.theme = theme === 'light' ? 'light' : 'dark';
     savePreferences();
     if (standalone) render(document, last);
     else {
@@ -130,6 +141,7 @@
 
   function render(documentRef, payload) {
     if (!documentRef?.body) return;
+    documentRef.documentElement.dataset.theme = preferences.theme === 'light' ? 'light' : 'dark';
     const island = documentRef.getElementById('subtitle-island');
     if (!island) return;
     const english = documentRef.getElementById('subtitle-en');
@@ -265,22 +277,23 @@
     const disconnected = !payload.connected || payload.mode === 'reconnecting';
     const live = payload.recording || payload.englishState === 'partial';
     const primary = payload.english || 'Waiting for speech…';
+    const lightTheme = preferences.theme === 'light';
 
     context.setTransform(scale, 0, 0, scale, 0, 0);
     context.clearRect(0, 0, width, height);
     context.save();
 
     const surface = context.createLinearGradient(0, 0, width, height);
-    surface.addColorStop(0, preferences.surface === 'solid' ? '#111718' : 'rgba(13,18,19,.98)');
-    surface.addColorStop(1, '#090d0e');
-    context.shadowColor = 'rgba(0,0,0,.58)';
+    surface.addColorStop(0, lightTheme ? (preferences.surface === 'solid' ? '#ffffff' : 'rgba(249,251,251,.98)') : (preferences.surface === 'solid' ? '#111718' : 'rgba(13,18,19,.98)'));
+    surface.addColorStop(1, lightTheme ? '#edf2f1' : '#090d0e');
+    context.shadowColor = lightTheme ? 'rgba(34,48,45,.22)' : 'rgba(0,0,0,.58)';
     context.shadowBlur = 20;
     context.shadowOffsetY = 8;
     drawRoundedRect(context, 8, 8, width - 16, height - 16, 38);
     context.fillStyle = surface;
     context.fill();
     context.shadowColor = 'transparent';
-    context.strokeStyle = 'rgba(169,188,188,.34)';
+    context.strokeStyle = lightTheme ? 'rgba(48,67,63,.25)' : 'rgba(169,188,188,.34)';
     context.lineWidth = 1;
     context.stroke();
 
@@ -292,11 +305,11 @@
     context.fill();
     context.shadowColor = 'transparent';
 
-    context.fillStyle = '#dce5e5';
+    context.fillStyle = lightTheme ? '#273331' : '#dce5e5';
     context.font = '500 12px "Segoe UI", Inter, sans-serif';
     context.textBaseline = 'middle';
     context.fillText('Class Interpreter', 43, 30);
-    context.fillStyle = disconnected ? '#f7b955' : '#899696';
+    context.fillStyle = disconnected ? '#c77b12' : (lightTheme ? '#657572' : '#899696');
     context.font = '500 11px "Segoe UI", Inter, sans-serif';
     context.fillText(statusLabel(payload), 147, 30);
 
@@ -315,11 +328,11 @@
       context.stroke();
     });
 
-    context.fillStyle = '#f3f7f7';
+    context.fillStyle = lightTheme ? '#111816' : '#f3f7f7';
     context.font = `600 ${20 * fontScale}px "Segoe UI", Inter, sans-serif`;
     context.fillText(fitCanvasText(context, primary, 658), 28, showChinese ? 72 : 83);
     if (showChinese) {
-      context.fillStyle = '#b8c3c3';
+      context.fillStyle = lightTheme ? '#53615e' : '#b8c3c3';
       context.font = `400 ${15 * fontScale}px "Microsoft YaHei UI", "PingFang SC", sans-serif`;
       context.fillText(fitCanvasText(context, payload.chinese, 658), 28, 103);
     }
@@ -524,7 +537,7 @@
         }
       }
     });
-    window.SubtitleWindow = {open, close, publish, isOpen, setLanguageMode};
+    window.SubtitleWindow = {open, close, publish, isOpen, setLanguageMode, setTheme};
     if (document.pictureInPictureEnabled && window.HTMLVideoElement && 'requestPictureInPicture' in window.HTMLVideoElement.prototype) {
       ensureMediaPictureInPicture();
       drawMediaIsland(last);

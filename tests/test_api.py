@@ -52,6 +52,10 @@ assert "退出本地服务" in html
 assert 'class="rail-tabs"' in html
 assert 'id="timestamp-view"' in html
 assert 'id="subtitle-window-button"' in html
+assert 'id="theme-toggle"' in html
+assert 'class="sidebar-footer"' in html
+assert html.index('id="theme-toggle"') < html.index('</aside>')
+assert "class-interpreter-theme" in html
 assert 'id="live-preview"' in html
 assert 'data-export-format="pdf"' in html
 style = Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
@@ -73,6 +77,7 @@ assert "AudioWorkletNode" in script
 assert "partial_translation" in script
 assert "isCurrentPartial" in script
 assert "live_bilingual" in script
+assert "applyTheme" in script
 assert "Live Chinese (slower)" in html
 
 for path in ("/audio-worklet.js", "/subtitle-window.js", "/subtitle.html", "/subtitle.css"):
