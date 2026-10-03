@@ -52,9 +52,9 @@ class LiveBuffer:
     def __init__(
         self,
         *,
-        min_partial_seconds: float = 1.0,
-        partial_step_seconds: float = 1.0,
-        partial_window_seconds: float = 6.0,
+        min_partial_seconds: float = 0.75,
+        partial_step_seconds: float = 0.75,
+        partial_window_seconds: float = 5.0,
         max_seconds: float = 16.0,
     ) -> None:
         self.min_partial_bytes = int(RATE * BYTES_PER_SAMPLE * min_partial_seconds)

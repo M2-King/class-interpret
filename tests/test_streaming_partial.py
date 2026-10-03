@@ -32,9 +32,10 @@ service = StreamingServer("127.0.0.1", 0, decode, save, translate_final, transla
 
 
 class FakeConnection:
-    def __init__(self):
+    def __init__(self, live_bilingual=True):
         self.sent = []
         self.lock = threading.Lock()
+        self.live_bilingual = live_bilingual
 
     def recv(self, timeout=0):
         return json.dumps({
@@ -43,6 +44,7 @@ class FakeConnection:
             "session_id": "a" * 32,
             "model": "small",
             "base_elapsed": 0,
+            "live_bilingual": self.live_bilingual,
         })
 
     def send(self, payload):
@@ -58,9 +60,13 @@ class FakeConnection:
 
     def __iter__(self):
         yield (9000).to_bytes(2, "little", signed=True) * 16000
-        deadline = time.monotonic() + 3
-        while not self.has("partial_translation") and time.monotonic() < deadline:
+        partial_deadline = time.monotonic() + 3
+        while not self.has("partial") and time.monotonic() < partial_deadline:
             time.sleep(0.01)
+        if self.live_bilingual:
+            deadline = time.monotonic() + 3
+            while not self.has("partial_translation") and time.monotonic() < deadline:
+                time.sleep(0.01)
         yield json.dumps({"type": "commit", "elapsed": 1.0})
         yield json.dumps({"type": "stop", "elapsed": 1.0})
 
@@ -73,4 +79,13 @@ preview = next(item for item in connection.sent if item.get("type") == "partial_
 assert preview["text"] == "forming the truth table"
 assert preview["zh"] == "正在构建真值表"
 assert preview["translation_status"] == "provisional"
+
+english_only = FakeConnection(live_bilingual=False)
+service._handle(english_only)
+assert english_only.has("partial")
+assert not english_only.has("partial_translation")
+deadline = time.monotonic() + 1
+while not english_only.has("translation") and time.monotonic() < deadline:
+    time.sleep(0.01)
+assert any(item.get("type") == "translation" for item in english_only.sent)
 print("streaming_partial ok")

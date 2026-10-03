@@ -72,6 +72,8 @@ assert "/api/stream/config" in script
 assert "AudioWorkletNode" in script
 assert "partial_translation" in script
 assert "isCurrentPartial" in script
+assert "live_bilingual" in script
+assert "Live Chinese (slower)" in html
 
 for path in ("/audio-worklet.js", "/subtitle-window.js", "/subtitle.html", "/subtitle.css"):
     with urllib.request.urlopen(base + path) as response:

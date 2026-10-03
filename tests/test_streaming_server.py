@@ -60,6 +60,7 @@ with connect(service.config()["url"], open_timeout=3) as websocket:
         "session_id": "a" * 32,
         "model": "small",
         "base_elapsed": 2,
+        "live_bilingual": True,
     }))
     ready = json.loads(websocket.recv(timeout=3))
     assert ready["type"] == "ready"

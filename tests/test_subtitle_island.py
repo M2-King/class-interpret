@@ -37,6 +37,8 @@ assert "class-interpreter-subtitle-state-request" in script
 assert "postMessage" in script
 assert "localStorage" in script
 assert "preferences" in script
+assert "languageMode: 'english'" in script
+assert "setLanguageMode" in script
 
 # The dedicated fallback page is only a shell; it does not own audio or a
 # second streaming connection.
@@ -61,6 +63,6 @@ assert "state.lastCaption?.entryId === message.entry.id" in app
 assert "englishState" in app and "chineseState" in app
 assert "subtitlewindowchange" in app
 assert "aria-pressed=\"false\"" in index
-assert "0.3.3-island3" in index
+assert "0.3.3-island4" in index
 
 print("subtitle_island ok")

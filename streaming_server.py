@@ -89,6 +89,7 @@ class StreamingServer:
             "model": str(message.get("model") or "small"),
             "glossary": str(message.get("glossary") or "")[:500],
             "base_elapsed": max(0.0, float(message.get("base_elapsed") or 0)),
+            "live_bilingual": bool(message.get("live_bilingual", False)),
         }
 
     def _handle(self, connection) -> None:
@@ -122,7 +123,7 @@ class StreamingServer:
 
         def queue_partial_translation(event: dict) -> None:
             nonlocal partial_pending, partial_worker_running
-            if self.translate_partial is None:
+            if self.translate_partial is None or not settings.get("live_bilingual", False):
                 return
             with partial_lock:
                 partial_pending = dict(event)
@@ -143,12 +144,14 @@ class StreamingServer:
                                 return
                         continue
                     try:
+                        if not settings.get("live_bilingual", False):
+                            continue
                         chinese = self.translate_partial(current["text"], settings)
                     except Exception:
                         chinese = ""
                     with partial_lock:
                         stale = partial_pending is not None
-                    if chinese and not stale and not stopped.is_set():
+                    if chinese and not stale and not stopped.is_set() and settings.get("live_bilingual", False):
                         send({
                             "type": "partial_translation",
                             "utterance_id": current.get("utterance_id"),
@@ -226,6 +229,11 @@ class StreamingServer:
                     work_ready.set()
                 elif kind == "ping":
                     send({"type": "pong", "at": time.time()})
+                elif kind == "translation_mode":
+                    settings["live_bilingual"] = bool(command.get("live_bilingual", False))
+                    if not settings["live_bilingual"]:
+                        with partial_lock:
+                            partial_pending = None
                 elif kind == "stop":
                     buffer.close(float(command.get("elapsed") or settings["elapsed"]))
                     stopped.set()

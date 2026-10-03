@@ -173,7 +173,16 @@ document.querySelectorAll('[data-new-session-proxy]').forEach(button => {
 });
 if ($('dual-view')) {
   $('dual-view').addEventListener('change', event => {
-    $('view-live').classList.toggle('mono', !event.target.checked);
+    const liveBilingual = Boolean(event.target.checked);
+    localStorage.setItem('class-interpreter-live-bilingual', String(liveBilingual));
+    if (ui.livePreviewZh) ui.livePreviewZh.hidden = !liveBilingual;
+    window.SubtitleWindow?.setLanguageMode(liveBilingual ? 'bilingual' : 'english');
+    if (state.socket?.readyState === WebSocket.OPEN) {
+      state.socket.send(JSON.stringify({type: 'translation_mode', live_bilingual: liveBilingual}));
+    }
+    notice(liveBilingual
+      ? '实时中英双语已开启。中文预览会稍晚于英文。'
+      : '低延迟模式已开启：悬浮字幕优先显示英文，中文仍会在句子结束后写入课堂记录。');
   });
 }
 if ($('timestamp-view')) {
@@ -453,7 +462,10 @@ function showLiveCaption(english, chinese = '', partial = false, entryId = '', c
   };
   if (ui.livePreview) ui.livePreview.hidden = !(english || chinese);
   if (ui.livePreviewEn) ui.livePreviewEn.textContent = english || 'Waiting for speech…';
-  if (ui.livePreviewZh) ui.livePreviewZh.textContent = chinese || (partial ? '正在识别…' : '等待翻译…');
+  if (ui.livePreviewZh) {
+    ui.livePreviewZh.hidden = !$('dual-view')?.checked;
+    ui.livePreviewZh.textContent = chinese || (partial ? '正在识别…' : '等待翻译…');
+  }
   window.SubtitleWindow?.publish(state.lastCaption);
 }
 
@@ -474,6 +486,7 @@ function handleStreamMessage(event) {
   if (message.type === 'partial') {
     showLiveCaption(message.text, '', true, `partial:${message.utterance_id || ''}`);
   } else if (message.type === 'partial_translation') {
+    if (!$('dual-view')?.checked) return;
     const partialId = `partial:${message.utterance_id || ''}`;
     const isCurrentPartial = state.lastCaption?.partial
       && state.lastCaption.entryId === partialId
@@ -530,7 +543,8 @@ async function connectStreaming() {
     socket.binaryType = 'arraybuffer';
     socket.onopen = () => socket.send(JSON.stringify({
       type: 'start', token: config.token, session_id: state.session.id,
-      model: ui.model.value, glossary: ui.glossary.value, base_elapsed: state.baseElapsed
+      model: ui.model.value, glossary: ui.glossary.value, base_elapsed: state.baseElapsed,
+      live_bilingual: Boolean($('dual-view')?.checked)
     }));
     socket.onmessage = event => {
       let first;
@@ -904,6 +918,10 @@ document.querySelectorAll('[data-export-format]').forEach(button => {
 
 async function init() {
   greeting();
+  const liveBilingual = localStorage.getItem('class-interpreter-live-bilingual') === 'true';
+  if ($('dual-view')) $('dual-view').checked = liveBilingual;
+  if (ui.livePreviewZh) ui.livePreviewZh.hidden = !liveBilingual;
+  window.SubtitleWindow?.setLanguageMode(liveBilingual ? 'bilingual' : 'english');
   syncModelCards();
   syncDockRecord(false, 'Start');
   activateRailTab(localStorage.getItem('class-interpreter-rail-tab') || 'summary');

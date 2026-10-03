@@ -21,18 +21,28 @@
     try {
       return {
         fontScale: 1,
-        languageMode: 'bilingual',
+        languageMode: 'english',
         surface: 'glass',
         ...JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}')
       };
     } catch {
-      return {fontScale: 1, languageMode: 'bilingual', surface: 'glass'};
+      return {fontScale: 1, languageMode: 'english', surface: 'glass'};
     }
   }
 
   function savePreferences() {
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(preferences)); } catch {}
     channel?.postMessage({type: 'preferences', preferences});
+  }
+
+  function setLanguageMode(mode) {
+    preferences.languageMode = mode === 'bilingual' ? 'bilingual' : 'english';
+    savePreferences();
+    if (standalone) render(document, last);
+    else {
+      if (target && !target.closed) render(target.document, last);
+      drawMediaIsland(last);
+    }
   }
 
   function normalizeState(payload = {}) {
@@ -111,7 +121,7 @@
   function statusLabel(payload) {
     if (payload.mode === 'compatibility') return 'Compatibility';
     if (!payload.connected || payload.mode === 'reconnecting') return 'Reconnecting…';
-    if (payload.chineseState === 'pending' && payload.englishState === 'final') return 'Translating…';
+    if (preferences.languageMode === 'bilingual' && payload.chineseState === 'pending' && payload.englishState === 'final') return 'Translating…';
     if (payload.englishState === 'partial') return 'Listening…';
     if (payload.recording) return 'Live';
     if (payload.english) return 'Saved';
@@ -514,7 +524,7 @@
         }
       }
     });
-    window.SubtitleWindow = {open, close, publish, isOpen};
+    window.SubtitleWindow = {open, close, publish, isOpen, setLanguageMode};
     if (document.pictureInPictureEnabled && window.HTMLVideoElement && 'requestPictureInPicture' in window.HTMLVideoElement.prototype) {
       ensureMediaPictureInPicture();
       drawMediaIsland(last);
