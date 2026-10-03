@@ -287,7 +287,12 @@ $workerScript = {
             $oldPath = $null
             try { $oldPath = [string]$oldProcess.Path } catch { }
             if ($oldPath -and $oldPath.StartsWith($venvPrefix, [StringComparison]::OrdinalIgnoreCase)) {
-                & taskkill.exe /PID $oldProcess.Id /T /F *> $null
+                # The shutdown endpoint may close this process between discovery
+                # and cleanup. An already-exited process is a successful cleanup,
+                # not an installation failure.
+                try {
+                    Stop-Process -Id $oldProcess.Id -Force -ErrorAction SilentlyContinue
+                } catch { }
             }
         }
         Start-Sleep -Milliseconds 700

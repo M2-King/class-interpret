@@ -25,7 +25,8 @@ assert b"Downloading application" in gui_bytes
 assert b"-NoLaunch" in gui_bytes
 assert b"api/health" in gui_bytes
 assert b"startup.log" in gui_bytes
-assert b"taskkill.exe" in gui_bytes
+assert b"taskkill.exe" not in gui_bytes
+assert b"Stop-Process -Id $oldProcess.Id -Force -ErrorAction SilentlyContinue" in gui_bytes
 assert b"api/shutdown" in gui_bytes
 assert b"ClassInterpreter-Model-Small.zip" in gui_bytes
 assert b"Downloading speech model" in gui_bytes
