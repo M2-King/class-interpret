@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 from pathlib import Path
+import shutil
 import sys
+import tempfile
 
 root = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(root))
@@ -15,7 +17,8 @@ assert wb.is_temp_path(r"C:\Users\a\AppData\Local\Temp\7zO123\ClassInterpreter-0
 assert not wb.is_temp_path(r"C:\Users\a\Downloads\ClassInterpreter-0.3.3")
 assert not wb.is_temp_path(r"D:\class-interpret")
 
-venv_root = Path("/tmp/ci-fake-win")
+test_root = Path(tempfile.mkdtemp(prefix="ci-win-bootstrap-"))
+venv_root = test_root / "ci-fake-win"
 (venv_root / ".venv" / "Scripts").mkdir(parents=True, exist_ok=True)
 (venv_root / ".runtime" / "python").mkdir(parents=True, exist_ok=True)
 (venv_root / ".venv" / "Scripts" / "python.exe").write_bytes(b"x" * 5000)
@@ -23,15 +26,15 @@ venv_root = Path("/tmp/ci-fake-win")
 chosen = wb.choose_python(venv_root)
 assert str(chosen).replace("\\", "/").endswith(".venv/Scripts/python.exe"), chosen
 
-only_bundle = Path("/tmp/ci-fake-win-bundle")
+only_bundle = test_root / "ci-fake-win-bundle"
 (only_bundle / ".runtime" / "python").mkdir(parents=True, exist_ok=True)
 (only_bundle / ".runtime" / "python" / "python.exe").write_bytes(b"y" * 5000)
 chosen = wb.choose_python(only_bundle)
 assert str(chosen).replace("\\", "/").endswith(".runtime/python/python.exe"), chosen
 
-assert wb.choose_python(Path("/tmp/ci-fake-win-empty")) is None
+assert wb.choose_python(test_root / "ci-fake-win-empty") is None
 
-nested = Path("/tmp/ci-nested-extract/ClassInterpreter-0.3.3")
+nested = test_root / "ci-nested-extract" / "ClassInterpreter-0.3.3"
 (nested.parent / ".venv" / "Scripts").mkdir(parents=True, exist_ok=True)
 (nested / ".runtime" / "python").mkdir(parents=True, exist_ok=True)
 (nested.parent / ".venv" / "Scripts" / "python.exe").write_bytes(b"v" * 5000)
@@ -48,7 +51,7 @@ wb.configure_env(nested)
 assert os.environ["CLASS_INTERPRET_HF"].replace("\\", "/").endswith("/ci-nested-extract/hf")
 assert os.environ["CLASS_INTERPRET_DATA"].replace("\\", "/").endswith("/ci-nested-extract/data")
 
-embed = Path("/tmp/ci-embed-pth/.runtime/python")
+embed = test_root / "ci-embed-pth" / ".runtime" / "python"
 embed.mkdir(parents=True, exist_ok=True)
 (embed / "python312.zip").write_bytes(b"x")
 (embed / "python312._pth").write_bytes(b"python312.zip\r\n.\r\n")
@@ -71,7 +74,9 @@ ensure_src = src[src.index("def ensure_pip") : src.index("def pip_install")]
 assert "pip.pyz" in ensure_src
 assert ensure_src.index("pip.pyz") < ensure_src.index("get-pip.py")
 assert "nvidia-cublas-cu12" in src
+assert "import faster_whisper, argostranslate, websockets" in src
 assert "api/shutdown" in src
 assert src.index("stop_listener") < src.index('["server.py"]')
 wb.stop_listener(port=9, wait=0)
+shutil.rmtree(test_root, ignore_errors=True)
 print("win_bootstrap ok")

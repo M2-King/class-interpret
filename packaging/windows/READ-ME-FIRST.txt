@@ -1,8 +1,14 @@
 STOP. This is version 0.3.3.
 
 How to use Windows:
-A. Old working folder: double-click that Start.bat. Do not replace it.
-B. New copy: right-click zip -> Extract All -> OPEN-THIS.bat
+A. Easiest install: download ClassInterpreter-Setup-Windows.bat and run it.
+   It downloads and extracts the full application automatically.
+B. Repair this downloaded package: right-click zip -> Extract All,
+   then double-click INSTALL-OR-REPAIR.bat.
+C. New portable copy: right-click zip -> Extract All -> OPEN-THIS.bat
+
+The repair installer detects the old folder, preserves data and models,
+backs up changed app files, and rebuilds a broken Python environment.
 
 Windows cannot run this from inside the zip. That is not a broken laptop.
 

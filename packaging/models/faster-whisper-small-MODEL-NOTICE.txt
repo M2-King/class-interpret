@@ -1,0 +1,10 @@
+Class Interpreter includes the Systran faster-whisper-small model in its
+optional ready-to-use model pack.
+
+Source: https://huggingface.co/Systran/faster-whisper-small
+Pinned revision: 2ec96c5472da50d38d40c0cfe0602af2e94b4c8a
+Model format: CTranslate2 conversion of OpenAI Whisper Small
+License declared by the upstream model repository: MIT
+
+The upstream model card and repository remain the authoritative source for
+model documentation and licensing information.

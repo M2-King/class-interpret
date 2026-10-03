@@ -6,11 +6,14 @@ import io
 import gc
 import json
 import os
+import queue
 import re
 import sys
 import threading
+import time
 import uuid
 import webbrowser
+import wave
 from collections import Counter
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -21,6 +24,8 @@ from urllib.parse import unquote, urlsplit
 import deepseek_api
 import deepseek_hub
 import ssl_certs
+import streaming_server
+import translation_hub
 import whisper_hub
 
 ssl_certs.apply()
@@ -32,6 +37,7 @@ DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("CLASS_INTERPRET_PORT", "8765"))
+STREAM_PORT = int(os.environ.get("CLASS_INTERPRET_STREAM_PORT", "8766"))
 MODEL_NAMES = {"small", "medium", "large-v3"}
 SESSION_ID = re.compile(r"^[a-f0-9]{32}$")
 LOCK = threading.RLock()
@@ -43,6 +49,8 @@ DEEPSEEK_INSTALL_LOCK = threading.Lock()
 MODEL_CACHE: dict[str, object] = {}
 MODEL_DEVICE: dict[str, str] = {}
 CUDA_DLL_HANDLES: list[object] = []
+STREAMING_SERVICE: streaming_server.StreamingServer | None = None
+TRANSLATOR: object | None = None
 
 
 def now_iso() -> str:
@@ -92,17 +100,23 @@ def translation_available() -> bool:
         return False
 
 
-def translate(text: str) -> str:
-    with TRANSLATE_LOCK:
+def translate(text: str, *, blocking: bool = True) -> str:
+    global TRANSLATOR
+    if not TRANSLATE_LOCK.acquire(blocking=blocking):
+        raise RuntimeError("离线翻译器正忙")
+    try:
         import argostranslate.translate
 
-        languages = {item.code: item for item in argostranslate.translate.get_installed_languages()}
-        if "en" not in languages or "zh" not in languages:
-            raise RuntimeError("英语 → 中文翻译模型未安装")
-        translator = languages["en"].get_translation(languages["zh"])
-        if not translator:
-            raise RuntimeError("英语 → 中文翻译模型未安装")
-        return translator.translate(text).strip()
+        if TRANSLATOR is None:
+            languages = {item.code: item for item in argostranslate.translate.get_installed_languages()}
+            if "en" not in languages or "zh" not in languages:
+                raise RuntimeError("英语 → 中文翻译模型未安装")
+            TRANSLATOR = languages["en"].get_translation(languages["zh"])
+            if not TRANSLATOR:
+                raise RuntimeError("英语 → 中文翻译模型未安装")
+        return TRANSLATOR.translate(text).strip()
+    finally:
+        TRANSLATE_LOCK.release()
 
 
 def load_model(name: str):
@@ -164,6 +178,157 @@ def transcribe(audio: bytes, model_name: str, glossary: str) -> str:
             MODEL_CACHE[model_name] = cpu_model
             MODEL_DEVICE[model_name] = device
             return run(cpu_model)
+
+
+def pcm_wav(pcm: bytes) -> bytes:
+    output = io.BytesIO()
+    with wave.open(output, "wb") as destination:
+        destination.setnchannels(1)
+        destination.setsampwidth(2)
+        destination.setframerate(16000)
+        destination.writeframes(pcm)
+    return output.getvalue()
+
+
+def transcribe_live(job, settings: dict) -> str:
+    model_name = settings.get("model", "small")
+    glossary = settings.get("glossary", "")
+    if model_name not in MODEL_NAMES:
+        raise ValueError("不支持的识别模型")
+    model = load_model(model_name)
+
+    def run(selected_model) -> str:
+        segments, _ = selected_model.transcribe(
+            io.BytesIO(pcm_wav(job.pcm)),
+            language="en",
+            beam_size=1,
+            best_of=1,
+            condition_on_previous_text=False,
+            initial_prompt=("Classroom terminology: " + glossary[:500]) if glossary else None,
+            vad_filter=job.final,
+            vad_parameters={"min_silence_duration_ms": 350} if job.final else None,
+        )
+        return " ".join(segment.text.strip() for segment in segments).strip()
+
+    with MODEL_LOCK:
+        try:
+            return run(model)
+        except RuntimeError as exc:
+            if not any(term in str(exc).lower() for term in ("cublas", "cudnn", "cuda")):
+                raise
+            cpu_model, device = whisper_hub.create_model(model_name, force_cpu=True)
+            MODEL_CACHE[model_name] = cpu_model
+            MODEL_DEVICE[model_name] = device
+            return run(cpu_model)
+
+
+def save_live_entry(job, english: str, settings: dict) -> dict | None:
+    session_id = settings["session_id"]
+    with LOCK:
+        session = read_session(session_id)
+        if session["entries"]:
+            english = remove_overlap(session["entries"][-1]["en"], english)
+        if not english:
+            return None
+        entry = {
+            "id": uuid.uuid4().hex,
+            "at": max(0, job.elapsed),
+            "en": english,
+            "zh": "",
+            "translation_status": "pending",
+        }
+        session["entries"].append(entry)
+        session["summary"] = ""
+        session["summary_source"] = ""
+        save_session(session)
+        return entry
+
+
+def translate_live_entry(entry: dict, settings: dict):
+    session_id = settings["session_id"]
+    with LOCK:
+        session = read_session(session_id)
+        position = next((index for index, item in enumerate(session["entries"]) if item["id"] == entry["id"]), -1)
+        context = [item.get("en", "") for item in session["entries"][max(0, position - 3):position]]
+    def store(chinese: str, provider: str, quality: str) -> dict:
+        with LOCK:
+            current = read_session(session_id)
+            stored = next((item for item in current["entries"] if item["id"] == entry["id"]), None)
+            if stored is None:
+                raise FileNotFoundError("没有找到这一条课堂记录")
+            stored["zh"] = chinese
+            stored["translation_provider"] = provider
+            stored["translation_status"] = quality
+            save_session(current)
+            return dict(stored)
+
+    if not deepseek_api.available():
+        preview = translation_hub.offline_preview(entry["en"], translate)
+        yield store(preview, "argos", "offline")
+        return
+
+    # Argos and DeepSeek have very different latency on different laptops and
+    # networks. Race them instead of blocking DeepSeek behind local inference.
+    # The first safe result is displayed; a later cloud result may refine it.
+    results: queue.Queue = queue.Queue()
+
+    def calculate(provider: str, callback) -> None:
+        try:
+            results.put((provider, callback(), None))
+        except Exception as exc:
+            results.put((provider, None, exc))
+
+    threading.Thread(
+        target=calculate,
+        args=("argos", lambda: translation_hub.offline_preview(
+            entry["en"], lambda text: translate(text, blocking=False)
+        )),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=calculate,
+        args=("deepseek", lambda: translation_hub.cloud_translation(
+            entry["en"],
+            glossary=settings.get("glossary", ""),
+            context=context,
+            timeout=6,
+        )),
+        daemon=True,
+    ).start()
+
+    delivered = False
+    errors: list[str] = []
+    remaining = 2
+    deadline = time.monotonic() + 6.5
+    while remaining and time.monotonic() < deadline:
+        try:
+            provider, chinese, failure = results.get(timeout=max(0.05, deadline - time.monotonic()))
+        except queue.Empty:
+            break
+        remaining -= 1
+        if failure is not None:
+            errors.append(f"{provider}: {failure}")
+            continue
+        if provider == "deepseek":
+            yield store(chinese, "deepseek", "final")
+            return
+        delivered = True
+        yield store(chinese, "argos", "provisional")
+
+    if not delivered:
+        detail = "；".join(errors) if errors else "翻译响应超时"
+        raise RuntimeError(detail)
+
+
+def translate_live_partial(english: str, settings: dict) -> str:
+    """Return a fast local preview without blocking live recognition."""
+    try:
+        return translation_hub.offline_preview(
+            english,
+            lambda text: translate(text, blocking=False),
+        )
+    except Exception:
+        return ""
 
 
 def remove_overlap(previous: str, current: str) -> str:
@@ -287,8 +452,20 @@ class Handler(BaseHTTPRequestHandler):
         pieces = [part for part in path.split("/") if part]
         if method == "GET" and path == "/":
             return self.serve_file("index.html", "text/html; charset=utf-8")
-        if method == "GET" and path in ("/app.js", "/style.css"):
-            return self.serve_file(path[1:], "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8")
+        static_types = {
+            "/app.js": "text/javascript; charset=utf-8",
+            "/audio-worklet.js": "text/javascript; charset=utf-8",
+            "/subtitle-window.js": "text/javascript; charset=utf-8",
+            "/style.css": "text/css; charset=utf-8",
+            "/subtitle.css": "text/css; charset=utf-8",
+            "/subtitle.html": "text/html; charset=utf-8",
+        }
+        if method == "GET" and path in static_types:
+            return self.serve_file(path[1:], static_types[path])
+        if method == "GET" and path == "/api/health":
+            # Installer readiness must stay fast and must not probe optional AI
+            # services. The full /api/status endpoint intentionally does more.
+            return self.respond(200, {"ready": True, "version": VERSION})
         if method == "GET" and path == "/api/status":
             models = whisper_hub.cached_models()
             deepseek = deepseek_hub.snapshot()
@@ -304,6 +481,15 @@ class Handler(BaseHTTPRequestHandler):
                 "whisper_models": models,
                 "whisper": any(models.values()),
             })
+        if method == "GET" and path == "/api/stream/config":
+            config = STREAMING_SERVICE.config() if STREAMING_SERVICE else {
+                "enabled": False,
+                "url": "",
+                "token": "",
+                "sample_rate": 16000,
+                "error": "实时字幕服务未启动",
+            }
+            return self.respond(200, config)
         if method == "POST" and path == "/api/translation/install":
             if translation_available():
                 return self.respond(200, {"translation": True, "message": "英语 → 中文模型已经安装。"})
@@ -362,6 +548,8 @@ class Handler(BaseHTTPRequestHandler):
                 DEEPSEEK_INSTALL_LOCK.release()
             return self.respond(200, {"deepseek": ready, "ready": True, "message": f"DeepSeek 已安装：{ready}"})
         if method == "POST" and path == "/api/shutdown":
+            if STREAMING_SERVICE:
+                threading.Thread(target=STREAMING_SERVICE.stop, daemon=True).start()
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return self.respond(200, {"ok": True})
         if method == "GET" and path == "/api/sessions":
@@ -405,12 +593,26 @@ class Handler(BaseHTTPRequestHandler):
                 if not english:
                     return self.respond(200, {"entry": None})
                 try:
-                    chinese = translate(english)
+                    chinese, provider, quality = translation_hub.best_translation(
+                        english,
+                        translate,
+                        glossary=glossary,
+                        context=[item.get("en", "") for item in session.get("entries", [])[-3:]],
+                    )
                     translation_error = ""
                 except Exception as exc:
                     chinese = ""
+                    provider = ""
+                    quality = "failed"
                     translation_error = str(exc)
-                entry = {"id": uuid.uuid4().hex, "at": max(0, elapsed), "en": english, "zh": chinese}
+                entry = {
+                    "id": uuid.uuid4().hex,
+                    "at": max(0, elapsed),
+                    "en": english,
+                    "zh": chinese,
+                    "translation_provider": provider,
+                    "translation_status": quality,
+                }
                 with LOCK:
                     session = read_session(session_id)
                     session["entries"].append(entry)
@@ -461,6 +663,9 @@ class Handler(BaseHTTPRequestHandler):
     def safe_route(self, method: str) -> None:
         try:
             self.route(method)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            # A browser tab can close while a status response is being written.
+            return
         except FileNotFoundError as exc:
             self.respond(404, {"error": str(exc)})
         except (ValueError, json.JSONDecodeError) as exc:
@@ -471,9 +676,21 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    global STREAMING_SERVICE
     address = f"http://{HOST}:{PORT}/"
     server = ThreadingHTTPServer((HOST, PORT), Handler)
+    STREAMING_SERVICE = streaming_server.StreamingServer(
+        HOST,
+        STREAM_PORT,
+        transcribe_live,
+        save_live_entry,
+        translate_live_entry,
+        translate_live_partial,
+    )
+    STREAMING_SERVICE.start()
     print(f"课堂同传已启动：{address}")
+    if STREAMING_SERVICE.ready:
+        print(f"实时字幕通道已启动：ws://{HOST}:{STREAM_PORT}")
 
     def warmup() -> None:
         try:
@@ -490,6 +707,8 @@ def main() -> None:
     except KeyboardInterrupt:
         print("已退出。")
     finally:
+        if STREAMING_SERVICE:
+            STREAMING_SERVICE.stop()
         server.server_close()
 
 

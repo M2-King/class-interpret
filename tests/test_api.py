@@ -15,6 +15,10 @@ thread.start()
 host, port = httpd.server_address
 base = f"http://{host}:{port}"
 
+with urllib.request.urlopen(base + "/api/health") as response:
+    health = json.loads(response.read().decode())
+assert health == {"ready": True, "version": "0.3.3"}
+
 with urllib.request.urlopen(base + "/api/status") as response:
     data = json.loads(response.read().decode())
 assert data.get("version") == "0.3.3"
@@ -26,21 +30,39 @@ assert "ollama" in data
 assert "whisper" in data
 assert "whisper_models" in data
 
+with urllib.request.urlopen(base + "/api/stream/config") as response:
+    stream = json.loads(response.read().decode())
+assert stream["enabled"] is False
+assert stream["sample_rate"] == 16000
+
 with urllib.request.urlopen(base + "/") as response:
     html = response.read().decode()
     assert "no-store" in (response.headers.get("Cache-Control") or "")
 assert "setup_models.py" not in html
 assert "0.3.3" in html
 assert 'id="model-banner"' in html
-assert "现在安装中文翻译模型" in html
+assert 'id="install-translation"' in html
 assert "下载语音模型" in html
 assert 'id="install-whisper"' in html
 assert 'id="install-deepseek"' in html
 assert "安装 DeepSeek" in html
 assert 'id="deepseek-health"' in html
 assert 'id="quit-app"' in html
-assert "退出听课搭子" in html
-assert "fff4cc" in Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
+assert "退出本地服务" in html
+assert 'class="rail-tabs"' in html
+assert 'id="timestamp-view"' in html
+assert 'id="subtitle-window-button"' in html
+assert 'id="theme-toggle"' in html
+assert 'class="sidebar-footer"' in html
+assert html.index('id="theme-toggle"') < html.index('</aside>')
+assert "class-interpreter-theme" in html
+assert 'id="live-preview"' in html
+assert 'data-export-format="pdf"' in html
+style = Path(__file__).resolve().parents[1].joinpath("style.css").read_text(encoding="utf-8")
+assert ".live-workspace" in style
+assert ".insight-rail" in style
+assert ".insight-rail > * { flex: 0 0 auto; }" in style
+assert "grid-template-rows: auto minmax(90px, auto) auto auto" in style
 
 with urllib.request.urlopen(base + "/app.js?v=0.3.3") as response:
     script = response.read().decode()
@@ -50,6 +72,17 @@ assert "/api/deepseek/install" in script
 assert "/api/shutdown" in script
 assert "AbortSignal.timeout" not in script
 assert "modelBanner.classList.toggle" in script
+assert "/api/stream/config" in script
+assert "AudioWorkletNode" in script
+assert "partial_translation" in script
+assert "isCurrentPartial" in script
+assert "live_bilingual" in script
+assert "applyTheme" in script
+assert "Live Chinese (slower)" in html
+
+for path in ("/audio-worklet.js", "/subtitle-window.js", "/subtitle.html", "/subtitle.css"):
+    with urllib.request.urlopen(base + path) as response:
+        assert response.status == 200
 
 req = urllib.request.Request(base + "/api/shutdown", data=b"", method="POST")
 with urllib.request.urlopen(req) as response:

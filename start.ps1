@@ -441,15 +441,23 @@ if ($status) {
     Stop-Listener
 }
 
-$venvPython = Join-Path $PSScriptRoot '.venv\Scripts\python.exe'
-if (-not (Test-Path -LiteralPath $venvPython)) {
+$venvRoot = Join-Path $PSScriptRoot '.venv'
+$venvPython = Join-Path $venvRoot 'Scripts\python.exe'
+$venvReady = Test-PythonExe -Exe $venvPython -NeedVenv
+if ((-not $venvReady) -and (Test-Path -LiteralPath $venvRoot)) {
+    Write-Host 'Existing .venv is broken or belongs to a removed Python. Rebuilding it...'
+    $brokenVenv = Join-Path $PSScriptRoot ('.venv-broken-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
+    Move-Item -LiteralPath $venvRoot -Destination $brokenVenv -Force
+    Write-Host ("Old environment preserved at: " + $brokenVenv)
+}
+if (-not $venvReady) {
     $python = ConvertTo-PythonPath (Ensure-Python)
     if (-not $python) { throw 'Python 3.12 was downloaded but the exe path was not found. Double-click Start.bat again.' }
     Write-Host ("Using Python: " + $python)
     $hasVenv = Test-PythonExe -Exe $python -NeedVenv
     if ($hasVenv) {
         Invoke-Native -FilePath $python -ArgumentList @('-m', 'venv', '.venv')
-        if ($script:LastNativeExit -ne 0 -or -not (Test-Path -LiteralPath $venvPython)) {
+        if ($script:LastNativeExit -ne 0 -or -not (Test-PythonExe -Exe $venvPython)) {
             Write-Host 'venv create failed; installing packages into the local Python instead.'
             $venvPython = $python
         }
@@ -460,6 +468,9 @@ if (-not (Test-Path -LiteralPath $venvPython)) {
 }
 $venvPython = ConvertTo-PythonPath $venvPython
 if (-not $venvPython) { throw 'Python exe missing. Delete this folder and unzip ClassInterpreter-windows-0.3.3.zip again.' }
+if (-not (Test-PythonExe -Exe $venvPython)) {
+    throw 'The selected Python exe is broken. Delete the .venv folder and double-click Start.bat again.'
+}
 
 Write-Host 'Installing packages (first run needs internet, a few minutes)...'
 Install-WithPip -PythonExe $venvPython -PipArgs @('install', '--upgrade', 'pip')

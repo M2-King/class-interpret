@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en" data-subtitle-window>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Subtitle Island Visual Fixture</title>
+  <link rel="stylesheet" href="/subtitle.css?v=0.3.3-island2" data-subtitle-style>
+  <script src="/subtitle-window.js?v=0.3.3-island3" defer></script>
+</head>
+<body class="subtitle-surface">
+  <script>
+    window.addEventListener('load', () => window.postMessage({
+      type: 'subtitle-state',
+      payload: {
+        mode: 'listening', entryId: 'visual-fixture',
+        english: "Today we're going to talk about the basic structure of the cell.",
+        englishState: 'final', chinese: '今天我们要讨论细胞的基本结构。',
+        chineseState: 'final', connected: true, recording: true
+      }
+    }, location.origin));
+  </script>
+</body>
+</html>

@@ -1,0 +1,79 @@
+name: Publish installers
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out tagged source
+        uses: actions/checkout@v4
+
+      - name: Build ready-to-use Small speech model pack
+        shell: bash
+        run: |
+          set -euo pipefail
+          model_dir="model-pack/faster-whisper-small"
+          mkdir -p "${model_dir}"
+          base="https://huggingface.co/Systran/faster-whisper-small/resolve/2ec96c5472da50d38d40c0cfe0602af2e94b4c8a"
+          for file in config.json model.bin tokenizer.json vocabulary.txt README.md; do
+            curl -fL --retry 4 --connect-timeout 30 -o "${model_dir}/${file}" "${base}/${file}"
+          done
+          cp packaging/models/faster-whisper-small-MODEL-NOTICE.txt "${model_dir}/MODEL-NOTICE.txt"
+          test "$(stat -c '%s' "${model_dir}/model.bin")" -gt 400000000
+          (cd model-pack && zip -q -r ../ClassInterpreter-Model-Small.zip faster-whisper-small)
+          test "$(stat -c '%s' ClassInterpreter-Model-Small.zip)" -gt 400000000
+
+      - name: Verify version and release files
+        id: release_files
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="$(tr -d '[:space:]' < VERSION)"
+          tag="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_REF_TYPE}" == "tag" && "${tag}" != "v${version}" ]]; then
+            echo "Tag ${tag} does not match VERSION ${version}." >&2
+            exit 1
+          fi
+          assets=(
+            "ClassInterpreter-Setup-Windows.bat"
+            "ClassInterpreter-Setup-Windows.ps1"
+            "ClassInterpreter-Setup-Mac.zip"
+            "ClassInterpreter-Model-Small.zip"
+            "ClassInterpreter-windows-${version}.zip"
+            "ClassInterpreter-mac-${version}.zip"
+            "ClassInterpreter-recover-${version}.zip"
+          )
+          for asset in "${assets[@]}"; do
+            [[ -s "${asset}" ]] || { echo "Missing release asset: ${asset}" >&2; exit 1; }
+          done
+          printf '%s\n' "${assets[@]}" > release-assets.txt
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+      - name: Create or update GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          version="${{ steps.release_files.outputs.version }}"
+          tag="${GITHUB_REF_NAME}"
+          if [[ "${GITHUB_REF_TYPE}" != "tag" ]]; then
+            tag="v${version}"
+          fi
+          mapfile -t assets < release-assets.txt
+          if gh release view "${tag}" >/dev/null 2>&1; then
+            gh release upload "${tag}" "${assets[@]}" --clobber
+          else
+            gh release create "${tag}" "${assets[@]}" \
+              --title "Class Interpreter ${version}" \
+              --generate-notes \
+              --latest
+          fi
