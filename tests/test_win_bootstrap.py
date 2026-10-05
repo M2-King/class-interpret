@@ -76,9 +76,14 @@ assert ensure_src.index("pip.pyz") < ensure_src.index("get-pip.py")
 assert "nvidia-cublas-cu12" in src
 assert "CLASS_INTERPRET_FAST_FIRST_START" in src
 assert "CI_PROGRESS" in src
+assert "CI_ERROR" in src
+assert "PIP_CACHE_DIR" in src
+assert "--prefer-binary" in src
 assert "Optional NVIDIA acceleration deferred" in src
 assert "Optional Chinese translation setup deferred" in src
-assert "import faster_whisper, argostranslate, websockets" in src
+assert "import faster_whisper, websockets" in src
+assert "require_translation=not fast_first_start" in src
+assert 'pip_install(sys.executable, ["faster-whisper>=1.1,<2", "websockets>=14,<16"])' in src
 assert "api/shutdown" in src
 assert src.index("stop_listener") < src.index('["server.py"]')
 wb.stop_listener(port=9, wait=0)

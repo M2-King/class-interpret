@@ -237,38 +237,61 @@ $workerScript = {
         $bundledModel = Join-Path $bundledModelFolder 'model.bin'
         $legacyModel = Join-Path $installedPath 'hf\modelscope\gpustack--faster-whisper-small\model.bin'
         if (-not (Test-Path -LiteralPath $bundledModel) -and -not (Test-Path -LiteralPath $legacyModel)) {
-            $modelZip = Join-Path $tempRoot 'ClassInterpreter-Model-Small.zip'
+            $cacheFolder = Join-Path $savedLogFolder 'cache'
+            New-Item -ItemType Directory -Force -Path $cacheFolder | Out-Null
+            $modelZip = Join-Path $cacheFolder ('ClassInterpreter-Model-Small-' + $Version + '.zip')
+            $modelPart = $modelZip + '.part'
             $modelTarget = Join-Path $installedPath 'hf\bundled'
             New-Item -ItemType Directory -Force -Path $modelTarget | Out-Null
-            Set-InstallState 'Downloading speech model' 'Adding the ready-to-use Small offline model...' 57
-            $modelUrl = 'https://github.com/M2-King/class-interpret/releases/download/v' + $Version + '/ClassInterpreter-Model-Small.zip'
-            $modelClient = New-Object Net.Http.HttpClient
-            try {
-                $modelResponse = $modelClient.GetAsync($modelUrl, [Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
-                $modelResponse.EnsureSuccessStatusCode() | Out-Null
-                $modelTotal = [long]$modelResponse.Content.Headers.ContentLength
-                $modelInput = $modelResponse.Content.ReadAsStreamAsync().Result
-                $modelOutput = [IO.File]::Create($modelZip)
+            $cachedModelReady = ((Test-Path -LiteralPath $modelZip) -and ((Get-Item -LiteralPath $modelZip).Length -ge 400MB))
+            if (-not $cachedModelReady) {
+                if (Test-Path -LiteralPath $modelZip) {
+                    Move-Item -LiteralPath $modelZip -Destination $modelPart -Force
+                }
+                $existingModelBytes = [long]0
+                if (Test-Path -LiteralPath $modelPart) { $existingModelBytes = [long](Get-Item -LiteralPath $modelPart).Length }
+                Set-InstallState 'Downloading speech model' ("Adding the offline Small model; {0} MB already saved..." -f [Math]::Round($existingModelBytes / 1MB, 1)) 57
+                $modelUrl = 'https://github.com/M2-King/class-interpret/releases/download/v' + $Version + '/ClassInterpreter-Model-Small.zip'
+                $modelClient = New-Object Net.Http.HttpClient
                 try {
-                    $modelBuffer = New-Object byte[] 131072
-                    $modelReceived = [long]0
-                    while (($modelCount = $modelInput.Read($modelBuffer, 0, $modelBuffer.Length)) -gt 0) {
-                        $modelOutput.Write($modelBuffer, 0, $modelCount)
-                        $modelReceived += $modelCount
-                        if ($modelTotal -gt 0) {
-                            $modelPercent = 57 + [int](($modelReceived * 28) / $modelTotal)
-                            $modelMb = [Math]::Round($modelReceived / 1MB, 1)
-                            Set-InstallState 'Downloading speech model' ("Downloaded {0} MB of the offline model" -f $modelMb) $modelPercent
+                    $modelRequest = New-Object Net.Http.HttpRequestMessage([Net.Http.HttpMethod]::Get, $modelUrl)
+                    if ($existingModelBytes -gt 0) {
+                        [void]$modelRequest.Headers.TryAddWithoutValidation('Range', ('bytes=' + $existingModelBytes + '-'))
+                    }
+                    $modelResponse = $modelClient.SendAsync($modelRequest, [Net.Http.HttpCompletionOption]::ResponseHeadersRead).Result
+                    $isPartial = ([int]$modelResponse.StatusCode -eq 206)
+                    $modelResponse.EnsureSuccessStatusCode() | Out-Null
+                    if (-not $isPartial) { $existingModelBytes = 0 }
+                    $modelContentBytes = [long]$modelResponse.Content.Headers.ContentLength
+                    $modelTotal = $existingModelBytes + $modelContentBytes
+                    $modelInput = $modelResponse.Content.ReadAsStreamAsync().Result
+                    $modelMode = if ($isPartial) { [IO.FileMode]::Append } else { [IO.FileMode]::Create }
+                    $modelOutput = New-Object IO.FileStream($modelPart, $modelMode, [IO.FileAccess]::Write, [IO.FileShare]::Read)
+                    try {
+                        $modelBuffer = New-Object byte[] 131072
+                        $modelReceived = $existingModelBytes
+                        while (($modelCount = $modelInput.Read($modelBuffer, 0, $modelBuffer.Length)) -gt 0) {
+                            $modelOutput.Write($modelBuffer, 0, $modelCount)
+                            $modelReceived += $modelCount
+                            if ($modelTotal -gt 0) {
+                                $modelPercent = 57 + [int](($modelReceived * 28) / $modelTotal)
+                                $modelMb = [Math]::Round($modelReceived / 1MB, 1)
+                                $totalMb = [Math]::Round($modelTotal / 1MB, 1)
+                                Set-InstallState 'Downloading speech model' ("Downloaded {0} MB of {1} MB; saved if interrupted" -f $modelMb, $totalMb) $modelPercent
+                            }
                         }
+                    } finally {
+                        $modelOutput.Dispose()
+                        $modelInput.Dispose()
                     }
                 } finally {
-                    $modelOutput.Dispose()
-                    $modelInput.Dispose()
+                    $modelClient.Dispose()
                 }
-            } finally {
-                $modelClient.Dispose()
+                if ((Get-Item -LiteralPath $modelPart).Length -lt 400MB) { throw 'The Small speech model download is incomplete. Progress was saved; reconnect and retry.' }
+                Move-Item -LiteralPath $modelPart -Destination $modelZip -Force
+            } else {
+                Set-InstallState 'Speech model downloaded' 'Using the previously downloaded Small model cache.' 85
             }
-            if ((Get-Item -LiteralPath $modelZip).Length -lt 400MB) { throw 'The downloaded Small speech model is incomplete.' }
 
             Set-InstallState 'Installing speech model' 'Making offline transcription ready...' 86
             if (Test-Path -LiteralPath $bundledModelFolder) {
@@ -295,6 +318,7 @@ $workerScript = {
             if (-not (Test-Path -LiteralPath $bundledModel) -or (Get-Item -LiteralPath $bundledModel).Length -lt 400MB) {
                 throw 'The Small speech model could not be installed correctly.'
             }
+            Remove-Item -LiteralPath $modelZip -Force -ErrorAction SilentlyContinue
         } else {
             Set-InstallState 'Speech model ready' 'Preserved the existing Small offline model.' 86
         }
@@ -342,11 +366,20 @@ $workerScript = {
             } catch { }
             if ($starter.HasExited) {
                 $startupReason = $null
+                foreach ($errorPath in @($startupLog, $startupErrorLog)) {
+                    if (-not $startupReason -and (Test-Path -LiteralPath $errorPath)) {
+                        $markedError = @(Get-Content -LiteralPath $errorPath -Tail 120 -ErrorAction SilentlyContinue |
+                            Where-Object { $_ -match '^CI_ERROR\|' } | Select-Object -Last 1)
+                        if ($markedError) { $startupReason = ([string]$markedError -replace '^CI_ERROR\|', '') }
+                    }
+                }
                 if (Test-Path -LiteralPath $startupErrorLog) {
-                    $startupReason = @(Get-Content -LiteralPath $startupErrorLog | Where-Object { $_.Trim() } | Select-Object -Last 1)
+                    if (-not $startupReason) {
+                        $startupReason = @(Get-Content -LiteralPath $startupErrorLog -Tail 40 | Where-Object { $_.Trim() } | Select-Object -Last 1)
+                    }
                 }
                 if (-not $startupReason -and (Test-Path -LiteralPath $startupLog)) {
-                    $startupReason = @(Get-Content -LiteralPath $startupLog | Where-Object { $_.Trim() } | Select-Object -Last 1)
+                    $startupReason = @(Get-Content -LiteralPath $startupLog -Tail 40 | Where-Object { $_.Trim() } | Select-Object -Last 1)
                 }
                 if (-not $startupReason) { $startupReason = 'The application startup process closed before the local service became ready.' }
                 throw ([string]$startupReason)

@@ -34,6 +34,8 @@ assert b"Stop-Process -Id $oldProcess.Id -Force -ErrorAction SilentlyContinue" i
 assert b"api/shutdown" in gui_bytes
 assert b"ClassInterpreter-Model-Small.zip" in gui_bytes
 assert b"Downloading speech model" in gui_bytes
+assert b"saved if interrupted" in gui_bytes
+assert b"ClassInterpreter-Model-Small-" in gui_bytes
 assert b"setup.log" in gui_bytes
 assert b"Move-Item -LiteralPath $next" not in gui_bytes
 assert b'if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause' in (root / "Start.bat").read_bytes()
@@ -154,6 +156,7 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b"win_bootstrap.py" in start_bat
     assert b"CLASS_INTERPRET_NONINTERACTIVE" in start_bat
     assert b"..\\.venv\\Scripts\\python.exe" in start_bat
+    assert start_bat.index(b".runtime\\python\\python.exe") < start_bat.index(b"if exist \"%~dp0start.ps1\" goto :NEEDPS")
     fix_bat = zf.read(f"{inner}/FIX-CLASS-INTERPRETER.bat")
     assert b"fix.ps1" in fix_bat
     assert b"-TargetPath" in fix_bat
@@ -165,6 +168,10 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b"api/shutdown" in bootstrap
     assert b"CLASS_INTERPRET_FAST_FIRST_START" in bootstrap
     assert b"CI_PROGRESS" in bootstrap
+    assert b"CI_ERROR" in bootstrap
+    assert b"PIP_CACHE_DIR" in bootstrap
+    assert b"faster-whisper>=1.1,<2" in bootstrap
+    assert b"require_translation=not fast_first_start" in bootstrap
     got = zf.read(f"{inner}/VERSION").decode().strip()
     assert got == version, got
     assert f"{inner}/win_bootstrap.py" in names

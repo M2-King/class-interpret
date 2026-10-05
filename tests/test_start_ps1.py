@@ -110,9 +110,9 @@ assert b"Existing .venv is broken" in start_bat
 assert start_bat.find(b".venv\\Scripts\\python.exe") < start_bat.find(b"ExecutionPolicy")
 assert start_bat.find(b"..\\.venv\\Scripts\\python.exe") < start_bat.find(b".runtime\\python\\python.exe")
 assert b"if exist \"%~dp0start.ps1\" goto :NEEDPS" in start_bat
-assert start_bat.find(b"if exist \"%~dp0start.ps1\" goto :NEEDPS") < start_bat.find(
-    b"if exist \"%~dp0.runtime\\python\\python.exe\" goto :BUNDLE"
-), "deleted .venv must recreate via start.ps1 before bundled Python/get-pip"
+assert start_bat.find(b"if exist \"%~dp0.runtime\\python\\python.exe\" goto :BUNDLE") < start_bat.find(
+    b"if exist \"%~dp0start.ps1\" goto :NEEDPS"
+), "fresh installs must use bundled Python before the legacy PowerShell fallback"
 
 cn_bat = (root / "启动同传.bat").read_bytes()
 assert all(byte < 128 for byte in cn_bat), "启动同传.bat must be ASCII"

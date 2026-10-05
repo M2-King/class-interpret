@@ -47,8 +47,8 @@ if exist "%~dp0..\.venv\Scripts\python.exe" (
   if not errorlevel 1 goto :PARENTVENV
   echo Parent .venv is broken; ignoring it.
 )
-if exist "%~dp0start.ps1" goto :NEEDPS
 if exist "%~dp0.runtime\python\python.exe" goto :BUNDLE
+if exist "%~dp0start.ps1" goto :NEEDPS
 goto :NEEDPS
 
 :VENV
