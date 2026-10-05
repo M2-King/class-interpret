@@ -86,6 +86,13 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
+def progress(percent: int, phase: str, message: str) -> None:
+    """Emit a stable, single-line status consumed by the GUI installer."""
+    clean_phase = str(phase).replace("|", "-").replace("\r", " ").replace("\n", " ")
+    clean_message = str(message).replace("|", "-").replace("\r", " ").replace("\n", " ")
+    log(f"CI_PROGRESS|{max(0, min(100, int(percent)))}|{clean_phase}|{clean_message}")
+
+
 def run(exe: str, args: list[str]) -> int:
     completed = subprocess.run([exe, *args], check=False)
     return int(completed.returncode or 0)
@@ -236,6 +243,7 @@ def main() -> int:
         return run(str(wanted), [str(Path(__file__).resolve()), *sys.argv[1:]])
 
     configure_env(root)
+    fast_first_start = os.environ.get("CLASS_INTERPRET_FAST_FIRST_START") == "1"
     current = status_version()
     if current == version:
         log("Already running. Opening the browser...")
@@ -251,19 +259,32 @@ def main() -> int:
         stop_listener()
 
     if not packages_ok(sys.executable):
+        progress(90, "Preparing Python", "Checking the bundled Python package manager...")
         ensure_pip(root, sys.executable)
         log("Installing packages (first run, keep this window open)...")
+        progress(92, "Installing core packages", "Installing certificate support...")
         pip_install(sys.executable, ["certifi"])
+        progress(94, "Installing speech engine", "Downloading offline speech packages; this is usually the longest step...")
         pip_install(sys.executable, ["-r", "requirements.txt"])
-        try_cuda_libs(sys.executable)
+        if fast_first_start:
+            log("Optional NVIDIA acceleration deferred until after first launch.")
+            progress(97, "Core packages ready", "Optional GPU acceleration was deferred for a faster first launch.")
+        else:
+            progress(96, "Checking GPU acceleration", "Trying optional NVIDIA libraries...")
+            try_cuda_libs(sys.executable)
     else:
         log("Using Python: " + sys.executable)
+        progress(96, "Core packages ready", "Using the existing local Python environment.")
 
-    if (root / "setup_models.py").is_file():
+    if fast_first_start:
+        log("Optional Chinese translation setup deferred until the app is open.")
+        progress(98, "Starting local service", "Translation can be installed from the yellow button after launch.")
+    elif (root / "setup_models.py").is_file():
         if run(sys.executable, ["setup_models.py"]) != 0:
             log("Translation model not installed yet. Use the yellow button after the page opens.")
 
     log("Starting. Keep this window open. Browser should open at http://127.0.0.1:8765/")
+    progress(99, "Starting local service", "Opening Class Interpreter in your browser...")
     return run(sys.executable, ["server.py"])
 
 

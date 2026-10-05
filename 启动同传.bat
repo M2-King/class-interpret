@@ -26,14 +26,14 @@ if defined FROMZIP (
   echo 4. Open the new folder
   echo 5. Double-click OPEN-THIS.bat
   echo.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 
 if not exist "%~dp0win_bootstrap.py" goto :NEEDPS
 if not exist "%~dp0server.py" (
   echo server.py is missing. Extract All ClassInterpreter-windows-0.3.3.zip first.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 
@@ -73,13 +73,13 @@ goto :CHECK
 :NEEDPS
 if not exist "%~dp0start.ps1" (
   echo start.ps1 is missing. Extract All ClassInterpreter-windows-0.3.3.zip, then OPEN-THIS.bat.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 where powershell >nul 2>&1
 if errorlevel 1 (
   echo PowerShell was not found. Windows 10 and 11 include it.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 echo No .venv yet. Recreating packages. Keep this window open.
@@ -97,7 +97,7 @@ if errorlevel 1 (
   echo 3. Campus Wi-Fi: phone hotspot, then OPEN-THIS.bat again. Keep the black window open.
   echo 4. The first line must say Class Interpreter 0.3.3
   echo.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 

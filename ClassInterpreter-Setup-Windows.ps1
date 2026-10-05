@@ -67,13 +67,13 @@ $card.Controls.Add($status)
 
 $detail = New-Object System.Windows.Forms.Label
 $detail.Location = New-Object System.Drawing.Point(106, 48)
-$detail.Size = New-Object System.Drawing.Size(360, 35)
+$detail.Size = New-Object System.Drawing.Size(360, 47)
 $detail.Text = 'Please keep this window open.'
 $detail.ForeColor = [System.Drawing.Color]::FromArgb(159, 169, 181)
 $card.Controls.Add($detail)
 
 $progress = New-Object System.Windows.Forms.ProgressBar
-$progress.Location = New-Object System.Drawing.Point(26, 103)
+$progress.Location = New-Object System.Drawing.Point(26, 112)
 $progress.Size = New-Object System.Drawing.Size(454, 15)
 $progress.Minimum = 0
 $progress.Maximum = 100
@@ -83,10 +83,28 @@ $card.Controls.Add($progress)
 
 $stage = New-Object System.Windows.Forms.Label
 $stage.Location = New-Object System.Drawing.Point(40, 345)
-$stage.Size = New-Object System.Drawing.Size(390, 24)
+$stage.Size = New-Object System.Drawing.Size(285, 24)
 $stage.Text = 'Detecting an existing installation...'
 $stage.ForeColor = [System.Drawing.Color]::FromArgb(143, 153, 165)
 $form.Controls.Add($stage)
+
+$logButton = New-Object System.Windows.Forms.Button
+$logButton.Location = New-Object System.Drawing.Point(338, 342)
+$logButton.Size = New-Object System.Drawing.Size(96, 34)
+$logButton.Text = 'View log'
+$logButton.FlatStyle = 'Flat'
+$logButton.BackColor = [System.Drawing.Color]::FromArgb(31, 37, 43)
+$logButton.ForeColor = [System.Drawing.Color]::FromArgb(211, 217, 224)
+$logButton.Visible = $false
+$logButton.Add_Click({
+    $startupLogPath = Join-Path $env:LOCALAPPDATA 'ClassInterpreter\startup.log'
+    if (Test-Path -LiteralPath $startupLogPath) {
+        Start-Process -FilePath 'notepad.exe' -ArgumentList ('"' + $startupLogPath + '"')
+    } else {
+        Start-Process -FilePath 'explorer.exe' -ArgumentList (Join-Path $env:LOCALAPPDATA 'ClassInterpreter')
+    }
+})
+$form.Controls.Add($logButton)
 
 $closeButton = New-Object System.Windows.Forms.Button
 $closeButton.Location = New-Object System.Drawing.Point(446, 342)
@@ -297,12 +315,23 @@ $workerScript = {
         }
         Start-Sleep -Milliseconds 700
 
-        Set-InstallState 'Starting application' 'Preparing Python packages. First launch can take several minutes...' 90
+        Set-InstallState 'Preparing first launch' 'Checking the local Python environment...' 90
         $startupLog = Join-Path $savedLogFolder 'startup.log'
         $startupErrorLog = Join-Path $savedLogFolder 'startup-error.log'
         Remove-Item -LiteralPath $startupLog, $startupErrorLog -Force -ErrorAction SilentlyContinue
-        $starter = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d', '/c', 'Start.bat') -WorkingDirectory $installedPath -WindowStyle Hidden -RedirectStandardOutput $startupLog -RedirectStandardError $startupErrorLog -PassThru
+        $savedNonInteractive = $env:CLASS_INTERPRET_NONINTERACTIVE
+        $savedFastStart = $env:CLASS_INTERPRET_FAST_FIRST_START
+        $env:CLASS_INTERPRET_NONINTERACTIVE = '1'
+        $env:CLASS_INTERPRET_FAST_FIRST_START = '1'
+        try {
+            $starter = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/d', '/c', 'Start.bat') -WorkingDirectory $installedPath -WindowStyle Hidden -RedirectStandardOutput $startupLog -RedirectStandardError $startupErrorLog -PassThru
+        } finally {
+            if ($null -eq $savedNonInteractive) { Remove-Item Env:CLASS_INTERPRET_NONINTERACTIVE -ErrorAction SilentlyContinue } else { $env:CLASS_INTERPRET_NONINTERACTIVE = $savedNonInteractive }
+            if ($null -eq $savedFastStart) { Remove-Item Env:CLASS_INTERPRET_FAST_FIRST_START -ErrorAction SilentlyContinue } else { $env:CLASS_INTERPRET_FAST_FIRST_START = $savedFastStart }
+        }
         $ready = $false
+        $lastProgressLine = ''
+        $lastProgressAt = Get-Date
         foreach ($attempt in 1..450) {
             try {
                 $service = Invoke-RestMethod -Uri 'http://127.0.0.1:8765/api/health' -TimeoutSec 5
@@ -323,8 +352,28 @@ $workerScript = {
                 throw ([string]$startupReason)
             }
             $elapsed = $attempt * 2
-            $startupProgress = 90 + [Math]::Min(9, [int](($attempt * 9) / 450))
-            Set-InstallState 'Starting application' ("Installing packages and starting the local service... {0}s" -f $elapsed) $startupProgress
+            $progressEvent = $null
+            if (Test-Path -LiteralPath $startupLog) {
+                try {
+                    $progressEvent = @(Get-Content -LiteralPath $startupLog -Tail 80 -ErrorAction Stop |
+                        Where-Object { $_ -match '^CI_PROGRESS\|\d+\|' } | Select-Object -Last 1)
+                } catch { }
+            }
+            if ($progressEvent) {
+                $parts = ([string]$progressEvent) -split '\|', 4
+                if ($parts.Count -eq 4) {
+                    if ([string]$progressEvent -ne $lastProgressLine) {
+                        $lastProgressLine = [string]$progressEvent
+                        $lastProgressAt = Get-Date
+                    }
+                    $quietSeconds = [int]((Get-Date) - $lastProgressAt).TotalSeconds
+                    $detailText = $parts[3] + ("  Elapsed: {0}s" -f $elapsed)
+                    if ($quietSeconds -ge 120) { $detailText += '  Network response is slow; a phone hotspot may help.' }
+                    Set-InstallState $parts[2] $detailText ([int]$parts[1])
+                }
+            } else {
+                Set-InstallState 'Preparing first launch' ("Waiting for Python startup details...  Elapsed: {0}s" -f $elapsed) 90
+            }
             Start-Sleep -Seconds 2
         }
         if (-not $ready) { throw 'Startup timed out after 15 minutes. See startup.log in LocalAppData\ClassInterpreter.' }
@@ -355,7 +404,13 @@ $timer.Add_Tick({
             $detail.Text = [string]$current.message
             $value = [Math]::Max(0, [Math]::Min(100, [int]$current.progress))
             $progress.Value = $value
-            $stage.Text = if ($current.state -eq 'working') { 'Installing' + ('.' * (($script:AnimationFrame % 3) + 1)) } else { '' }
+            if ($current.state -eq 'working') {
+                $stepNumber = if ($value -lt 38) { 1 } elseif ($value -lt 52) { 2 } elseif ($value -lt 90) { 3 } else { 4 }
+                $stage.Text = ('Step {0} of 4  ' -f $stepNumber) + ('Working' + ('.' * (($script:AnimationFrame % 3) + 1)))
+                $logButton.Visible = ($value -ge 90)
+            } else {
+                $stage.Text = ''
+            }
             if ($current.state -eq 'complete') {
                 $script:InstallSucceeded = $true
                 $wave.ForeColor = [System.Drawing.Color]::FromArgb(83, 225, 141)
@@ -365,6 +420,7 @@ $timer.Add_Tick({
                 $wave.ForeColor = [System.Drawing.Color]::FromArgb(239, 91, 91)
                 $progress.ForeColor = [System.Drawing.Color]::FromArgb(239, 91, 91)
                 $stage.Text = 'Review the message above, then try again.'
+                $logButton.Visible = $true
                 $closeButton.Text = 'Close'
                 $closeButton.Visible = $true
             }

@@ -74,6 +74,10 @@ ensure_src = src[src.index("def ensure_pip") : src.index("def pip_install")]
 assert "pip.pyz" in ensure_src
 assert ensure_src.index("pip.pyz") < ensure_src.index("get-pip.py")
 assert "nvidia-cublas-cu12" in src
+assert "CLASS_INTERPRET_FAST_FIRST_START" in src
+assert "CI_PROGRESS" in src
+assert "Optional NVIDIA acceleration deferred" in src
+assert "Optional Chinese translation setup deferred" in src
 assert "import faster_whisper, argostranslate, websockets" in src
 assert "api/shutdown" in src
 assert src.index("stop_listener") < src.index('["server.py"]')
