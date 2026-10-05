@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 import io
 import json
+import shutil
 import sys
 import tarfile
+import tempfile
 import zipfile
 from pathlib import Path
 
@@ -26,11 +28,7 @@ text = deepseek_hub.friendly_error(TimeoutError("timed out connecting to registr
 assert "手机热点" in text
 assert "DeepSeek" in text or "Ollama" in text
 
-tmp = Path("/tmp/class-interpret-ollama-test")
-if tmp.exists():
-    import shutil
-    shutil.rmtree(tmp)
-tmp.mkdir(parents=True)
+tmp = Path(tempfile.mkdtemp(prefix="class-interpret-ollama-test-"))
 
 exe_name = "ollama.exe" if sys.platform == "win32" else "ollama"
 payload = b"#!/bin/sh\necho ollama\n"
@@ -56,4 +54,9 @@ assert darwin, deepseek_hub.archive_urls("darwin", "arm64")
 windows = [url for url in deepseek_hub.archive_urls("win32", "AMD64") if "ollama-windows-amd64.zip" in url]
 assert windows, deepseek_hub.archive_urls("win32", "AMD64")
 
+events = []
+deepseek_hub._progress(lambda *args: events.append(args), 42, "Downloading", "Testing", 420, 1000)
+assert events == [(42, "Downloading", "Testing", 420, 1000)]
+
+shutil.rmtree(tmp, ignore_errors=True)
 print("deepseek_hub ok")

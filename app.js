@@ -17,15 +17,87 @@ const ui = {
   modelBanner: $('model-banner'), modelBannerText: $('model-banner-text'),
   installWhisper: $('install-whisper'), installDeepseek: $('install-deepseek'),
   installDeepseekPage: $('install-deepseek-page'),
-  deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text')
+  modelProgress: $('model-download-progress'), modelProgressPhase: $('model-progress-phase'),
+  modelProgressPercent: $('model-progress-percent'), modelProgressBar: $('model-progress-bar'),
+  modelProgressDetail: $('model-progress-detail'),
+  deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text'),
+  courseTitleSide: $('course-title-side'), dockRecord: document.querySelector('[data-record-proxy]'),
+  subtitleButton: $('subtitle-window-button'), themeToggle: $('theme-toggle'), livePreview: $('live-preview'),
+  livePreviewEn: $('live-preview-en'), livePreviewZh: $('live-preview-zh')
 };
 const state = { session: null, recording: false, stream: null, audioContext: null,
   sourceNode: null, processor: null, silent: null, startedAt: 0, chunks: [], samples: 0,
-  uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0 };
+  uploadQueue: Promise.resolve(), pending: 0, quietSamples: 0, voicedSamples: 0, baseElapsed: 0,
+  captureMode: 'batch', socket: null, stopResolver: null, lastCaption: null,
+  streamVoiceActive: false, streamPreRoll: [], streamPreRollSamples: 0, streamError: '' };
 const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
 const MODEL_LABELS = { small: 'Small', medium: 'Medium', 'large-v3': 'Large v3' };
 let clockTimer = null;
 let lastStatus = null;
+let modelProgressTimer = null;
+const THEME_KEY = 'class-interpreter-theme';
+
+function formatDownloadBytes(value) {
+  const bytes = Number(value || 0);
+  if (!bytes) return '';
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+}
+
+function renderModelProgress(item) {
+  if (!ui.modelProgress || !item || item.state === 'idle') return;
+  const percent = Math.max(0, Math.min(100, Number(item.percent || 0)));
+  ui.modelProgress.hidden = false;
+  ui.modelProgress.classList.toggle('failed', item.state === 'failed');
+  if (ui.modelBanner) ui.modelBanner.classList.add('show');
+  if (ui.modelProgressPhase) ui.modelProgressPhase.textContent = item.phase || 'Preparing model';
+  if (ui.modelProgressPercent) ui.modelProgressPercent.textContent = item.state === 'failed' ? 'Failed' : `${Math.round(percent)}%`;
+  if (ui.modelProgressBar) ui.modelProgressBar.style.width = `${percent}%`;
+  const track = ui.modelProgress?.querySelector('[role="progressbar"]');
+  if (track) track.setAttribute('aria-valuenow', String(Math.round(percent)));
+  const sizes = item.downloaded
+    ? `${formatDownloadBytes(item.downloaded)}${item.total ? ` of ${formatDownloadBytes(item.total)}` : ' downloaded'}`
+    : '';
+  if (ui.modelProgressDetail) ui.modelProgressDetail.textContent = [item.detail, sizes].filter(Boolean).join(' · ');
+}
+
+async function refreshModelProgress() {
+  try {
+    const progress = await api('/api/models/progress');
+    renderModelProgress(progress);
+    return progress;
+  } catch {
+    return null;
+  }
+}
+
+function startModelProgressPolling() {
+  if (modelProgressTimer) clearInterval(modelProgressTimer);
+  refreshModelProgress();
+  modelProgressTimer = setInterval(refreshModelProgress, 650);
+}
+
+async function stopModelProgressPolling() {
+  if (modelProgressTimer) clearInterval(modelProgressTimer);
+  modelProgressTimer = null;
+  await refreshModelProgress();
+}
+
+function applyTheme(theme) {
+  const selected = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = selected;
+  try { localStorage.setItem(THEME_KEY, selected); } catch {}
+  const meta = document.querySelector('meta[name="color-scheme"]');
+  if (meta) meta.content = selected;
+  if (ui.themeToggle) {
+    const light = selected === 'light';
+    ui.themeToggle.querySelector('span').textContent = light ? '☾' : '☀';
+    ui.themeToggle.setAttribute('aria-label', light ? 'Switch to dark mode' : 'Switch to light mode');
+    ui.themeToggle.title = light ? 'Switch to dark mode' : 'Switch to light mode';
+    ui.themeToggle.setAttribute('aria-pressed', String(light));
+  }
+  window.SubtitleWindow?.setTheme(selected);
+}
 
 function showView(name) {
   document.querySelectorAll('.view').forEach(view => { view.hidden = view.id !== `view-${name}`; });
@@ -35,6 +107,26 @@ function showView(name) {
   if (name === 'live' && ui.notice && !ui.notice.textContent) {
     ui.notice.textContent = '第一次识别会下载免费语音模型，需保持联网；下载完成后可离线使用。';
   }
+  document.querySelector('.sidebar')?.classList.remove('expanded');
+  $('mobile-settings')?.setAttribute('aria-expanded', 'false');
+  if ($('mobile-settings')) $('mobile-settings').textContent = '菜单';
+}
+
+function activateRailTab(name) {
+  const available = [...document.querySelectorAll('[data-rail-tab]')]
+    .some(button => button.dataset.railTab === name);
+  const selected = available ? name : 'summary';
+  document.querySelectorAll('[data-rail-tab]').forEach(button => {
+    const active = button.dataset.railTab === selected;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-selected', String(active));
+  });
+  document.querySelectorAll('[data-rail-panel]').forEach(panel => {
+    const active = panel.dataset.railPanel === selected;
+    panel.hidden = !active;
+    panel.classList.toggle('active', active);
+  });
+  localStorage.setItem('class-interpreter-rail-tab', selected);
 }
 
 function greeting() {
@@ -65,6 +157,13 @@ function sessionSeconds() {
 
 function updateClock() {
   if (ui.elapsed) ui.elapsed.textContent = formatClock(sessionSeconds());
+}
+
+function syncDockRecord(recording, label) {
+  if (!ui.dockRecord) return;
+  ui.dockRecord.classList.toggle('recording', recording);
+  const text = ui.dockRecord.querySelector('span');
+  if (text) text.textContent = label;
 }
 
 function extractConcepts(session) {
@@ -129,11 +228,43 @@ if (ui.model) {
     if (lastStatus) applyStatus(lastStatus);
   });
 }
-if ($('dual-view')) {
-  $('dual-view').addEventListener('change', event => {
-    $('view-live').classList.toggle('mono', !event.target.checked);
+if (ui.courseTitleSide) {
+  ui.courseTitleSide.addEventListener('input', () => { ui.title.value = ui.courseTitleSide.value; });
+  ui.title.addEventListener('input', () => { ui.courseTitleSide.value = ui.title.value; });
+}
+document.querySelectorAll('[data-record-proxy]').forEach(button => {
+  button.addEventListener('click', () => ui.record.click());
+});
+document.querySelectorAll('[data-new-session-proxy]').forEach(button => {
+  button.addEventListener('click', () => $('new-session').click());
+});
+if (ui.themeToggle) {
+  ui.themeToggle.addEventListener('click', () => {
+    applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
   });
 }
+if ($('dual-view')) {
+  $('dual-view').addEventListener('change', event => {
+    const liveBilingual = Boolean(event.target.checked);
+    localStorage.setItem('class-interpreter-live-bilingual', String(liveBilingual));
+    if (ui.livePreviewZh) ui.livePreviewZh.hidden = !liveBilingual;
+    window.SubtitleWindow?.setLanguageMode(liveBilingual ? 'bilingual' : 'english');
+    if (state.socket?.readyState === WebSocket.OPEN) {
+      state.socket.send(JSON.stringify({type: 'translation_mode', live_bilingual: liveBilingual}));
+    }
+    notice(liveBilingual
+      ? '实时中英双语已开启。中文预览会稍晚于英文。'
+      : '低延迟模式已开启：悬浮字幕优先显示英文，中文仍会在句子结束后写入课堂记录。');
+  });
+}
+if ($('timestamp-view')) {
+  $('timestamp-view').addEventListener('change', event => {
+    $('view-live').classList.toggle('hide-time', !event.target.checked);
+  });
+}
+document.querySelectorAll('[data-rail-tab]').forEach(button => {
+  button.addEventListener('click', () => activateRailTab(button.dataset.railTab));
+});
 
 async function api(path, options = {}) {
   const response = await fetch(path, options);
@@ -220,7 +351,8 @@ function formatTime(seconds) {
 
 function drawSession() {
   const session = state.session;
-  ui.heading.textContent = session ? session.title : '准备开始听课';
+  ui.heading.textContent = state.recording ? 'Listening to lecture audio…' : session ? session.title : 'Ready to listen';
+  if (ui.courseTitleSide) ui.courseTitleSide.value = session?.title || ui.title.value || '';
   ui.meta.textContent = session ? `创建于 ${new Date(session.created).toLocaleString('zh-CN')} · 自动保存` : '选择声音来源，开始后将自动保存课堂记录。';
   ui.count.textContent = `${session?.entries.length || 0} 条`;
   ui.transcript.replaceChildren();
@@ -256,17 +388,33 @@ function makeEntry(entry) {
   const time = document.createElement('div');
   time.className = 'entry-time';
   time.textContent = formatTime(entry.at);
+
+  const copy = document.createElement('div');
+  copy.className = 'entry-copy';
   const en = document.createElement('div');
-  en.className = 'entry-en';
-  en.textContent = entry.en;
+  en.className = 'transcript-line entry-en';
+  const enTag = document.createElement('span');
+  enTag.className = 'language-tag';
+  enTag.textContent = 'EN';
+  const enText = document.createElement('p');
+  enText.textContent = entry.en;
+  en.append(enTag, enText);
   const zh = document.createElement('div');
-  zh.className = 'entry-zh' + (entry.zh ? '' : ' missing');
-  zh.textContent = entry.zh || '中文翻译尚不可用，请安装翻译模型。';
+  zh.className = 'transcript-line entry-zh' + (entry.zh ? '' : ' missing');
+  const zhTag = document.createElement('span');
+  zhTag.className = 'language-tag';
+  zhTag.textContent = '中';
+  const zhText = document.createElement('p');
+  zhText.textContent = entry.zh || (entry.translation_status === 'pending' ? '正在生成中文翻译…' : '中文翻译尚不可用，请安装翻译模型。');
+  zh.append(zhTag, zhText);
+  copy.append(en, zh);
   const tools = document.createElement('div');
   tools.className = 'entry-tools';
   const edit = document.createElement('button');
   edit.type = 'button';
-  edit.textContent = '修正识别 / 译文';
+  edit.textContent = '✎';
+  edit.title = '修正识别 / 译文';
+  edit.setAttribute('aria-label', '修正识别或译文');
   edit.addEventListener('click', () => {
     const english = document.createElement('textarea');
     english.className = 'edit-box'; english.value = entry.en; english.setAttribute('aria-label', '英文原文');
@@ -292,7 +440,7 @@ function makeEntry(entry) {
     row.replaceChildren(english, chinese, actions);
   });
   tools.append(edit);
-  row.append(time, en, zh, tools);
+  row.append(time, copy, tools);
   return row;
 }
 
@@ -371,6 +519,202 @@ function flatten(chunks, length) {
   return data;
 }
 
+function showLiveCaption(english, chinese = '', partial = false, entryId = '', chineseState = '') {
+  const mode = state.recording ? (state.captureMode === 'stream' ? 'listening' : 'compatibility') : (english ? 'saved' : 'ready');
+  state.lastCaption = {
+    mode,
+    entryId,
+    english: english || '',
+    englishState: partial ? 'partial' : (english ? 'final' : 'waiting'),
+    chinese: chinese || '',
+    chineseState: chineseState || (chinese ? 'final' : (partial ? 'hidden' : 'pending')),
+    connected: state.captureMode === 'stream' || !state.recording,
+    recording: state.recording,
+    partial
+  };
+  if (ui.livePreview) ui.livePreview.hidden = !(english || chinese);
+  if (ui.livePreviewEn) ui.livePreviewEn.textContent = english || 'Waiting for speech…';
+  if (ui.livePreviewZh) {
+    ui.livePreviewZh.hidden = !$('dual-view')?.checked;
+    ui.livePreviewZh.textContent = chinese || (partial ? '正在识别…' : '等待翻译…');
+  }
+  window.SubtitleWindow?.publish(state.lastCaption);
+}
+
+function applyStreamEntry(entry) {
+  if (!entry || !state.session) return;
+  const existing = state.session.entries.find(item => item.id === entry.id);
+  if (existing) Object.assign(existing, entry);
+  else state.session.entries.push(entry);
+  state.session.summary = ''; state.session.summary_source = '';
+  drawSession();
+  loadHistory();
+}
+
+function handleStreamMessage(event) {
+  let message;
+  try { message = JSON.parse(event.data); }
+  catch { return; }
+  if (message.type === 'partial') {
+    showLiveCaption(message.text, '', true, `partial:${message.utterance_id || ''}`);
+  } else if (message.type === 'partial_translation') {
+    if (!$('dual-view')?.checked) return;
+    const partialId = `partial:${message.utterance_id || ''}`;
+    const isCurrentPartial = state.lastCaption?.partial
+      && state.lastCaption.entryId === partialId
+      && state.lastCaption.english === message.text;
+    if (isCurrentPartial) {
+      showLiveCaption(message.text, message.zh, true, partialId, message.translation_status || 'provisional');
+    }
+  } else if (message.type === 'final' && message.entry) {
+    applyStreamEntry(message.entry);
+    showLiveCaption(message.entry.en, '', false, message.entry.id);
+  } else if (message.type === 'translation' && message.entry) {
+    applyStreamEntry(message.entry);
+    // Never let a delayed translation replace a newer English subtitle.
+    const isCurrentCaption = state.lastCaption?.entryId === message.entry.id && !state.lastCaption.partial;
+    if (isCurrentCaption) {
+      showLiveCaption(message.entry.en, message.entry.zh, false, message.entry.id, message.entry.translation_status);
+    }
+    const provisional = message.entry.translation_status === 'provisional';
+    if (isCurrentCaption && ui.speak.checked && message.entry.zh && (!provisional || !lastStatus?.deepseek_cloud) && 'speechSynthesis' in window) {
+      const speech = new SpeechSynthesisUtterance(message.entry.zh);
+      speech.lang = 'zh-CN'; speech.rate = 1.1;
+      window.speechSynthesis.speak(speech);
+    }
+  } else if (message.type === 'translation_error') {
+    notice(`英文字幕已保存；中文翻译暂不可用：${message.message}`, true);
+  } else if (message.type === 'error') {
+    notice(`实时识别正在恢复：${humanizeChunkError(message.message)}`, true);
+  } else if (message.type === 'ready_to_stop') {
+    state.stopResolver?.(); state.stopResolver = null;
+  }
+}
+
+async function connectStreaming() {
+  if (!['127.0.0.1', 'localhost', '::1'].includes(location.hostname)) return false;
+  state.streamError = '';
+  if (!window.WebSocket || !window.AudioWorkletNode) {
+    state.streamError = '浏览器不支持 AudioWorklet/WebSocket';
+    return false;
+  }
+  let config;
+  try { config = await api('/api/stream/config'); }
+  catch (error) { state.streamError = error.message; return false; }
+  if (!config.enabled || !config.url || !config.token) {
+    state.streamError = config.error || '实时字幕服务未启动';
+    return false;
+  }
+  return new Promise(resolve => {
+    const socket = new WebSocket(config.url);
+    const timeout = setTimeout(() => {
+      state.streamError = '实时字幕连接超时';
+      try { socket.close(); } catch {}
+      resolve(false);
+    }, 5000);
+    socket.binaryType = 'arraybuffer';
+    socket.onopen = () => socket.send(JSON.stringify({
+      type: 'start', token: config.token, session_id: state.session.id,
+      model: ui.model.value, glossary: ui.glossary.value, base_elapsed: state.baseElapsed,
+      live_bilingual: Boolean($('dual-view')?.checked)
+    }));
+    socket.onmessage = event => {
+      let first;
+      try { first = JSON.parse(event.data); } catch { first = {}; }
+      if (first.type !== 'ready') return;
+      clearTimeout(timeout);
+      state.socket = socket;
+      socket.onmessage = handleStreamMessage;
+      socket.onerror = () => {};
+      socket.onclose = () => {
+        state.socket = null;
+        if (state.recording && state.captureMode === 'stream') {
+          state.captureMode = 'batch';
+          state.chunks = []; state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+          state.streamVoiceActive = false; state.streamPreRoll = []; state.streamPreRollSamples = 0;
+          window.SubtitleWindow?.publish({...state.lastCaption, mode: 'compatibility', connected: false, recording: true});
+          notice('实时字幕通道中断，已自动切换到兼容模式；课堂录音会继续保存。', 'warn');
+        }
+      };
+      resolve(true);
+    };
+    socket.onerror = () => { state.streamError = 'WebSocket 连接失败'; clearTimeout(timeout); resolve(false); };
+  });
+}
+
+function pcm16(samples) {
+  const buffer = new ArrayBuffer(samples.length * 2);
+  const view = new DataView(buffer);
+  for (let i = 0; i < samples.length; i++) {
+    const value = Math.max(-1, Math.min(1, samples[i]));
+    view.setInt16(i * 2, value < 0 ? value * 32768 : value * 32767, true);
+  }
+  return buffer;
+}
+
+function processBatchSamples(part) {
+  state.chunks.push(part); state.samples += part.length;
+  let energy = 0;
+  for (const sample of part) energy += sample * sample;
+  const quiet = Math.sqrt(energy / Math.max(1, part.length)) < 0.006;
+  if (quiet) state.quietSamples += part.length;
+  else { state.voicedSamples += part.length; state.quietSamples = 0; }
+  if (state.quietSamples >= RATE * 0.55 && state.voicedSamples >= RATE * 0.6) flushAudio(false, true);
+  else flushAudio();
+}
+
+function processStreamSamples(part) {
+  if (!state.socket || state.socket.readyState !== WebSocket.OPEN) {
+    state.captureMode = 'batch';
+    processBatchSamples(part);
+    return;
+  }
+  let energy = 0;
+  for (const sample of part) energy += sample * sample;
+  const rms = Math.sqrt(energy / Math.max(1, part.length));
+  const quietThreshold = ui.source.value === 'screen'
+    ? (state.streamVoiceActive ? 0.0008 : 0.0015)
+    : (state.streamVoiceActive ? 0.002 : 0.004);
+  const quiet = rms < quietThreshold;
+
+  // Browser-side VAC: don't spend Whisper inference on room silence. Keep a
+  // short pre-roll so the first consonant isn't cut when speech begins.
+  if (!state.streamVoiceActive && quiet) {
+    state.streamPreRoll.push(part);
+    state.streamPreRollSamples += part.length;
+    while (state.streamPreRollSamples > RATE * 0.25 && state.streamPreRoll.length > 1) {
+      state.streamPreRollSamples -= state.streamPreRoll.shift().length;
+    }
+    return;
+  }
+  if (!state.streamVoiceActive) {
+    state.streamVoiceActive = true;
+    for (const preRoll of state.streamPreRoll) {
+      state.socket.send(pcm16(preRoll));
+      state.samples += preRoll.length;
+    }
+    state.streamPreRoll = []; state.streamPreRollSamples = 0;
+  }
+  state.socket.send(pcm16(part));
+  state.samples += part.length;
+  if (quiet) state.quietSamples += part.length;
+  else { state.voicedSamples += part.length; state.quietSamples = 0; }
+  const naturalPause = state.quietSamples >= RATE * 0.55 && state.voicedSamples >= RATE * 0.6;
+  if (naturalPause || state.samples >= RATE * 15) {
+    state.socket.send(JSON.stringify({type: 'commit', elapsed: sessionSeconds()}));
+    state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+    state.streamVoiceActive = false; state.streamPreRoll = []; state.streamPreRollSamples = 0;
+  }
+}
+
+function handleCaptured(input) {
+  if (!state.recording) return;
+  const part = downsample(input, state.audioContext.sampleRate);
+  if (!part.length) return;
+  if (state.captureMode === 'stream') processStreamSamples(part);
+  else processBatchSamples(part);
+}
+
 function queueAudio(samples, elapsed) {
   const sessionId = state.session.id;
   const model = ui.model.value;
@@ -388,6 +732,7 @@ function queueAudio(samples, elapsed) {
       if (response.entry && state.session?.id === sessionId) {
         state.session.entries.push(response.entry);
         state.session.summary = ''; state.session.summary_source = '';
+        showLiveCaption(response.entry.en, response.entry.zh, false, response.entry.id, response.entry.translation_status);
         drawSession(); loadHistory();
         if (ui.speak.checked && response.entry.zh && 'speechSynthesis' in window) {
           const speech = new SpeechSynthesisUtterance(response.entry.zh);
@@ -428,46 +773,78 @@ async function startRecording() {
   }
   state.audioContext = new AudioContext();
   state.sourceNode = state.audioContext.createMediaStreamSource(state.stream);
-  state.processor = state.audioContext.createScriptProcessor(8192, 1, 1);
-  state.silent = state.audioContext.createGain(); state.silent.gain.value = 0;
-  state.sourceNode.connect(state.processor); state.processor.connect(state.silent); state.silent.connect(state.audioContext.destination);
   state.chunks = []; state.samples = 0; state.quietSamples = 0; state.voicedSamples = 0;
+  state.streamVoiceActive = false; state.streamPreRoll = []; state.streamPreRollSamples = 0;
   state.baseElapsed = state.session.entries.length ? state.session.entries.at(-1).at + 1 : 0;
-  state.startedAt = performance.now(); state.recording = true;
-  state.processor.onaudioprocess = event => {
-    if (!state.recording) return;
-    const part = downsample(event.inputBuffer.getChannelData(0), state.audioContext.sampleRate);
-    state.chunks.push(part); state.samples += part.length;
-    let energy = 0;
-    for (const sample of part) energy += sample * sample;
-    const quiet = Math.sqrt(energy / part.length) < 0.006;
-    if (quiet) state.quietSamples += part.length;
-    else { state.voicedSamples += part.length; state.quietSamples = 0; }
-    if (state.quietSamples >= RATE * 0.55 && state.voicedSamples >= RATE * 0.6) flushAudio(false, true);
-    else flushAudio();
+  state.startedAt = performance.now();
+  state.captureMode = await connectStreaming() ? 'stream' : 'batch';
+  state.silent = state.audioContext.createGain(); state.silent.gain.value = 0;
+  try {
+    await state.audioContext.audioWorklet.addModule('/audio-worklet.js?v=0.3.3-stream');
+    state.processor = new AudioWorkletNode(state.audioContext, 'class-interpreter-capture');
+    state.processor.port.onmessage = event => handleCaptured(event.data);
+  } catch {
+    if (state.captureMode === 'stream') {
+      try { state.socket?.close(); } catch {}
+      state.socket = null; state.captureMode = 'batch';
+    }
+    state.processor = state.audioContext.createScriptProcessor(8192, 1, 1);
+    state.processor.onaudioprocess = event => handleCaptured(event.inputBuffer.getChannelData(0));
+  }
+  state.sourceNode.connect(state.processor); state.processor.connect(state.silent); state.silent.connect(state.audioContext.destination);
+  state.recording = true;
+  state.lastCaption = {
+    mode: state.captureMode === 'stream' ? 'listening' : 'compatibility',
+    entryId: '', english: '', englishState: 'waiting', chinese: '', chineseState: 'hidden',
+    connected: state.captureMode === 'stream', recording: true, partial: false
   };
+  window.SubtitleWindow?.publish(state.lastCaption);
   state.stream.getAudioTracks().forEach(track => track.addEventListener('ended', () => { if (state.recording) stopRecording(); }));
   ui.record.classList.add('recording'); ui.record.lastElementChild.textContent = '结束听课';
-  ui.indicator.classList.add('active'); ui.recordStatus.textContent = '正在听课';
+  const recordIcon = ui.record.querySelector('i');
+  if (recordIcon) recordIcon.textContent = 'Ⅱ';
+  ui.indicator.classList.add('active'); ui.recordStatus.textContent = 'Listening…';
+  syncDockRecord(true, 'Stop');
   ui.micHealth.textContent = '已连接'; ui.audioHealth.textContent = '检测语音中';
   clearInterval(clockTimer); clockTimer = setInterval(updateClock, 1000); updateClock();
   ui.model.disabled = true; ui.source.disabled = true;
-  notice(matchMedia('(max-width: 750px)').matches
-    ? '正在录音。手机请保持页面在前台并避免锁屏；译文按停顿或约 8 秒更新。'
-    : '正在录音。每约 8 秒生成一段译文；首次使用时模型下载会等待较久。');
+  notice(state.captureMode === 'stream'
+    ? '低延迟字幕已连接：英文会持续更新，停顿后自动保存并翻译。'
+    : (matchMedia('(max-width: 750px)').matches
+      ? '正在使用兼容模式。手机请保持页面在前台并避免锁屏；译文按停顿更新。'
+      : `实时通道不可用${state.streamError ? `（${state.streamError}）` : ''}，已使用兼容模式；课堂录音仍会自动保存。`));
 }
 
 async function stopRecording() {
   if (!state.recording) return;
+  const endElapsed = sessionSeconds();
   state.recording = false;
-  state.processor.onaudioprocess = null;
-  flushAudio(true);
+  if (state.lastCaption) {
+    state.lastCaption = {...state.lastCaption, mode: state.lastCaption.english ? 'saved' : 'ready', connected: true, recording: false};
+    window.SubtitleWindow?.publish(state.lastCaption);
+  }
+  if (state.processor?.port) {
+    state.processor.port.postMessage('flush');
+    state.processor.port.onmessage = null;
+  } else if (state.processor) state.processor.onaudioprocess = null;
+  if (state.captureMode === 'stream' && state.socket?.readyState === WebSocket.OPEN) {
+    const finished = new Promise(resolve => { state.stopResolver = resolve; });
+    state.socket.send(JSON.stringify({type: 'stop', elapsed: endElapsed}));
+    await Promise.race([finished, new Promise(resolve => setTimeout(resolve, 30000))]);
+    try { state.socket.close(); } catch {}
+    state.socket = null; state.stopResolver = null;
+  } else {
+    flushAudio(true);
+  }
   state.sourceNode.disconnect(); state.processor.disconnect(); state.silent.disconnect();
   state.stream.getTracks().forEach(track => track.stop());
   await state.audioContext.close();
   state.stream = null; state.audioContext = null;
   ui.record.classList.remove('recording'); ui.record.lastElementChild.textContent = '继续同传';
-  ui.indicator.classList.remove('active'); ui.recordStatus.textContent = '已结束录音';
+  const recordIcon = ui.record.querySelector('i');
+  if (recordIcon) recordIcon.textContent = '▶';
+  ui.indicator.classList.remove('active'); ui.recordStatus.textContent = 'Recording saved';
+  syncDockRecord(false, 'Continue');
   ui.micHealth.textContent = '已断开'; ui.audioHealth.textContent = '等待语音';
   clearInterval(clockTimer); clockTimer = null; updateClock();
   ui.model.disabled = false; ui.source.disabled = false;
@@ -483,15 +860,49 @@ ui.record.addEventListener('click', async () => {
   finally { ui.record.disabled = false; }
 });
 
+if (ui.subtitleButton) {
+  window.addEventListener('subtitlewindowchange', event => {
+    const open = Boolean(event.detail?.open);
+    ui.subtitleButton.classList.toggle('is-open', open);
+    ui.subtitleButton.setAttribute('aria-pressed', String(open));
+    ui.subtitleButton.textContent = open ? '▣ Subtitles open' : '▣ Floating subtitles';
+  });
+  ui.subtitleButton.addEventListener('click', async () => {
+    ui.subtitleButton.disabled = true;
+    ui.subtitleButton.textContent = 'Opening subtitles…';
+    try {
+      const result = await window.SubtitleWindow.open();
+      window.SubtitleWindow.publish(state.lastCaption || {
+        mode: state.recording ? 'listening' : 'ready', entryId: '', english: '', englishState: 'waiting',
+        chinese: '', chineseState: 'hidden', connected: true, recording: state.recording, partial: false
+      });
+      if (result?.kind === 'embedded') notice('已显示可拖动字幕岛。若同时看到浏览器字幕框，请点其右上角 × 关闭浏览器 Live Caption。', 'warn');
+      else notice('悬浮字幕已打开。若同时看到浏览器字幕框，请关闭浏览器 Live Caption，避免重复。');
+    } catch (error) {
+      notice(`无法打开字幕窗口：${error.message}`, true);
+    } finally {
+      ui.subtitleButton.disabled = false;
+      if (!window.SubtitleWindow.isOpen()) ui.subtitleButton.textContent = '▣ Floating subtitles';
+    }
+  });
+}
+
 $('new-session').addEventListener('click', async () => {
   if (state.recording) await stopRecording();
   state.session = null; ui.title.value = '';
+  state.lastCaption = {
+    mode: 'ready', entryId: '', english: '', englishState: 'waiting',
+    chinese: '', chineseState: 'hidden', connected: true, recording: false, partial: false
+  };
+  window.SubtitleWindow?.publish(state.lastCaption);
   ui.record.lastElementChild.textContent = '开始同传';
+  const recordIcon = ui.record.querySelector('i');
+  if (recordIcon) recordIcon.textContent = '▶';
+  syncDockRecord(false, 'Start');
   drawSession(); loadHistory();
   notice('新课堂已准备好。输入课程名称后即可开始同传。');
 });
 
-document.querySelector('[data-generate-summary]').addEventListener('click', () => ui.summary.click());
 $('summary-page-button').addEventListener('click', () => {
   showView('live');
   ui.summary.click();
@@ -518,7 +929,7 @@ $('global-search').addEventListener('input', event => {
 ui.summary.addEventListener('click', async () => {
   if (!state.session) return;
   const sessionId = state.session.id;
-  ui.summary.disabled = true; ui.summary.textContent = '正在整理课堂内容…';
+  ui.summary.disabled = true; ui.summary.textContent = 'Generating summary…';
   notice('正在生成课后总结；已安装本机 DeepSeek 时会自动使用，否则给出课堂摘录。');
   try {
     await state.uploadQueue;
@@ -526,29 +937,74 @@ ui.summary.addEventListener('click', async () => {
     if (state.session?.id === sessionId) {
       state.session.summary = result.summary; state.session.summary_source = result.source;
       drawSession();
-      showView('summarize');
+      showView('live');
+      activateRailTab('summary');
       notice(`课后总结已生成：${result.source}。`);
     }
   } catch (error) { notice(`总结失败：${error.message}`, true); }
-  finally { ui.summary.textContent = '生成课程总结'; ui.summary.disabled = !state.session?.entries.length; }
+  finally { ui.summary.textContent = '✦ Generate Full Summary'; ui.summary.disabled = !state.session?.entries.length; }
 });
 
-ui.export.addEventListener('click', () => {
-  const session = state.session; if (!session) return;
+function safeFileName(title) {
+  return title.replace(/[\\/:*?"<>|]/g, '_') || '课堂笔记';
+}
+
+function downloadNotes(content, type, extension) {
   const link = document.createElement('a');
-  link.href = URL.createObjectURL(new Blob([notesText(session)], {type:'text/plain;charset=utf-8'}));
-  link.download = `${session.title.replace(/[\\/:*?"<>|]/g, '_') || '课堂笔记'}.txt`;
-  link.click(); setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+  link.href = URL.createObjectURL(new Blob([content], {type}));
+  link.download = `${safeFileName(state.session.title)}.${extension}`;
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+}
+
+function escapeHtml(value) {
+  return value.replace(/[&<>"']/g, character => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;'
+  })[character]);
+}
+
+function exportSession(format = 'text') {
+  const session = state.session; if (!session) return;
+  const text = notesText(session);
+  if (format === 'pdf') {
+    document.body.classList.add('printing-notes');
+    window.print();
+    setTimeout(() => document.body.classList.remove('printing-notes'), 500);
+    return;
+  }
+  if (format === 'word') {
+    const html = `<!doctype html><meta charset="utf-8"><title>${escapeHtml(session.title)}</title><pre style="font:16px/1.7 Arial,sans-serif;white-space:pre-wrap">${escapeHtml(text)}</pre>`;
+    downloadNotes(html, 'application/msword;charset=utf-8', 'doc');
+    return;
+  }
+  if (format === 'markdown') {
+    downloadNotes(text, 'text/markdown;charset=utf-8', 'md');
+    return;
+  }
+  downloadNotes(text, 'text/plain;charset=utf-8', 'txt');
+}
+
+document.querySelectorAll('[data-export-format]').forEach(button => {
+  button.addEventListener('click', () => exportSession(button.dataset.exportFormat));
 });
 
 async function init() {
   greeting();
+  applyTheme(document.documentElement.dataset.theme);
+  const liveBilingual = localStorage.getItem('class-interpreter-live-bilingual') === 'true';
+  if ($('dual-view')) $('dual-view').checked = liveBilingual;
+  if (ui.livePreviewZh) ui.livePreviewZh.hidden = !liveBilingual;
+  window.SubtitleWindow?.setLanguageMode(liveBilingual ? 'bilingual' : 'english');
   syncModelCards();
+  syncDockRecord(false, 'Start');
+  activateRailTab(localStorage.getItem('class-interpreter-rail-tab') || 'summary');
   showView('live');
   drawSession();
   try {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
     applyStatus(status);
+    const installProgress = await refreshModelProgress();
+    if (installProgress?.active) startModelProgressPolling();
     if (!status.translation) {
       notice('中文翻译模型还没装好。请看页面上方的黄色提示，点按钮安装。', 'warn');
     } else if (!(status.whisper_models?.[ui.model?.value || 'small'] ?? status.whisper)) {
@@ -577,6 +1033,7 @@ if (ui.installTranslation) {
     ui.installTranslation.disabled = true;
     if (ui.modelBannerText) ui.modelBannerText.textContent = '正在安装翻译依赖并下载英语 → 中文模型，请保持联网…';
     notice('正在安装翻译依赖并下载英语 → 中文模型，请保持联网…', 'warn');
+    startModelProgressPolling();
     const timeout = fetchTimeout(900000);
     try {
       const body = await api('/api/translation/install', { method: 'POST', signal: timeout.signal });
@@ -595,6 +1052,8 @@ if (ui.installTranslation) {
       if (ui.modelBannerText) ui.modelBannerText.textContent = shown;
       notice(shown, true);
       ui.installTranslation.disabled = false;
+    } finally {
+      await stopModelProgressPolling();
     }
   });
 }
@@ -607,6 +1066,7 @@ if (ui.installWhisper) {
       ui.modelBannerText.textContent = `正在下载语音模型 ${model}。校园网请改用手机热点，可能要几分钟…`;
     }
     notice(`正在下载语音模型 ${model}…`, 'warn');
+    startModelProgressPolling();
     const timeout = fetchTimeout(600000);
     try {
       const body = await api('/api/whisper/install', {
@@ -626,6 +1086,8 @@ if (ui.installWhisper) {
       if (ui.modelBannerText) ui.modelBannerText.textContent = `语音模型下载失败：${message}`;
       notice(`语音模型下载失败：${message}`, true);
       ui.installWhisper.disabled = false;
+    } finally {
+      await stopModelProgressPolling();
     }
   });
 }
@@ -637,6 +1099,7 @@ async function installDeepseek() {
   if (ui.modelBannerText) ui.modelBannerText.textContent = message;
   if (ui.deepseekStatusText) ui.deepseekStatusText.textContent = message;
   notice(message, 'warn');
+  startModelProgressPolling();
   const timeout = fetchTimeout(900000);
   try {
     const body = await api('/api/deepseek/install', {
@@ -657,6 +1120,8 @@ async function installDeepseek() {
     if (ui.deepseekStatusText) ui.deepseekStatusText.textContent = `DeepSeek 安装失败：${text}`;
     notice(`DeepSeek 安装失败：${text}`, true);
     buttons.forEach(button => { button.disabled = false; });
+  } finally {
+    await stopModelProgressPolling();
   }
 }
 

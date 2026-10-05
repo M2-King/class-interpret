@@ -10,6 +10,11 @@ REPOS = {
     "medium": "Systran/faster-whisper-medium",
     "large-v3": "Systran/faster-whisper-large-v3",
 }
+MODEL_SIZE_ESTIMATES = {
+    "small": 488_000_000,
+    "medium": 1_530_000_000,
+    "large-v3": 3_100_000_000,
+}
 MIRRORS = ("https://hf-mirror.com", "https://huggingface.co")
 
 
@@ -40,9 +45,31 @@ def cache_dir(name: str) -> Path:
     return hub / f"models--{repo.replace('/', '--')}"
 
 
+def bundled_model_dir(name: str) -> Path | None:
+    """Return a complete, directly loadable local model folder when available.
+
+    Release installers put the ready-to-use Small model in ``hf/bundled``.
+    Older Windows packages downloaded the same CTranslate2 files through
+    ModelScope, so keep recognizing that layout as well.
+    """
+    if name not in REPOS:
+        return None
+    hf_home = Path(os.environ.get("CLASS_INTERPRET_HF") or configure()).expanduser()
+    candidates = (
+        hf_home / "bundled" / f"faster-whisper-{name}",
+        hf_home / "modelscope" / f"gpustack--faster-whisper-{name}",
+    )
+    for folder in candidates:
+        if (folder / "model.bin").is_file() and (folder / "config.json").is_file():
+            return folder
+    return None
+
+
 def cached(name: str) -> bool:
     if name not in REPOS:
         return False
+    if bundled_model_dir(name) is not None:
+        return True
     folder = cache_dir(name)
     if not folder.is_dir():
         return False
@@ -52,6 +79,30 @@ def cached(name: str) -> bool:
 def cached_models() -> dict[str, bool]:
     configure()
     return {name: cached(name) for name in REPOS}
+
+
+def cached_bytes(name: str) -> int:
+    """Return downloaded bytes, including partial Hugging Face cache files."""
+    if name not in REPOS:
+        return 0
+    folders = [cache_dir(name)]
+    bundled = bundled_model_dir(name)
+    if bundled is not None:
+        folders.append(bundled)
+    total = 0
+    seen: set[Path] = set()
+    for folder in folders:
+        if not folder.exists():
+            continue
+        for path in folder.rglob("*"):
+            if path in seen or not path.is_file():
+                continue
+            seen.add(path)
+            try:
+                total += path.stat().st_size
+            except OSError:
+                pass
+    return total
 
 
 def endpoints() -> list[str]:
@@ -85,13 +136,16 @@ def instantiate(name: str, *, local_files_only: bool, force_cpu: bool = False):
     """
     from faster_whisper import WhisperModel
 
-    kwargs = {"local_files_only": True} if local_files_only else {}
+    local_folder = bundled_model_dir(name) if local_files_only else None
+    model_source = str(local_folder) if local_folder is not None else name
+    # A path is already local and must not receive Hugging Face-only options.
+    kwargs = {"local_files_only": True} if local_files_only and local_folder is None else {}
     if force_cpu:
-        return WhisperModel(name, device="cpu", compute_type="int8", **kwargs), "CPU"
+        return WhisperModel(model_source, device="cpu", compute_type="int8", **kwargs), "CPU"
     try:
-        return WhisperModel(name, device="cuda", compute_type="int8_float16", **kwargs), "GPU"
+        return WhisperModel(model_source, device="cuda", compute_type="int8_float16", **kwargs), "GPU"
     except Exception:
-        return WhisperModel(name, device="cpu", compute_type="int8", **kwargs), "CPU"
+        return WhisperModel(model_source, device="cpu", compute_type="int8", **kwargs), "CPU"
 
 
 def create_model(name: str, *, force_cpu: bool = False):

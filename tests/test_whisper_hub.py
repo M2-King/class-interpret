@@ -30,13 +30,18 @@ sys.modules["faster_whisper"] = fake
 
 import whisper_hub
 
+assert whisper_hub.MODEL_SIZE_ESTIMATES["small"] > 400_000_000
+assert whisper_hub.cached_bytes("not-a-model") == 0
+
 whisper_hub.configure()
 assert whisper_hub.cached_models()["small"] is False
 text = whisper_hub.friendly_error(TimeoutError("ConnectTimeout: [Errno 60] Operation timed out on the Hub"))
 assert "手机热点" in text
 assert "setup_models.py" not in text
 
+original_bundled_model_dir = whisper_hub.bundled_model_dir
 whisper_hub.cached = lambda name: True
+whisper_hub.bundled_model_dir = lambda name: None
 
 calls.clear()
 FakeWhisperModel.fail_cuda = False
@@ -61,5 +66,13 @@ model, device = whisper_hub.create_model("small", force_cpu=True)
 assert device == "CPU", device
 assert [item["device"] for item in calls] == ["cpu"]
 assert calls[0]["local_files_only"] is True
+
+calls.clear()
+whisper_hub.bundled_model_dir = lambda name: Path("C:/ClassInterpreter/hf/bundled/faster-whisper-small")
+model, device = whisper_hub.create_model("small", force_cpu=True)
+assert device == "CPU", device
+assert calls[0]["name"] == str(Path("C:/ClassInterpreter/hf/bundled/faster-whisper-small"))
+assert calls[0]["local_files_only"] is False
+whisper_hub.bundled_model_dir = original_bundled_model_dir
 
 print("whisper_hub ok")

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import json
 import os
+import shutil
 import sys
+import tempfile
 from io import BytesIO
 from pathlib import Path
 from urllib import error, request
@@ -21,8 +23,7 @@ os.environ["CLASS_INTERPRET_DEEPSEEK_API"] = "sk-from-env"
 assert deepseek_api.load_key() == "sk-from-env"
 del os.environ["CLASS_INTERPRET_DEEPSEEK_API"]
 
-tmp = Path("/tmp/class-interpret-deepseek-api-test")
-tmp.mkdir(exist_ok=True)
+tmp = Path(tempfile.mkdtemp(prefix="class-interpret-deepseek-api-test-"))
 plain = tmp / "deepseek.api"
 enc = tmp / "deepseek_api.enc"
 plain.write_text("# paste\nsk-file-key-please\n", encoding="utf-8")
@@ -55,4 +56,5 @@ assert "回归" in out
 assert calls and "api.deepseek.com" in calls[0]["url"]
 assert "sk-file-key-please" in (calls[0]["auth"] or "")
 
+shutil.rmtree(tmp, ignore_errors=True)
 print("deepseek_api ok")

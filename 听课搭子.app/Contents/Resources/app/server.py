@@ -6,11 +6,14 @@ import io
 import gc
 import json
 import os
+import queue
 import re
 import sys
 import threading
+import time
 import uuid
 import webbrowser
+import wave
 from collections import Counter
 from datetime import datetime
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -18,20 +21,84 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
-import deepseek_api
-import deepseek_hub
+# Establish real filesystem locations before importing helpers. This also lets
+# modules loaded from the fallback zip avoid treating the zip itself as a folder.
+APP_ROOT = Path(__file__).resolve().parent
+os.environ.setdefault("CLASS_INTERPRET_HF", str(APP_ROOT / "hf"))
+os.environ.setdefault("CLASS_INTERPRET_DATA", str(APP_ROOT / "data"))
+
+# Fresh Windows installations include a single fallback archive of all local
+# helpers. Loose files remain preferred for development and upgrades; if an
+# antivirus or incomplete repair removes one, Python continues from the bundle.
+MODULE_BUNDLE = APP_ROOT / "class_interpreter_modules.zip"
+if MODULE_BUNDLE.is_file() and str(MODULE_BUNDLE) not in sys.path:
+    sys.path.append(str(MODULE_BUNDLE))
+
+try:
+    import deepseek_api
+except ModuleNotFoundError:
+    class _UnavailableDeepSeekAPI:
+        """Keep core subtitles usable when an optional cloud helper was removed."""
+
+        CLOUD_MODEL = "deepseek-chat"
+
+        @staticmethod
+        def available(*_args, **_kwargs) -> bool:
+            return False
+
+        @staticmethod
+        def chat(*_args, **_kwargs) -> str:
+            raise RuntimeError("DeepSeek cloud support is unavailable; subtitles still work.")
+
+    deepseek_api = _UnavailableDeepSeekAPI()
+try:
+    import deepseek_hub
+except ModuleNotFoundError:
+    class _UnavailableDeepSeekHub:
+        """Local DeepSeek is optional and must never block live subtitles."""
+
+        DEFAULT_MODEL = "deepseek-r1:1.5b"
+
+        @staticmethod
+        def installed() -> None:
+            return None
+
+        @staticmethod
+        def snapshot() -> dict:
+            return {"ready": False, "deepseek": None, "ollama": None}
+
+        @staticmethod
+        def try_start() -> None:
+            return None
+
+        @staticmethod
+        def friendly_error(_exc: BaseException) -> str:
+            return "Local DeepSeek support is unavailable; live subtitles still work."
+
+        @staticmethod
+        def chat(*_args, **_kwargs) -> str:
+            raise RuntimeError("Local DeepSeek support is unavailable.")
+
+        @staticmethod
+        def install(*_args, **_kwargs) -> str:
+            raise RuntimeError("Local DeepSeek support is unavailable in this installation.")
+
+    deepseek_hub = _UnavailableDeepSeekHub()
 import ssl_certs
+import streaming_server
+import translation_hub
 import whisper_hub
 
 ssl_certs.apply()
 whisper_hub.configure()
 
-ROOT = Path(__file__).resolve().parent
+ROOT = APP_ROOT
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.3.3"
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
 HOST = "127.0.0.1"
 PORT = int(os.environ.get("CLASS_INTERPRET_PORT", "8765"))
+STREAM_PORT = int(os.environ.get("CLASS_INTERPRET_STREAM_PORT", "8766"))
 MODEL_NAMES = {"small", "medium", "large-v3"}
 SESSION_ID = re.compile(r"^[a-f0-9]{32}$")
 LOCK = threading.RLock()
@@ -40,9 +107,24 @@ TRANSLATE_LOCK = threading.Lock()
 TRANSLATE_INSTALL_LOCK = threading.Lock()
 WHISPER_INSTALL_LOCK = threading.Lock()
 DEEPSEEK_INSTALL_LOCK = threading.Lock()
+INSTALL_PROGRESS_LOCK = threading.Lock()
+INSTALL_PROGRESS = {
+    "active": False,
+    "kind": "",
+    "model": "",
+    "state": "idle",
+    "percent": 0,
+    "phase": "",
+    "detail": "",
+    "downloaded": 0,
+    "total": 0,
+    "updated": 0.0,
+}
 MODEL_CACHE: dict[str, object] = {}
 MODEL_DEVICE: dict[str, str] = {}
 CUDA_DLL_HANDLES: list[object] = []
+STREAMING_SERVICE: streaming_server.StreamingServer | None = None
+TRANSLATOR: object | None = None
 
 
 def now_iso() -> str:
@@ -69,11 +151,58 @@ def save_session(session: dict) -> None:
     os.replace(temporary, path)
 
 
-def install_translation_model() -> None:
+def set_install_progress(
+    kind: str,
+    percent: int,
+    phase: str,
+    detail: str,
+    downloaded: int = 0,
+    total: int = 0,
+    *,
+    state: str = "working",
+    model: str = "",
+) -> None:
+    with INSTALL_PROGRESS_LOCK:
+        INSTALL_PROGRESS.update({
+            "active": state == "working",
+            "kind": kind,
+            "model": model or INSTALL_PROGRESS.get("model", ""),
+            "state": state,
+            "percent": max(0, min(100, int(percent))),
+            "phase": str(phase),
+            "detail": str(detail),
+            "downloaded": max(0, int(downloaded or 0)),
+            "total": max(0, int(total or 0)),
+            "updated": time.time(),
+        })
+
+
+def install_progress_callback(kind: str, model: str = ""):
+    def update(percent: int, phase: str, detail: str, downloaded: int = 0, total: int = 0) -> None:
+        set_install_progress(kind, percent, phase, detail, downloaded, total, model=model)
+
+    return update
+
+
+def install_progress_snapshot() -> dict:
+    with INSTALL_PROGRESS_LOCK:
+        snapshot = dict(INSTALL_PROGRESS)
+    if snapshot["active"] and snapshot["kind"] == "whisper" and snapshot.get("model"):
+        name = snapshot["model"]
+        downloaded = whisper_hub.cached_bytes(name)
+        total = int(whisper_hub.MODEL_SIZE_ESTIMATES.get(name, 0))
+        if total:
+            snapshot["downloaded"] = downloaded
+            snapshot["total"] = total
+            snapshot["percent"] = max(snapshot["percent"], min(94, 8 + int(downloaded * 84 / total)))
+    return snapshot
+
+
+def install_translation_model(progress=None) -> None:
     import setup_models
 
     try:
-        setup_models.main()
+        setup_models.main(progress=progress)
     except SystemExit as exc:
         if exc.code in (0, None):
             return
@@ -92,17 +221,23 @@ def translation_available() -> bool:
         return False
 
 
-def translate(text: str) -> str:
-    with TRANSLATE_LOCK:
+def translate(text: str, *, blocking: bool = True) -> str:
+    global TRANSLATOR
+    if not TRANSLATE_LOCK.acquire(blocking=blocking):
+        raise RuntimeError("离线翻译器正忙")
+    try:
         import argostranslate.translate
 
-        languages = {item.code: item for item in argostranslate.translate.get_installed_languages()}
-        if "en" not in languages or "zh" not in languages:
-            raise RuntimeError("英语 → 中文翻译模型未安装")
-        translator = languages["en"].get_translation(languages["zh"])
-        if not translator:
-            raise RuntimeError("英语 → 中文翻译模型未安装")
-        return translator.translate(text).strip()
+        if TRANSLATOR is None:
+            languages = {item.code: item for item in argostranslate.translate.get_installed_languages()}
+            if "en" not in languages or "zh" not in languages:
+                raise RuntimeError("英语 → 中文翻译模型未安装")
+            TRANSLATOR = languages["en"].get_translation(languages["zh"])
+            if not TRANSLATOR:
+                raise RuntimeError("英语 → 中文翻译模型未安装")
+        return TRANSLATOR.translate(text).strip()
+    finally:
+        TRANSLATE_LOCK.release()
 
 
 def load_model(name: str):
@@ -120,8 +255,12 @@ def load_model(name: str):
         return MODEL_CACHE[name]
 
 
-def install_whisper_model(name: str = "small") -> None:
+def install_whisper_model(name: str = "small", progress=None) -> None:
+    if progress:
+        progress(5, "Preparing speech model", f"Checking the {name} model cache...")
     whisper_hub.download(name)
+    if progress:
+        progress(100, "Speech model ready", f"The {name} speech model is ready.")
 
 
 def prepare_cuda_dlls() -> None:
@@ -164,6 +303,157 @@ def transcribe(audio: bytes, model_name: str, glossary: str) -> str:
             MODEL_CACHE[model_name] = cpu_model
             MODEL_DEVICE[model_name] = device
             return run(cpu_model)
+
+
+def pcm_wav(pcm: bytes) -> bytes:
+    output = io.BytesIO()
+    with wave.open(output, "wb") as destination:
+        destination.setnchannels(1)
+        destination.setsampwidth(2)
+        destination.setframerate(16000)
+        destination.writeframes(pcm)
+    return output.getvalue()
+
+
+def transcribe_live(job, settings: dict) -> str:
+    model_name = settings.get("model", "small")
+    glossary = settings.get("glossary", "")
+    if model_name not in MODEL_NAMES:
+        raise ValueError("不支持的识别模型")
+    model = load_model(model_name)
+
+    def run(selected_model) -> str:
+        segments, _ = selected_model.transcribe(
+            io.BytesIO(pcm_wav(job.pcm)),
+            language="en",
+            beam_size=1,
+            best_of=1,
+            condition_on_previous_text=False,
+            initial_prompt=("Classroom terminology: " + glossary[:500]) if glossary else None,
+            vad_filter=job.final,
+            vad_parameters={"min_silence_duration_ms": 350} if job.final else None,
+        )
+        return " ".join(segment.text.strip() for segment in segments).strip()
+
+    with MODEL_LOCK:
+        try:
+            return run(model)
+        except RuntimeError as exc:
+            if not any(term in str(exc).lower() for term in ("cublas", "cudnn", "cuda")):
+                raise
+            cpu_model, device = whisper_hub.create_model(model_name, force_cpu=True)
+            MODEL_CACHE[model_name] = cpu_model
+            MODEL_DEVICE[model_name] = device
+            return run(cpu_model)
+
+
+def save_live_entry(job, english: str, settings: dict) -> dict | None:
+    session_id = settings["session_id"]
+    with LOCK:
+        session = read_session(session_id)
+        if session["entries"]:
+            english = remove_overlap(session["entries"][-1]["en"], english)
+        if not english:
+            return None
+        entry = {
+            "id": uuid.uuid4().hex,
+            "at": max(0, job.elapsed),
+            "en": english,
+            "zh": "",
+            "translation_status": "pending",
+        }
+        session["entries"].append(entry)
+        session["summary"] = ""
+        session["summary_source"] = ""
+        save_session(session)
+        return entry
+
+
+def translate_live_entry(entry: dict, settings: dict):
+    session_id = settings["session_id"]
+    with LOCK:
+        session = read_session(session_id)
+        position = next((index for index, item in enumerate(session["entries"]) if item["id"] == entry["id"]), -1)
+        context = [item.get("en", "") for item in session["entries"][max(0, position - 3):position]]
+    def store(chinese: str, provider: str, quality: str) -> dict:
+        with LOCK:
+            current = read_session(session_id)
+            stored = next((item for item in current["entries"] if item["id"] == entry["id"]), None)
+            if stored is None:
+                raise FileNotFoundError("没有找到这一条课堂记录")
+            stored["zh"] = chinese
+            stored["translation_provider"] = provider
+            stored["translation_status"] = quality
+            save_session(current)
+            return dict(stored)
+
+    if not deepseek_api.available():
+        preview = translation_hub.offline_preview(entry["en"], translate)
+        yield store(preview, "argos", "offline")
+        return
+
+    # Argos and DeepSeek have very different latency on different laptops and
+    # networks. Race them instead of blocking DeepSeek behind local inference.
+    # The first safe result is displayed; a later cloud result may refine it.
+    results: queue.Queue = queue.Queue()
+
+    def calculate(provider: str, callback) -> None:
+        try:
+            results.put((provider, callback(), None))
+        except Exception as exc:
+            results.put((provider, None, exc))
+
+    threading.Thread(
+        target=calculate,
+        args=("argos", lambda: translation_hub.offline_preview(
+            entry["en"], lambda text: translate(text, blocking=False)
+        )),
+        daemon=True,
+    ).start()
+    threading.Thread(
+        target=calculate,
+        args=("deepseek", lambda: translation_hub.cloud_translation(
+            entry["en"],
+            glossary=settings.get("glossary", ""),
+            context=context,
+            timeout=6,
+        )),
+        daemon=True,
+    ).start()
+
+    delivered = False
+    errors: list[str] = []
+    remaining = 2
+    deadline = time.monotonic() + 6.5
+    while remaining and time.monotonic() < deadline:
+        try:
+            provider, chinese, failure = results.get(timeout=max(0.05, deadline - time.monotonic()))
+        except queue.Empty:
+            break
+        remaining -= 1
+        if failure is not None:
+            errors.append(f"{provider}: {failure}")
+            continue
+        if provider == "deepseek":
+            yield store(chinese, "deepseek", "final")
+            return
+        delivered = True
+        yield store(chinese, "argos", "provisional")
+
+    if not delivered:
+        detail = "；".join(errors) if errors else "翻译响应超时"
+        raise RuntimeError(detail)
+
+
+def translate_live_partial(english: str, settings: dict) -> str:
+    """Return a fast local preview without blocking live recognition."""
+    try:
+        return translation_hub.offline_preview(
+            english,
+            lambda text: translate(text, blocking=False),
+        )
+    except Exception:
+        return ""
 
 
 def remove_overlap(previous: str, current: str) -> str:
@@ -287,8 +577,22 @@ class Handler(BaseHTTPRequestHandler):
         pieces = [part for part in path.split("/") if part]
         if method == "GET" and path == "/":
             return self.serve_file("index.html", "text/html; charset=utf-8")
-        if method == "GET" and path in ("/app.js", "/style.css"):
-            return self.serve_file(path[1:], "text/javascript; charset=utf-8" if path.endswith("js") else "text/css; charset=utf-8")
+        static_types = {
+            "/app.js": "text/javascript; charset=utf-8",
+            "/audio-worklet.js": "text/javascript; charset=utf-8",
+            "/subtitle-window.js": "text/javascript; charset=utf-8",
+            "/style.css": "text/css; charset=utf-8",
+            "/subtitle.css": "text/css; charset=utf-8",
+            "/subtitle.html": "text/html; charset=utf-8",
+        }
+        if method == "GET" and path in static_types:
+            return self.serve_file(path[1:], static_types[path])
+        if method == "GET" and path == "/api/health":
+            # Installer readiness must stay fast and must not probe optional AI
+            # services. The full /api/status endpoint intentionally does more.
+            return self.respond(200, {"ready": True, "version": VERSION})
+        if method == "GET" and path == "/api/models/progress":
+            return self.respond(200, install_progress_snapshot())
         if method == "GET" and path == "/api/status":
             models = whisper_hub.cached_models()
             deepseek = deepseek_hub.snapshot()
@@ -304,19 +608,33 @@ class Handler(BaseHTTPRequestHandler):
                 "whisper_models": models,
                 "whisper": any(models.values()),
             })
+        if method == "GET" and path == "/api/stream/config":
+            config = STREAMING_SERVICE.config() if STREAMING_SERVICE else {
+                "enabled": False,
+                "url": "",
+                "token": "",
+                "sample_rate": 16000,
+                "error": "实时字幕服务未启动",
+            }
+            return self.respond(200, config)
         if method == "POST" and path == "/api/translation/install":
             if translation_available():
+                set_install_progress("translation", 100, "Translation ready", "English to Chinese translation is already installed.", state="complete")
                 return self.respond(200, {"translation": True, "message": "英语 → 中文模型已经安装。"})
             if not TRANSLATE_INSTALL_LOCK.acquire(blocking=False):
                 return self.respond(202, {"translation": False, "message": "正在下载翻译模型，请稍候。"})
             try:
-                install_translation_model()
+                set_install_progress("translation", 1, "Preparing translation", "Starting the translation model installation...")
+                install_translation_model(install_progress_callback("translation"))
             except Exception as exc:
+                set_install_progress("translation", 100, "Translation installation failed", str(exc), state="failed")
                 return self.respond(500, {"error": str(exc), "translation": False})
             finally:
                 TRANSLATE_INSTALL_LOCK.release()
             if not translation_available():
+                set_install_progress("translation", 100, "Translation installation failed", "The language pack was not registered.", state="failed")
                 return self.respond(500, {"error": "翻译模型没有装上，请检查网络后重试。", "translation": False})
+            set_install_progress("translation", 100, "Translation ready", "English to Chinese translation is installed.", state="complete")
             return self.respond(200, {"translation": True, "message": "英语 → 中文模型已安装。"})
         if method == "POST" and path == "/api/whisper/install":
             body = {}
@@ -329,17 +647,23 @@ class Handler(BaseHTTPRequestHandler):
             if name not in MODEL_NAMES:
                 raise ValueError("不支持的识别模型")
             if whisper_hub.cached(name):
+                set_install_progress("whisper", 100, "Speech model ready", f"The {name} model is already installed.", state="complete", model=name)
                 return self.respond(200, {"whisper": True, "model": name, "message": f"语音模型 {name} 已在本地。"})
             if not WHISPER_INSTALL_LOCK.acquire(blocking=False):
                 return self.respond(202, {"whisper": False, "message": "正在下载语音模型，请稍候。"})
             try:
-                install_whisper_model(name)
+                set_install_progress("whisper", 1, "Preparing speech model", f"Starting the {name} model download...", model=name)
+                install_whisper_model(name, install_progress_callback("whisper", name))
             except Exception as exc:
-                return self.respond(500, {"error": whisper_hub.friendly_error(exc), "whisper": False})
+                message = whisper_hub.friendly_error(exc)
+                set_install_progress("whisper", 100, "Speech model download failed", message, state="failed", model=name)
+                return self.respond(500, {"error": message, "whisper": False})
             finally:
                 WHISPER_INSTALL_LOCK.release()
             if not whisper_hub.cached(name):
+                set_install_progress("whisper", 100, "Speech model download failed", "The downloaded model was not found in the cache.", state="failed", model=name)
                 return self.respond(500, {"error": "语音模型没有装上。请换手机热点后重试。", "whisper": False})
+            set_install_progress("whisper", 100, "Speech model ready", f"The {name} speech model is installed.", state="complete", model=name)
             return self.respond(200, {"whisper": True, "model": name, "message": f"语音模型 {name} 已下载。"})
         if method == "POST" and path == "/api/deepseek/install":
             body = {}
@@ -351,17 +675,24 @@ class Handler(BaseHTTPRequestHandler):
             name = str(body.get("model") or deepseek_hub.DEFAULT_MODEL)
             current = deepseek_hub.installed()
             if current and (not body.get("model") or current == name):
+                set_install_progress("deepseek", 100, "DeepSeek ready", f"{current} is already installed.", state="complete", model=name)
                 return self.respond(200, {"deepseek": current, "ready": True, "message": f"DeepSeek 已就绪：{current}"})
             if not DEEPSEEK_INSTALL_LOCK.acquire(blocking=False):
                 return self.respond(202, {"deepseek": current, "ready": False, "message": "正在安装 DeepSeek，请稍候。"})
             try:
-                ready = deepseek_hub.install(name)
+                set_install_progress("deepseek", 1, "Preparing DeepSeek", f"Starting installation of {name}...", model=name)
+                ready = deepseek_hub.install(name, progress=install_progress_callback("deepseek", name))
             except Exception as exc:
-                return self.respond(500, {"error": deepseek_hub.friendly_error(exc), "deepseek": None, "ready": False})
+                message = deepseek_hub.friendly_error(exc)
+                set_install_progress("deepseek", 100, "DeepSeek installation failed", message, state="failed", model=name)
+                return self.respond(500, {"error": message, "deepseek": None, "ready": False})
             finally:
                 DEEPSEEK_INSTALL_LOCK.release()
+            set_install_progress("deepseek", 100, "DeepSeek ready", f"Installed {ready}.", state="complete", model=name)
             return self.respond(200, {"deepseek": ready, "ready": True, "message": f"DeepSeek 已安装：{ready}"})
         if method == "POST" and path == "/api/shutdown":
+            if STREAMING_SERVICE:
+                threading.Thread(target=STREAMING_SERVICE.stop, daemon=True).start()
             threading.Thread(target=self.server.shutdown, daemon=True).start()
             return self.respond(200, {"ok": True})
         if method == "GET" and path == "/api/sessions":
@@ -405,12 +736,26 @@ class Handler(BaseHTTPRequestHandler):
                 if not english:
                     return self.respond(200, {"entry": None})
                 try:
-                    chinese = translate(english)
+                    chinese, provider, quality = translation_hub.best_translation(
+                        english,
+                        translate,
+                        glossary=glossary,
+                        context=[item.get("en", "") for item in session.get("entries", [])[-3:]],
+                    )
                     translation_error = ""
                 except Exception as exc:
                     chinese = ""
+                    provider = ""
+                    quality = "failed"
                     translation_error = str(exc)
-                entry = {"id": uuid.uuid4().hex, "at": max(0, elapsed), "en": english, "zh": chinese}
+                entry = {
+                    "id": uuid.uuid4().hex,
+                    "at": max(0, elapsed),
+                    "en": english,
+                    "zh": chinese,
+                    "translation_provider": provider,
+                    "translation_status": quality,
+                }
                 with LOCK:
                     session = read_session(session_id)
                     session["entries"].append(entry)
@@ -461,6 +806,9 @@ class Handler(BaseHTTPRequestHandler):
     def safe_route(self, method: str) -> None:
         try:
             self.route(method)
+        except (BrokenPipeError, ConnectionAbortedError, ConnectionResetError):
+            # A browser tab can close while a status response is being written.
+            return
         except FileNotFoundError as exc:
             self.respond(404, {"error": str(exc)})
         except (ValueError, json.JSONDecodeError) as exc:
@@ -471,9 +819,21 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main() -> None:
+    global STREAMING_SERVICE
     address = f"http://{HOST}:{PORT}/"
     server = ThreadingHTTPServer((HOST, PORT), Handler)
+    STREAMING_SERVICE = streaming_server.StreamingServer(
+        HOST,
+        STREAM_PORT,
+        transcribe_live,
+        save_live_entry,
+        translate_live_entry,
+        translate_live_partial,
+    )
+    STREAMING_SERVICE.start()
     print(f"课堂同传已启动：{address}")
+    if STREAMING_SERVICE.ready:
+        print(f"实时字幕通道已启动：ws://{HOST}:{STREAM_PORT}")
 
     def warmup() -> None:
         try:
@@ -490,6 +850,8 @@ def main() -> None:
     except KeyboardInterrupt:
         print("已退出。")
     finally:
+        if STREAMING_SERVICE:
+            STREAMING_SERVICE.stop()
         server.server_close()
 
 

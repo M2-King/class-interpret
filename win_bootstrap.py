@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -86,8 +87,15 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
-def run(exe: str, args: list[str]) -> int:
-    completed = subprocess.run([exe, *args], check=False)
+def progress(percent: int, phase: str, message: str) -> None:
+    """Emit a stable, single-line status consumed by the GUI installer."""
+    clean_phase = str(phase).replace("|", "-").replace("\r", " ").replace("\n", " ")
+    clean_message = str(message).replace("|", "-").replace("\r", " ").replace("\n", " ")
+    log(f"CI_PROGRESS|{max(0, min(100, int(percent)))}|{clean_phase}|{clean_message}")
+
+
+def run(exe: str, args: list[str], env: dict[str, str] | None = None) -> int:
+    completed = subprocess.run([exe, *args], check=False, env=env)
     return int(completed.returncode or 0)
 
 
@@ -95,8 +103,11 @@ def pip_ok(exe: str) -> bool:
     return run(exe, ["-m", "pip", "--version"]) == 0
 
 
-def packages_ok(exe: str) -> bool:
-    return run(exe, ["-c", "import faster_whisper, argostranslate"]) == 0
+def packages_ok(exe: str, require_translation: bool = False) -> bool:
+    modules = "import faster_whisper, websockets"
+    if require_translation:
+        modules += ", argostranslate"
+    return run(exe, ["-c", modules]) == 0
 
 
 def ensure_pip(root: Path, exe: str) -> None:
@@ -142,13 +153,40 @@ def pip_install(exe: str, args: list[str]) -> None:
     for host in PIP_TRUSTED:
         trusted.extend(["--trusted-host", host])
     last_error = "pip install failed"
+    pip_env = os.environ.copy()
+    pip_env.setdefault("PIP_DISABLE_PIP_VERSION_CHECK", "1")
+    pip_env.setdefault("PIP_NO_INPUT", "1")
+    cache_dir = Path(os.environ.get("LOCALAPPDATA", str(Path.home()))) / "ClassInterpreter" / "pip-cache"
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    pip_env.setdefault("PIP_CACHE_DIR", str(cache_dir))
     for index in PIP_INDEXES:
         log("pip " + " ".join(args) + "  index=" + index)
-        cmd = ["-m", "pip", "--retries", "1", "--timeout", "45", "install", "--index-url", index, *trusted, *args]
-        if run(exe, cmd) == 0:
+        cmd = [
+            "-m",
+            "pip",
+            "--disable-pip-version-check",
+            "--no-input",
+            "--retries",
+            "2",
+            "--timeout",
+            "60",
+            "install",
+            "--prefer-binary",
+            "--index-url",
+            index,
+            *trusted,
+            *args,
+        ]
+        if run(exe, cmd, env=pip_env) == 0:
             return
         last_error = "pip failed at " + index
-    raise RuntimeError(last_error + ". Switch to a phone hotspot and double-click OPEN-THIS.bat again.")
+    package = " ".join(args)
+    raise RuntimeError(
+        last_error
+        + " while installing "
+        + package
+        + ". The download cache was kept; reconnect and run the installer again."
+    )
 
 
 def stop_listener(port: int = 8765, wait: float = 1) -> None:
@@ -202,6 +240,15 @@ def configure_env(root: Path) -> None:
     data.mkdir(parents=True, exist_ok=True)
 
 
+def restore_legacy_module_names(root: Path) -> None:
+    """Repair the early Windows package's invalid hyphenated module filename."""
+    wanted = root / "deepseek_api.py"
+    legacy = root / "deepseek-api.py"
+    if not wanted.is_file() and legacy.is_file():
+        shutil.copy2(legacy, wanted)
+        log("Restored deepseek_api.py from the legacy deepseek-api.py filename.")
+
+
 def app_version(root: Path) -> str:
     path = root / "VERSION"
     if path.is_file():
@@ -236,6 +283,8 @@ def main() -> int:
         return run(str(wanted), [str(Path(__file__).resolve()), *sys.argv[1:]])
 
     configure_env(root)
+    restore_legacy_module_names(root)
+    fast_first_start = os.environ.get("CLASS_INTERPRET_FAST_FIRST_START") == "1"
     current = status_version()
     if current == version:
         log("Already running. Opening the browser...")
@@ -250,20 +299,36 @@ def main() -> int:
         log("Stopping old server " + current + " ...")
         stop_listener()
 
-    if not packages_ok(sys.executable):
+    if not packages_ok(sys.executable, require_translation=not fast_first_start):
+        progress(90, "Preparing Python", "Checking the bundled Python package manager...")
         ensure_pip(root, sys.executable)
         log("Installing packages (first run, keep this window open)...")
+        progress(92, "Installing core packages", "Installing certificate support...")
         pip_install(sys.executable, ["certifi"])
-        pip_install(sys.executable, ["-r", "requirements.txt"])
-        try_cuda_libs(sys.executable)
+        progress(94, "Installing speech engine", "Downloading English subtitle packages; completed files are cached for retries...")
+        if fast_first_start:
+            pip_install(sys.executable, ["faster-whisper>=1.1,<2", "websockets>=14,<16"])
+        else:
+            pip_install(sys.executable, ["-r", "requirements.txt"])
+        if fast_first_start:
+            log("Optional NVIDIA acceleration deferred until after first launch.")
+            progress(97, "English subtitles ready", "GPU acceleration and Chinese translation were deferred for a faster first launch.")
+        else:
+            progress(96, "Checking GPU acceleration", "Trying optional NVIDIA libraries...")
+            try_cuda_libs(sys.executable)
     else:
         log("Using Python: " + sys.executable)
+        progress(96, "Core packages ready", "Using the existing local Python environment.")
 
-    if (root / "setup_models.py").is_file():
+    if fast_first_start:
+        log("Optional Chinese translation setup deferred until the app is open.")
+        progress(98, "Starting local service", "Translation can be installed from the yellow button after launch.")
+    elif (root / "setup_models.py").is_file():
         if run(sys.executable, ["setup_models.py"]) != 0:
             log("Translation model not installed yet. Use the yellow button after the page opens.")
 
     log("Starting. Keep this window open. Browser should open at http://127.0.0.1:8765/")
+    progress(99, "Starting local service", "Opening Class Interpreter in your browser...")
     return run(sys.executable, ["server.py"])
 
 
@@ -271,5 +336,5 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except RuntimeError as exc:
-        log(str(exc))
+        log("CI_ERROR|" + str(exc))
         raise SystemExit(1)

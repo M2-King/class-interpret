@@ -26,21 +26,29 @@ if defined FROMZIP (
   echo 4. Open the new folder
   echo 5. Double-click OPEN-THIS.bat
   echo.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 
 if not exist "%~dp0win_bootstrap.py" goto :NEEDPS
 if not exist "%~dp0server.py" (
   echo server.py is missing. Extract All ClassInterpreter-windows-0.3.3.zip first.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 
-if exist "%~dp0.venv\Scripts\python.exe" goto :VENV
-if exist "%~dp0..\.venv\Scripts\python.exe" goto :PARENTVENV
-if exist "%~dp0start.ps1" goto :NEEDPS
+if exist "%~dp0.venv\Scripts\python.exe" (
+  "%~dp0.venv\Scripts\python.exe" -c "import sys" >nul 2>&1
+  if not errorlevel 1 goto :VENV
+  echo Existing .venv is broken or points to a removed Python. Rebuilding it...
+)
+if exist "%~dp0..\.venv\Scripts\python.exe" (
+  "%~dp0..\.venv\Scripts\python.exe" -c "import sys" >nul 2>&1
+  if not errorlevel 1 goto :PARENTVENV
+  echo Parent .venv is broken; ignoring it.
+)
 if exist "%~dp0.runtime\python\python.exe" goto :BUNDLE
+if exist "%~dp0start.ps1" goto :NEEDPS
 goto :NEEDPS
 
 :VENV
@@ -65,13 +73,13 @@ goto :CHECK
 :NEEDPS
 if not exist "%~dp0start.ps1" (
   echo start.ps1 is missing. Extract All ClassInterpreter-windows-0.3.3.zip, then OPEN-THIS.bat.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 where powershell >nul 2>&1
 if errorlevel 1 (
   echo PowerShell was not found. Windows 10 and 11 include it.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 echo No .venv yet. Recreating packages. Keep this window open.
@@ -89,7 +97,7 @@ if errorlevel 1 (
   echo 3. Campus Wi-Fi: phone hotspot, then OPEN-THIS.bat again. Keep the black window open.
   echo 4. The first line must say Class Interpreter 0.3.3
   echo.
-  pause
+  if /I not "%CLASS_INTERPRET_NONINTERACTIVE%"=="1" pause
   exit /b 1
 )
 

@@ -1,0 +1,266 @@
+:root {
+  color-scheme: dark;
+  font-family: Inter, "Segoe UI Variable", "Segoe UI", "SF Pro Display", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --subtitle-scale: 1;
+  --island-bg: rgba(12, 16, 18, .88);
+  --island-border: rgba(255, 255, 255, .19);
+  --primary: #f4f7f6;
+  --secondary: rgba(235, 241, 239, .78);
+  --muted: #a8b1af;
+  --green: #35e08a;
+  --amber: #efb75c;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+  --island-bg: rgba(248, 251, 250, .92);
+  --island-border: rgba(35, 62, 56, .24);
+  --primary: #17211f;
+  --secondary: rgba(44, 61, 57, .78);
+  --muted: #65736f;
+  --green: #12aa66;
+  --amber: #b97613;
+}
+:root[data-theme="light"] .subtitle-island { background: linear-gradient(115deg, rgba(255,255,255,.72), transparent 38%), var(--island-bg); box-shadow: 0 18px 50px rgba(30,53,48,.20), inset 0 1px 0 rgba(255,255,255,.75); }
+:root[data-theme="light"] .is-solid .subtitle-island { --island-bg: rgba(250,252,251,.99); }
+:root[data-theme="light"] .product-name { color: #35433f; }
+:root[data-theme="light"] .island-status { color: #72807c; }
+:root[data-theme="light"] .subtitle-island.is-ready .subtitle-en { color: #566460; }
+:root[data-theme="light"] .island-controls button { border-color: rgba(34,60,54,.15); background: rgba(34,60,54,.055); color: #465550; }
+:root[data-theme="light"] .island-controls button:hover,
+:root[data-theme="light"] .island-controls button:focus-visible,
+:root[data-theme="light"] .island-controls button.active { border-color: rgba(34,60,54,.35); background: rgba(34,60,54,.13); color: #101a17; }
+
+* { box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  overflow: hidden;
+  background: transparent;
+  color: var(--primary);
+}
+
+body.subtitle-surface {
+  display: grid;
+  place-items: center;
+  padding: 7px;
+}
+
+.subtitle-island {
+  width: min(720px, 100%);
+  min-width: 0;
+  min-height: 92px;
+  padding: 15px 28px 16px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--island-border);
+  border-radius: 34px;
+  background: linear-gradient(115deg, rgba(255, 255, 255, .035), transparent 38%), var(--island-bg);
+  box-shadow: 0 18px 50px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .035);
+  backdrop-filter: blur(22px) saturate(125%);
+  -webkit-backdrop-filter: blur(22px) saturate(125%);
+  transition: width .18s ease, min-height .18s ease, border-radius .18s ease, background .18s ease;
+}
+
+.is-solid .subtitle-island {
+  --island-bg: rgba(8, 11, 12, .98);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.subtitle-island.is-ready {
+  width: min(300px, 100%);
+  min-height: 54px;
+  padding: 13px 21px;
+  border-radius: 28px;
+}
+
+.island-meta {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1;
+}
+
+body[data-embedded="true"] .island-meta {
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+
+body[data-embedded="true"] .island-meta:active { cursor: grabbing; }
+
+.live-dot {
+  width: 9px;
+  height: 9px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 14px rgba(53, 224, 138, .85);
+}
+
+.is-disconnected .live-dot,
+[data-mode="compatibility"] .live-dot {
+  background: var(--amber);
+  box-shadow: 0 0 12px rgba(239, 183, 92, .6);
+}
+
+.product-name {
+  overflow: hidden;
+  color: #c9cfcd;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.island-status {
+  color: #7f8b88;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.waveform {
+  height: 23px;
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  color: var(--green);
+  transition: opacity .15s ease;
+}
+
+.waveform i {
+  width: 2px;
+  height: 7px;
+  display: block;
+  border-radius: 3px;
+  background: currentColor;
+  box-shadow: 0 0 7px rgba(53, 224, 138, .38);
+  animation: island-wave 1.05s ease-in-out infinite alternate;
+}
+
+.waveform i:nth-child(2) { height: 15px; animation-delay: -.8s; }
+.waveform i:nth-child(3) { height: 23px; animation-delay: -.4s; }
+.waveform i:nth-child(4) { height: 18px; animation-delay: -.65s; }
+.waveform i:nth-child(5) { height: 11px; animation-delay: -.2s; }
+.waveform i:nth-child(6) { height: 5px; animation-delay: -.95s; }
+
+[data-english-state="waiting"] .waveform,
+[data-mode="saved"] .waveform,
+.subtitle-island.is-ready .waveform { opacity: .38; }
+
+.subtitle-copy {
+  min-width: 0;
+  margin: 9px 38px 0 19px;
+}
+
+.subtitle-island.is-ready .subtitle-copy { margin: 7px 0 0 19px; }
+
+.subtitle-copy p {
+  margin: 0;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  text-wrap: pretty;
+  overflow-wrap: anywhere;
+}
+
+.subtitle-en {
+  color: var(--primary);
+  font-size: calc(18px * var(--subtitle-scale));
+  font-weight: 520;
+  line-height: 1.28;
+  letter-spacing: -.012em;
+}
+
+.subtitle-zh {
+  margin-top: 4px !important;
+  color: var(--secondary);
+  font-size: calc(14px * var(--subtitle-scale));
+  font-weight: 430;
+  line-height: 1.28;
+}
+
+[data-english-state="partial"] .subtitle-en { opacity: .76; }
+.subtitle-island.is-ready .subtitle-en {
+  color: #b9c1bf;
+  font-size: calc(13px * var(--subtitle-scale));
+  font-weight: 450;
+  white-space: nowrap;
+  -webkit-line-clamp: 1;
+}
+
+.island-controls {
+  position: absolute;
+  z-index: 2;
+  top: 9px;
+  right: 20px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(7px);
+  transition: opacity .14s ease, transform .14s ease;
+}
+
+.subtitle-island:hover .waveform,
+.subtitle-island:focus-within .waveform { display: none; }
+.subtitle-island:hover .island-controls,
+.subtitle-island:focus-within .island-controls {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translateX(0);
+}
+
+.island-controls button {
+  width: 25px;
+  height: 25px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, .13);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .055);
+  color: #cdd3d1;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+
+.island-controls button:hover,
+.island-controls button:focus-visible,
+.island-controls button.active {
+  border-color: rgba(255, 255, 255, .36);
+  background: rgba(255, 255, 255, .14);
+  color: #fff;
+  outline: none;
+}
+
+@keyframes island-wave {
+  from { transform: scaleY(.55); opacity: .65; }
+  to { transform: scaleY(1.08); opacity: 1; }
+}
+
+@media (max-width: 520px) {
+  body.subtitle-surface { padding: 5px; }
+  .subtitle-island { padding: 13px 18px 14px; border-radius: 28px; }
+  .subtitle-copy { margin-right: 0; margin-left: 18px; }
+  .product-name { max-width: 120px; }
+  .island-status { display: none; }
+}
+
+@media (prefers-contrast: more) {
+  .subtitle-island { border-color: rgba(255, 255, 255, .56); --island-bg: rgba(0, 0, 0, .98); }
+  .subtitle-zh { color: #fff; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subtitle-island, .island-controls { transition: none; }
+  .waveform i { animation: none; }
+}

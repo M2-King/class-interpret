@@ -6,19 +6,24 @@ html = (root / "index.html").read_text(encoding="utf-8")
 css = (root / "style.css").read_text(encoding="utf-8")
 mac_zip = root / "ClassInterpreter-mac-0.3.3.zip"
 win_zip = root / "ClassInterpreter-windows-0.3.3.zip"
+win_setup = root / "ClassInterpreter-Setup-Windows.bat"
+mac_setup = root / "ClassInterpreter-Setup-Mac.zip"
 assert mac_zip.is_file() and mac_zip.stat().st_size > 10_000
 assert win_zip.is_file() and win_zip.stat().st_size > 10_000_000
+assert win_setup.is_file()
+assert mac_setup.is_file()
 assert "听懂每一句" in html
 assert "Class Interpreter" in html
 assert "Open.command" in html
 assert "Start.bat" in html
 assert 'href="ClassInterpreter-mac-0.3.3.zip"' in html
 assert 'href="ClassInterpreter-windows-0.3.3.zip"' in html
-assert html.count('href="ClassInterpreter-mac-0.3.3.zip"') >= 2
-assert html.count('href="ClassInterpreter-windows-0.3.3.zip"') >= 2
+assert html.count('href="ClassInterpreter-Setup-Mac.zip"') >= 2
+assert html.count('href="ClassInterpreter-Setup-Windows.bat"') >= 2
 assert "raw/cursor/" not in html
 assert "OPEN-THIS.bat" in html
 assert "Extract All" in html
+assert "FIX-CLASS-INTERPRETER" in html
 assert "听课搭子手机" in html or "trycloudflare" in html
 assert "iPhone" in html or "iPad" in html
 assert ".venv" in html

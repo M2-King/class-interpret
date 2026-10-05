@@ -1,12 +1,18 @@
 Class Interpreter 0.3.3 for Windows
 ===================================
 
+Easiest setup: download ClassInterpreter-Setup-Windows.bat and double-click it.
+It downloads and extracts the complete app automatically.
+
+If an installed copy later breaks, double-click FIX-CLASS-INTERPRETER.bat
+inside its main folder. It downloads a clean package and repairs that folder.
+
 How to use Windows (pick A or B)
 
 A. This laptop already ran Class Interpreter (R9000P / old folder)
-   Do NOT use the new Downloads zip.
-   Open the old folder that contains .venv
-   Double-click Start.bat
+   Extract the new zip, then double-click INSTALL-OR-REPAIR.bat.
+   It automatically finds the old folder, repairs official files, keeps
+   recordings/models/settings, and quarantines a broken .venv.
    Keep the black window open. Browser: http://127.0.0.1:8765/
 
 B. First copy on this laptop

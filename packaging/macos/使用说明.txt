@@ -6,3 +6,7 @@
 4. 浏览器打开后左上角应显示 0.3.3。用黄色按钮下载模型。校园网请换手机热点。
    解压后的文件夹名应是 ClassInterpreter-mac-0.3.3，请双击 Open.command。
 5. 课后总结可点「安装 DeepSeek」。上课英译中仍然用 Whisper，不需要 DeepSeek。
+自动安装或修复：双击 INSTALL-OR-REPAIR.command。
+它会寻找旧版听课搭子，备份并恢复应用文件，保留录音、模型和设置，然后启动应用。
+也可以单独下载 ClassInterpreter-Setup-Mac.zip，解压后双击其中的安装程序；它会自动下载完整应用。
+以后如需修复当前文件夹，双击 FIX-CLASS-INTERPRETER.command。

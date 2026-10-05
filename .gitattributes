@@ -1,3 +1,5 @@
 # cmd.exe needs the committed CRLF bytes. Git must not convert .bat files to LF.
 *.bat -text
 *.cmd -text
+*.command text eol=lf
+*.sh text eol=lf

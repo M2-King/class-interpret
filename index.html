@@ -2,259 +2,267 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>听课搭子 · 本地同声传译</title>
-  <link rel="stylesheet" href="/style.css?v=0.3.3">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <title>听课搭子 · Class Interpreter</title>
+  <script>try{document.documentElement.dataset.theme=localStorage.getItem('class-interpreter-theme')==='light'?'light':'dark'}catch{document.documentElement.dataset.theme='dark'}</script>
+  <link rel="stylesheet" href="/style.css?v=0.3.3-theme1">
 </head>
 <body>
   <div class="desktop">
     <div class="window">
-      <div class="titlebar" aria-hidden="true">
-        <span class="traffic"><i></i><i></i><i></i></span>
-        <strong>听课搭子</strong>
-        <small>Class Interpreter</small>
-      </div>
       <div class="app">
         <aside class="sidebar">
           <div class="brand">
-            <span class="brand-mark" aria-hidden="true">听</span>
-            <div>
-              <strong>听课搭子</strong>
-              <small>Class Interpreter · 0.3.3</small>
-            </div>
+            <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i><i></i></span>
+            <span><strong>Class Interpreter</strong><small>Listen · Translate · Understand</small></span>
           </div>
+
           <button id="mobile-settings" class="mobile-nav" type="button" aria-expanded="false">菜单</button>
-          <nav class="side-nav" aria-label="功能导航">
-            <button class="nav-item active" type="button" data-view="live"><b>实时听课</b><span>Live Class</span></button>
-            <button class="nav-item" type="button" data-view="summarize"><b>课程总结</b><span>Summaries</span></button>
-            <button class="nav-item" type="button" data-view="history"><b>历史记录</b><span>History</span></button>
-            <button class="nav-item" type="button" data-view="setup"><b>设置</b><span>Settings</span></button>
-            <button class="nav-item quit" id="quit-app" type="button">退出听课搭子</button>
+
+          <nav class="side-nav" aria-label="主要导航">
+            <button class="nav-item" type="button" data-view="home"><span class="nav-icon">⌂</span><b>Home</b></button>
+            <button class="nav-item active" type="button" data-view="live"><span class="nav-icon bars">▥</span><b>Live Translation</b></button>
+            <button class="nav-item" type="button" data-view="history"><span class="nav-icon">▤</span><b>Notes</b></button>
+            <button class="nav-item" type="button" data-view="summarize"><span class="nav-icon">▱</span><b>Courses</b></button>
+            <button class="nav-item" type="button" data-view="export"><span class="nav-icon">◉</span><b>Library</b></button>
           </nav>
 
-          <div class="side-block">
-            <p class="side-label">课堂设置 Classroom Setup</p>
-            <label class="field"><span>课程名称</span><input id="class-title" maxlength="80" placeholder="Business Analytics"></label>
-            <label class="field"><span>音频来源</span>
-              <select id="source">
-                <option value="mic">麦克风 · 线下课堂</option>
-                <option value="screen">共享标签页 · 网课</option>
-              </select>
-            </label>
-            <label class="field"><span>识别精度</span>
-              <select id="model">
-                <option value="small" selected>Small · 流畅</option>
-                <option value="medium">Medium · 中等</option>
-                <option value="large-v3">Large v3 · 精确</option>
-              </select>
-            </label>
-            <label class="field"><span>专业术语（可选）</span>
-              <textarea id="glossary" rows="2" maxlength="500" placeholder="regression, hypothesis testing, ANOVA"></textarea>
-            </label>
-            <label class="speak-toggle"><input id="speak" type="checkbox"><span>朗读中文译文</span></label>
-            <div class="recent-head">
-              <p class="side-label">最近课堂</p>
-              <button id="new-session" class="text-btn" type="button">＋ 新建</button>
-            </div>
-            <div id="recent-list" class="recent-list"></div>
+          <div class="sidebar-spacer"></div>
+          <button class="nav-item settings-link" type="button" data-view="setup"><span class="nav-icon">⚙</span><b>Settings</b></button>
+
+          <section class="sidebar-card" aria-label="产品介绍">
+            <div class="mesh" aria-hidden="true"><i></i><i></i><i></i></div>
+            <strong>From Every Lecture<br>to Lasting Knowledge</strong>
+            <p>Real-time translation,<br>AI summary, organized notes.</p>
+          </section>
+          <div class="sidebar-footer">
+            <button id="theme-toggle" class="theme-toggle" type="button" aria-label="Switch to light mode" title="Switch to light mode"><span aria-hidden="true">☀</span></button>
+            <button class="quiet-exit" id="quit-app" type="button">退出本地服务</button>
           </div>
         </aside>
 
-        <div class="stage">
+        <main class="stage">
           <header class="topbar">
-            <div class="crumb">
-              <span class="live-dot" aria-hidden="true"></span>
-              <div>
-                <strong>实时听课 Live Class</strong>
-                <p>AI 同传 · 实时转写 · 课程笔记 · 智能总结</p>
-              </div>
-            </div>
-            <label class="search-wrap"><input id="global-search" placeholder="搜索转写或课堂…" autocomplete="off"></label>
+            <label class="course-switcher">
+              <span class="course-icon" aria-hidden="true">◆</span>
+              <span class="course-copy"><small>当前课程</small><input id="class-title" value="General Biology" maxlength="80" aria-label="课程名称"></span>
+              <span aria-hidden="true">⌄</span>
+            </label>
+
+            <label class="search-wrap global">
+              <span aria-hidden="true">⌕</span>
+              <input id="global-search" placeholder="Search notes, keywords, or courses…">
+              <kbd>⌘ K</kbd>
+            </label>
+
             <div class="top-actions">
-              <span id="local-status" class="status-pill">正在检查本地模型…</span>
-              <span class="avatar" aria-hidden="true"></span>
+              <span id="local-status" class="status-pill">正在检查本地服务…</span>
+              <span class="avatar" aria-label="本地用户">CI</span>
             </div>
           </header>
 
-          <div id="model-banner" class="model-banner show">
-            <p id="model-banner-text">模型还没装好。点右侧按钮下载（需联网）。校园网请改用手机热点。</p>
+          <section id="model-banner" class="model-banner" aria-live="polite">
+            <span class="banner-icon">!</span>
+            <p id="model-banner-text">正在检查本地模型…</p>
             <div class="banner-actions">
-              <button id="install-translation" class="button primary" type="button">现在安装中文翻译模型</button>
-              <button id="install-whisper" class="button primary" type="button">下载语音模型</button>
+              <button id="install-translation" class="button" type="button">安装翻译模型</button>
+              <button id="install-whisper" class="button" type="button">下载语音模型</button>
               <button id="install-deepseek" class="button" type="button">安装 DeepSeek</button>
             </div>
-          </div>
+            <div id="model-download-progress" class="model-download-progress" hidden>
+              <div class="model-progress-heading">
+                <strong id="model-progress-phase">Preparing model</strong>
+                <span id="model-progress-percent">0%</span>
+              </div>
+              <div class="model-progress-track" role="progressbar" aria-label="Model download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <span id="model-progress-bar"></span>
+              </div>
+              <small id="model-progress-detail">Waiting for download information…</small>
+            </div>
+          </section>
 
           <section class="view" id="view-home" hidden>
             <div class="hero-panel">
               <div>
                 <p class="eyebrow" id="home-greeting">Good morning</p>
-                <h1>听懂每一句，跟上每一堂课。</h1>
+                <h1>听懂每一句，<br>跟上每一堂课。</h1>
                 <p>Translate, understand, and grow — one step at a time.</p>
               </div>
               <div class="hero-art" aria-hidden="true"><span>EN</span><i>→</i><span>中</span></div>
             </div>
             <div class="home-grid">
-              <button class="home-card" type="button" data-view="live"><b>Live Class</b><span>麦克风或网课音频，实时英译中。</span></button>
-              <button class="home-card" type="button" data-view="summarize"><b>Summarize Content</b><span>从本堂记录生成课后总结。</span></button>
-              <button class="home-card" type="button" data-view="export"><b>Export Notes</b><span>保存、分享课堂笔记。</span></button>
-              <button class="home-card" type="button" data-view="setup"><b>Class Set-up</b><span>课程名、术语、音频来源与朗读。</span></button>
-              <button class="home-card" type="button" data-view="history"><b>History</b><span>查看过往转写与总结。</span></button>
-              <button class="home-card" type="button" data-view="model"><b>Switch Model</b><span>Small / Medium / Large，仍在本机运行。</span></button>
+              <button class="home-card" type="button" data-view="live"><i>▥</i><b>Live Translation</b><span>实时英译中，自动保存课堂记录。</span></button>
+              <button class="home-card" type="button" data-view="summarize"><i>✦</i><b>AI Summary</b><span>从本堂转写生成课后总结。</span></button>
+              <button class="home-card" type="button" data-view="history"><i>▤</i><b>Recent Notes</b><span>继续查看过往课堂内容。</span></button>
             </div>
           </section>
 
           <section class="view" id="view-live">
-            <div class="hero-panel live-hero">
-              <div>
-                <p class="eyebrow">你的 AI 课堂翻译助手</p>
-                <h1>听懂每一句，<br>跟上每一堂课。</h1>
-                <p>实时呈现英语原文与中文译文，支持课堂转写、智能总结和重点提炼，帮你高效学习。</p>
-              </div>
-              <div class="hero-art" aria-hidden="true"><span>EN</span><i>→</i><span>中</span></div>
-            </div>
-            <div class="live-layout">
-              <div class="panel live-main">
-                <div class="live-toolbar">
-                  <div>
-                    <strong id="elapsed-time">00:00:00</strong>
-                    <small id="record-indicator" class="record-indicator"><span></span><i id="record-status">未录音</i> · <b id="session-heading">准备开始听课</b></small>
+            <div class="live-workspace">
+              <div class="live-center">
+                <section class="session-console panel">
+                  <div class="record-cluster">
+                    <button id="record-button" class="record-control" type="button" aria-label="开始或结束同传"><i aria-hidden="true">▶</i><span class="sr-only">开始同传</span></button>
+                    <div class="record-copy">
+                      <strong>Live Translation</strong>
+                      <small id="record-indicator" class="record-indicator"><span></span><i id="record-status">Ready to listen</i></small>
+                    </div>
                   </div>
-                  <div class="live-actions">
-                    <button id="record-button" class="button primary" type="button"><span>开始同传</span></button>
-                    <button id="summary-button" class="button" type="button">生成课程总结</button>
-                    <button id="export-button" class="button" type="button">导出笔记</button>
+
+                  <div class="waveform" aria-hidden="true">
+                    <i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i>
                   </div>
-                </div>
-                <p id="notice" class="notice" role="status" aria-live="polite">第一次识别会下载免费语音模型，需保持联网；下载完成后可离线使用。</p>
-                <div class="transcript-bar">
-                  <div>
-                    <h2>实时转写与翻译 Live Transcript</h2>
-                    <p id="session-meta">选择声音来源，开始后将自动保存课堂记录。</p>
+                  <strong id="elapsed-time" class="session-clock">00:00:00</strong>
+
+                  <div class="model-switch" aria-label="语音识别模型">
+                    <span>Model</span>
+                    <div>
+                      <button class="model-card" type="button" data-model="small">Light</button>
+                      <button class="model-card" type="button" data-model="medium">Medium</button>
+                      <button class="model-card" type="button" data-model="large-v3">Large</button>
+                    </div>
+                    <select id="model" aria-label="识别模型">
+                      <option value="small" selected>Small</option>
+                      <option value="medium">Medium</option>
+                      <option value="large-v3">Large v3</option>
+                    </select>
                   </div>
-                  <label class="search-wrap tight"><input id="transcript-search" placeholder="搜索转写内容…"></label>
-                  <label class="dual-check"><input id="dual-view" type="checkbox" checked> 双语对照</label>
-                  <span id="entry-count" class="count">0 条</span>
-                </div>
-                <div class="transcript-head" aria-hidden="true"><span>时间</span><span>原文 / English</span><span>译文 / 中文</span></div>
-                <div id="transcript" class="transcript"></div>
-              </div>
-              <aside class="insight-rail">
-                <section class="panel" id="summary-section">
-                  <h3>课程摘要 Class Summary <small id="summary-source">尚未生成</small></h3>
-                  <div id="summary-content" class="summary-content muted">完成一段课堂记录后，点击“生成课程总结”。</div>
-                  <button class="button" type="button" data-generate-summary>生成完整总结 →</button>
                 </section>
-                <section class="panel">
-                  <h3>关键概念 Key Concepts <span id="concept-count" class="count">0</span></h3>
+
+                <section class="language-console panel">
+                  <label>
+                    <span>Original Language</span>
+                    <select id="source"><option value="mic">English · Microphone</option><option value="screen">English · Shared tab</option></select>
+                  </label>
+                  <span class="language-arrow" aria-hidden="true">⇄</span>
+                  <div class="language-pair"><span>Translate to</span><strong>Chinese <small>简体中文</small></strong></div>
+                  <div class="view-toggles">
+                    <button id="subtitle-window-button" class="subtitle-window-button" type="button" aria-pressed="false" title="Open a compact always-on-top subtitle island">▣ Floating subtitles</button>
+                    <label class="switch" title="Adds live Chinese previews, but uses more CPU and may increase subtitle delay"><span>Live Chinese (slower)</span><input id="dual-view" type="checkbox"><i></i></label>
+                    <label class="switch"><span>Show Timestamps</span><input id="timestamp-view" type="checkbox" checked><i></i></label>
+                    <label class="switch speak-toggle"><span>朗读译文</span><input id="speak" type="checkbox"><i></i></label>
+                  </div>
+                </section>
+
+                <section class="transcript-shell">
+                  <div class="transcript-toolbar">
+                    <div>
+                      <h2>Live Transcript</h2>
+                      <p id="session-meta">选择声音来源，开始后将自动保存课堂记录。</p>
+                    </div>
+                    <label class="search-wrap compact"><span aria-hidden="true">⌕</span><input id="transcript-search" placeholder="Search transcript…"></label>
+                    <span id="entry-count" class="count">0 条</span>
+                  </div>
+
+                  <p id="notice" class="notice" role="status" aria-live="polite">系统已准备好。开始后会按自然停顿生成双语记录。</p>
+                  <div id="live-preview" class="live-preview" hidden aria-live="polite">
+                    <span>LIVE</span><div><p id="live-preview-en"></p><strong id="live-preview-zh">正在识别…</strong></div>
+                  </div>
+                  <div class="transcript-head" aria-hidden="true"><span>Time</span><span>Transcript</span><span></span></div>
+                  <div id="transcript" class="transcript"></div>
+
+                  <div class="listening-dock">
+                    <span class="mini-wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i></span>
+                    <b id="session-heading">Listening to lecture audio…</b>
+                    <button class="dock-record" type="button" data-record-proxy><i></i><span>Start</span></button>
+                  </div>
+                </section>
+              </div>
+
+              <aside class="insight-rail">
+                <div class="rail-tabs" role="tablist" aria-label="课堂洞察">
+                  <button class="active" type="button" data-rail-tab="summary">Summary</button>
+                  <button type="button" data-rail-tab="concepts">Key Points</button>
+                  <button type="button" data-rail-tab="progress">Progress</button>
+                  <button type="button" data-rail-tab="system">System</button>
+                </div>
+
+                <section class="panel rail-panel active summary-card" id="summary-section" data-rail-panel="summary">
+                  <h3><span><i class="spark">✦</i> AI Summary — DeepSeek Chat</span><button class="collapse-mark" type="button" aria-label="摘要">⌃</button></h3>
+                  <div id="summary-content" class="summary-content muted">Complete a lecture segment, then generate a clear summary grounded in your transcript.</div>
+                  <div class="summary-meta"><span>Source</span><small id="summary-source">尚未生成</small></div>
+                  <button class="button summary-action" id="summary-button" type="button" data-generate-summary>✦ Generate Full Summary</button>
+                </section>
+
+                <section class="panel rail-panel" data-rail-panel="concepts">
+                  <h3><span>Key Concepts</span><span id="concept-count" class="count">0</span></h3>
                   <div id="concept-list" class="concept-list"></div>
                 </section>
-                <section class="panel">
-                  <h3>学习数据 Today’s Progress</h3>
-                  <p class="muted">今日时长 <b id="duration-metric">0 分钟</b></p>
-                  <div class="metric-grid">
-                    <div><strong id="segment-metric">0</strong><span>转写片段</span></div>
-                    <div><strong id="word-metric">0</strong><span>英文词数</span></div>
-                    <div><strong id="concept-metric">0</strong><span>关键概念</span></div>
+
+                <section class="panel rail-panel" data-rail-panel="progress">
+                  <h3>Today’s Progress</h3>
+                  <p class="muted">记录时长 <b id="duration-metric">0 分钟</b></p>
+                  <div class="metric-grid"><div><strong id="segment-metric">0</strong><span>Segments</span></div><div><strong id="word-metric">0</strong><span>Words</span></div><div><strong id="concept-metric">0</strong><span>Concepts</span></div></div>
+                </section>
+
+                <section class="panel rail-panel" data-rail-panel="system">
+                  <h3>System Status</h3>
+                  <ul class="system-list">
+                    <li><span>Microphone</span><b id="mic-health">待连接</b></li>
+                    <li><span>Audio input</span><b id="audio-health">等待语音</b></li>
+                    <li><span>Translation engine</span><b id="engine-health">检查中</b></li>
+                    <li><span>DeepSeek</span><b id="deepseek-health">检查中</b></li>
+                    <li><span>Local notes</span><b>Auto-save</b></li>
+                  </ul>
+                </section>
+
+                <section class="panel export-card">
+                  <h3><span>⇧ Export Notes</span><small>⌃</small></h3>
+                  <div class="export-options">
+                    <button type="button" data-export-format="pdf"><i class="pdf">▧</i>PDF</button>
+                    <button type="button" data-export-format="word"><i class="word">▤</i>Word</button>
+                    <button type="button" data-export-format="markdown"><i>M↓</i>Markdown</button>
+                    <button id="export-button" type="button" data-export-format="text"><i>▤</i>Plain Text</button>
                   </div>
                 </section>
-                <section class="panel">
-                  <h3>系统状态 System Status</h3>
-                  <ul class="system-list">
-                    <li><span>麦克风</span><b id="mic-health">待连接</b></li>
-                    <li><span>音频输入</span><b id="audio-health">等待语音</b></li>
-                    <li><span>同传引擎</span><b id="engine-health">检查中</b></li>
-                    <li><span>DeepSeek</span><b id="deepseek-health">检查中</b></li>
-                    <li><span>本地记录</span><b>自动保存</b></li>
-                  </ul>
+
+                <section class="panel course-card">
+                  <h3><span>⊞ Create / Manage Course</span><small>⌃</small></h3>
+                  <label class="field"><span>Course Name</span><input id="course-title-side" maxlength="80" value="General Biology"></label>
+                  <label class="field"><span>Keywords</span><textarea id="glossary" rows="2" maxlength="500" placeholder="cell, mitochondria, ATP, photosynthesis"></textarea></label>
+                  <p class="course-help">Add professional terms, abbreviations, or subject-specific vocabulary to improve accuracy.</p>
+                  <button class="button course-action" type="button" data-new-session-proxy>⊞ Create Course</button>
+                  <button id="new-session" class="sr-only" type="button">新建课堂</button>
+                </section>
+
+                <section class="panel recent-card">
+                  <h3><span>Recent Notes</span><button class="text-btn" type="button" data-view="history">View All ›</button></h3>
+                  <div id="recent-list" class="recent-list"></div>
                 </section>
               </aside>
             </div>
           </section>
 
-          <section class="view" id="view-summarize" hidden>
-            <div class="page-head">
-              <div>
-                <h1>课程总结</h1>
-                <p>只根据已识别的课堂文字，不编造内容。</p>
-              </div>
-            </div>
-            <div class="split">
-              <div class="panel drop-panel">
-                <p>从当前课堂记录生成总结。需要先在实时听课录音。若已放入加密的 DeepSeek API，会直接用云接口归纳。</p>
-                <p id="deepseek-status-text" class="muted">正在检查本机 DeepSeek…</p>
-                <button class="button primary" type="button" id="summary-page-button">生成课后总结</button>
-                <button class="button" type="button" id="install-deepseek-page">安装 DeepSeek（约 1.1GB，免费）</button>
-              </div>
-              <div class="panel">
-                <h3>Summary Result</h3>
-                <div id="summary-page-content" class="summary-content muted">Your summary will appear here.</div>
-              </div>
-            </div>
+          <section class="view secondary-view" id="view-summarize" hidden>
+            <div class="page-head"><div><p class="eyebrow">AI Study Assistant</p><h1>课程总结</h1><p>只根据已识别的课堂文字整理，不编造内容。</p></div><button class="button primary" type="button" id="summary-page-button">生成课后总结</button></div>
+            <div class="split"><div class="panel drop-panel"><i class="page-symbol">✦</i><p>从当前课堂记录生成结构化总结。DeepSeek 就绪时会自动增强整理质量。</p><p id="deepseek-status-text" class="muted">正在检查 DeepSeek…</p><button class="button" type="button" id="install-deepseek-page">安装 DeepSeek</button></div><div class="panel result-panel"><h3>Summary Result</h3><div id="summary-page-content" class="summary-content muted">Your summary will appear here.</div></div></div>
           </section>
 
-          <section class="view" id="view-export" hidden>
-            <div class="page-head">
-              <div>
-                <h1>导出笔记</h1>
-                <p>Save, share, and study anytime.</p>
-              </div>
-              <button class="button primary" type="button" id="export-page-button">Download</button>
-            </div>
-            <div class="split">
-              <div class="panel">
-                <h3>Recent classes</h3>
-                <div id="export-list" class="note-list"></div>
-              </div>
-              <div class="panel">
-                <h3 id="export-title">当前笔记</h3>
-                <pre id="export-preview" class="note-preview">选择一节课或先开始同传。</pre>
-              </div>
-            </div>
+          <section class="view secondary-view" id="view-export" hidden>
+            <div class="page-head"><div><p class="eyebrow">Study anywhere</p><h1>导出笔记</h1><p>保存、分享并继续学习。</p></div><button class="button primary" type="button" id="export-page-button">下载文本</button></div>
+            <div class="split export-view"><div class="panel"><h3>最近课堂</h3><div id="export-list" class="note-list"></div></div><div class="panel"><h3 id="export-title">当前笔记</h3><pre id="export-preview" class="note-preview">选择一节课或先开始同传。</pre></div></div>
           </section>
 
-          <section class="view" id="view-model" hidden>
-            <div class="page-head">
-              <div>
-                <h1>识别模型</h1>
-                <p>Choose the best local Whisper model. 不使用 GPT / Claude / Gemini。</p>
-              </div>
-            </div>
-            <div class="model-grid">
-              <button class="model-card" type="button" data-model="small"><b>Small · 流畅</b><span>普通笔记本、希望尽量跟上课堂</span></button>
-              <button class="model-card" type="button" data-model="medium"><b>Medium · 中等</b><span>口音较重、电脑性能较好</span></button>
-              <button class="model-card" type="button" data-model="large-v3"><b>Large v3 · 精确</b><span>优先准确率，延迟更长</span></button>
-            </div>
-            <p class="muted">当前模型：<b id="current-model-label">Small</b></p>
+          <section class="view secondary-view" id="view-model" hidden>
+            <div class="page-head"><div><p class="eyebrow">Recognition engine</p><h1>语音模型</h1><p>模型越大越准确，也会占用更多内存。</p></div><span class="status-pill">当前：<b id="current-model-label">Small</b></span></div>
+            <div class="model-grid"><button class="model-card selected" type="button" data-model="small"><b>Light</b><span>推荐 · 更快</span></button><button class="model-card" type="button" data-model="medium"><b>Medium</b><span>更准确</span></button><button class="model-card" type="button" data-model="large-v3"><b>Large</b><span>准确优先</span></button></div>
           </section>
 
-          <section class="view" id="view-setup" hidden>
-            <div class="page-head">
-              <div>
-                <h1>设置</h1>
-                <p>课堂名称、音频来源和模型都在左侧栏。这里可以切换识别精度。</p>
-              </div>
-            </div>
-            <div class="model-grid">
-              <button class="model-card" type="button" data-model="small"><b>Small · 流畅</b><span>普通笔记本、希望尽量跟上课堂</span></button>
-              <button class="model-card" type="button" data-model="medium"><b>Medium · 中等</b><span>口音较重、电脑性能较好</span></button>
-              <button class="model-card" type="button" data-model="large-v3"><b>Large v3 · 精确</b><span>优先准确率，延迟更长</span></button>
-            </div>
+          <section class="view secondary-view" id="view-setup" hidden>
+            <div class="page-head"><div><p class="eyebrow">Local privacy</p><h1>设置</h1><p>浏览器录音、本机识别、自动保存。</p></div></div>
+            <div class="split"><div class="panel drop-panel"><i class="page-symbol">◌</i><h3>隐私优先</h3><p>录音不会上传到我们的服务器。语音识别和翻译在本机完成。</p></div><div class="panel"><h3>使用建议</h3><ul class="tips"><li>首次使用保持联网以下载免费模型。</li><li>线下课堂选择麦克风；网课选择共享标签页并勾选共享音频。</li><li>手机端请保持网页在前台，避免锁屏。</li></ul></div></div>
           </section>
 
-          <section class="view" id="view-history" hidden>
-            <div class="page-head">
-              <div>
-                <h1>历史记录</h1>
-                <p>View your past translations and summaries.</p>
-              </div>
-            </div>
+          <section class="view secondary-view" id="view-history" hidden>
+            <div class="page-head"><div><p class="eyebrow">Your learning archive</p><h1>课堂笔记</h1><p>所有记录均保存在当前电脑。</p></div></div>
             <div id="history" class="history-grid"></div>
           </section>
-        </div>
+        </main>
       </div>
     </div>
   </div>
-  <script src="/app.js?v=0.3.3" defer></script>
+  <script src="/subtitle-window.js?v=0.3.3-island5" defer></script>
+  <script src="/app.js?v=0.3.3-stream7" defer></script>
 </body>
 </html>
