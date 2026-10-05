@@ -21,7 +21,23 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
-import deepseek_api
+try:
+    import deepseek_api
+except ModuleNotFoundError:
+    class _UnavailableDeepSeekAPI:
+        """Keep core subtitles usable when an optional cloud helper was removed."""
+
+        CLOUD_MODEL = "deepseek-chat"
+
+        @staticmethod
+        def available(*_args, **_kwargs) -> bool:
+            return False
+
+        @staticmethod
+        def chat(*_args, **_kwargs) -> str:
+            raise RuntimeError("DeepSeek cloud support is unavailable; subtitles still work.")
+
+    deepseek_api = _UnavailableDeepSeekAPI()
 import deepseek_hub
 import ssl_certs
 import streaming_server

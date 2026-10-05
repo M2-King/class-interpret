@@ -5,7 +5,19 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Iterable
 
-import deepseek_api
+try:
+    import deepseek_api
+except ModuleNotFoundError:
+    class _UnavailableDeepSeekAPI:
+        @staticmethod
+        def available(*_args, **_kwargs) -> bool:
+            return False
+
+        @staticmethod
+        def chat(*_args, **_kwargs) -> str:
+            raise RuntimeError("DeepSeek cloud translation is unavailable.")
+
+    deepseek_api = _UnavailableDeepSeekAPI()
 
 _RTF_CONTROL = re.compile(
     r"(?:\{\\|\\(?:fn|fs|fcharset|bord|shad|[34]c|alpha|pos|an)\w*\b)",

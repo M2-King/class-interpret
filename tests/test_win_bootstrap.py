@@ -51,6 +51,12 @@ wb.configure_env(nested)
 assert os.environ["CLASS_INTERPRET_HF"].replace("\\", "/").endswith("/ci-nested-extract/hf")
 assert os.environ["CLASS_INTERPRET_DATA"].replace("\\", "/").endswith("/ci-nested-extract/data")
 
+legacy_root = test_root / "ci-legacy-module"
+legacy_root.mkdir(parents=True, exist_ok=True)
+(legacy_root / "deepseek-api.py").write_text("value = 1\n", encoding="utf-8")
+wb.restore_legacy_module_names(legacy_root)
+assert (legacy_root / "deepseek_api.py").read_text(encoding="utf-8") == "value = 1\n"
+
 embed = test_root / "ci-embed-pth" / ".runtime" / "python"
 embed.mkdir(parents=True, exist_ok=True)
 (embed / "python312.zip").write_bytes(b"x")
@@ -79,6 +85,7 @@ assert "CI_PROGRESS" in src
 assert "CI_ERROR" in src
 assert "PIP_CACHE_DIR" in src
 assert "--prefer-binary" in src
+assert "restore_legacy_module_names" in src
 assert "Optional NVIDIA acceleration deferred" in src
 assert "Optional Chinese translation setup deferred" in src
 assert "import faster_whisper, websockets" in src

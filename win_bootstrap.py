@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
 import sys
 import time
@@ -239,6 +240,15 @@ def configure_env(root: Path) -> None:
     data.mkdir(parents=True, exist_ok=True)
 
 
+def restore_legacy_module_names(root: Path) -> None:
+    """Repair the early Windows package's invalid hyphenated module filename."""
+    wanted = root / "deepseek_api.py"
+    legacy = root / "deepseek-api.py"
+    if not wanted.is_file() and legacy.is_file():
+        shutil.copy2(legacy, wanted)
+        log("Restored deepseek_api.py from the legacy deepseek-api.py filename.")
+
+
 def app_version(root: Path) -> str:
     path = root / "VERSION"
     if path.is_file():
@@ -273,6 +283,7 @@ def main() -> int:
         return run(str(wanted), [str(Path(__file__).resolve()), *sys.argv[1:]])
 
     configure_env(root)
+    restore_legacy_module_names(root)
     fast_first_start = os.environ.get("CLASS_INTERPRET_FAST_FIRST_START") == "1"
     current = status_version()
     if current == version:
