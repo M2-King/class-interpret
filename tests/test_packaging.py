@@ -175,6 +175,8 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b"restore_legacy_module_names" in bootstrap
     server = zf.read(f"{inner}/server.py")
     assert b"class _UnavailableDeepSeekAPI" in server
+    assert b"class _UnavailableDeepSeekHub" in server
+    assert b"live subtitles" in server
     got = zf.read(f"{inner}/VERSION").decode().strip()
     assert got == version, got
     assert f"{inner}/win_bootstrap.py" in names

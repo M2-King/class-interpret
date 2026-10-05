@@ -38,7 +38,39 @@ except ModuleNotFoundError:
             raise RuntimeError("DeepSeek cloud support is unavailable; subtitles still work.")
 
     deepseek_api = _UnavailableDeepSeekAPI()
-import deepseek_hub
+try:
+    import deepseek_hub
+except ModuleNotFoundError:
+    class _UnavailableDeepSeekHub:
+        """Local DeepSeek is optional and must never block live subtitles."""
+
+        DEFAULT_MODEL = "deepseek-r1:1.5b"
+
+        @staticmethod
+        def installed() -> None:
+            return None
+
+        @staticmethod
+        def snapshot() -> dict:
+            return {"ready": False, "deepseek": None, "ollama": None}
+
+        @staticmethod
+        def try_start() -> None:
+            return None
+
+        @staticmethod
+        def friendly_error(_exc: BaseException) -> str:
+            return "Local DeepSeek support is unavailable; live subtitles still work."
+
+        @staticmethod
+        def chat(*_args, **_kwargs) -> str:
+            raise RuntimeError("Local DeepSeek support is unavailable.")
+
+        @staticmethod
+        def install(*_args, **_kwargs) -> str:
+            raise RuntimeError("Local DeepSeek support is unavailable in this installation.")
+
+    deepseek_hub = _UnavailableDeepSeekHub()
 import ssl_certs
 import streaming_server
 import translation_hub
