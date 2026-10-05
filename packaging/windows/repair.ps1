@@ -182,12 +182,16 @@ try {
                'deepseek_hub.py', 'deepseek_api.py', 'secret_box.py', 'requirements.txt',
                'index.html', 'app.js', 'audio-worklet.js', 'subtitle-window.js', 'subtitle.html',
                'style.css', 'subtitle.css', 'VERSION', 'README.md', 'pip.pyz',
-               'get-pip.py', 'deepseek_api.enc', 'HOW-TO-START.txt')
+                'get-pip.py', 'deepseek_api.enc', 'class_interpreter_modules.zip', 'HOW-TO-START.txt')
     $extraBatch = @(Get-ChildItem -LiteralPath $source -File -Filter '*.bat' -ErrorAction SilentlyContinue |
         Where-Object { $_.Name -ne 'Start.bat' } | Select-Object -ExpandProperty Name)
     $files += $extraBatch
     foreach ($file in ($files | Select-Object -Unique)) {
         if ($target -ne $source) { Copy-RecoveryFile -RelativePath $file -SourcePath $source -DestinationPath $target -BackupPath $backup }
+    }
+    $moduleBundle = Join-Path $target 'class_interpreter_modules.zip'
+    if (-not (Test-Path -LiteralPath $moduleBundle -PathType Leaf) -or (Get-Item -LiteralPath $moduleBundle).Length -lt 10000) {
+        throw 'The Windows helper module bundle is missing or incomplete. Download the installer again.'
     }
 
     $targetRuntime = Join-Path $target '.runtime\python\python.exe'

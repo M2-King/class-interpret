@@ -28,6 +28,7 @@ cp "$ROOT/packaging/windows/repair.ps1" "$STAGE/repair.ps1"
 export DEST
 PYTHON="${PYTHON:-python3}"
 "$PYTHON" "$ROOT/packaging/windows/bundle_runtime.py"
+"$PYTHON" "$ROOT/packaging/windows/build_module_bundle.py" "$ROOT" "$DEST/class_interpreter_modules.zip"
 "$PYTHON" - <<'PY'
 from pathlib import Path
 import os
@@ -142,6 +143,8 @@ with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as zf:
         if name.endswith(".bat"):
             data = data.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n")
         zf.writestr(f"{inner}/{name}", data)
+    module_bundle = Path(os.environ["DEST"]) / "class_interpreter_modules.zip"
+    zf.write(module_bundle, f"{inner}/class_interpreter_modules.zip")
     howto = (root / "packaging/windows/HOW-TO-START.txt").read_bytes()
     zf.writestr(f"{inner}/HOW-TO-START.txt", howto.replace(b"\r\n", b"\n").replace(b"\n", b"\r\n"))
     zh = (root / "packaging/windows/使用说明.txt").read_bytes()

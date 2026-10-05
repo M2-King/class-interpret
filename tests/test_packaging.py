@@ -138,6 +138,7 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b"Detected installation" in repair
     assert b".venv-broken-" in repair
     assert b".repair-backup" in repair
+    assert b"class_interpreter_modules.zip" in repair
     assert b"Stop-AppForRepair" in repair
     assert b"Close every Class Interpreter or Python window" in repair
     assert b"$target = [string]$selectedTarget" in repair
@@ -177,6 +178,8 @@ with zipfile.ZipFile(win_zip) as zf:
     assert b"class _UnavailableDeepSeekAPI" in server
     assert b"class _UnavailableDeepSeekHub" in server
     assert b"live subtitles" in server
+    assert b"class_interpreter_modules.zip" in server
+    assert b"CLASS_INTERPRET_HF" in server
     got = zf.read(f"{inner}/VERSION").decode().strip()
     assert got == version, got
     assert f"{inner}/win_bootstrap.py" in names
@@ -189,6 +192,11 @@ with zipfile.ZipFile(win_zip) as zf:
     assert len(zf.read(f"{inner}/get-pip.py")) > 10000
     assert f"{inner}/secret_box.py" in names
     assert f"{inner}/deepseek_api.py" in names
+    assert f"{inner}/class_interpreter_modules.zip" in names
+    with zipfile.ZipFile(zf.open(f"{inner}/class_interpreter_modules.zip")) as modules:
+        bundled_names = set(modules.namelist())
+        for module in ("deepseek_api.py", "deepseek_hub.py", "ssl_certs.py", "streaming_server.py", "translation_hub.py", "whisper_hub.py"):
+            assert module in bundled_names, module
     for required in ("streaming_server.py", "streaming_hub.py", "translation_hub.py", "audio-worklet.js", "subtitle-window.js", "subtitle.html", "subtitle.css"):
         assert f"{inner}/{required}" in names, required
     assert f"{inner}/deepseek_api.enc" in names
@@ -201,6 +209,7 @@ recover_zip = root / f"ClassInterpreter-recover-{version}.zip"
 assert recover_zip.is_file(), f"rebuild {recover_zip.name}"
 with zipfile.ZipFile(recover_zip) as zf:
     names = zf.namelist()
+    assert f"ClassInterpreter-recover-{version}/class_interpreter_modules.zip" in names
     prefix = f"ClassInterpreter-recover-{version}/"
     assert "READ-ME-FIRST.txt" in names, names
     assert "INSTALL-OR-REPAIR.bat" in names, names

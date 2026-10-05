@@ -21,6 +21,19 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
+# Establish real filesystem locations before importing helpers. This also lets
+# modules loaded from the fallback zip avoid treating the zip itself as a folder.
+APP_ROOT = Path(__file__).resolve().parent
+os.environ.setdefault("CLASS_INTERPRET_HF", str(APP_ROOT / "hf"))
+os.environ.setdefault("CLASS_INTERPRET_DATA", str(APP_ROOT / "data"))
+
+# Fresh Windows installations include a single fallback archive of all local
+# helpers. Loose files remain preferred for development and upgrades; if an
+# antivirus or incomplete repair removes one, Python continues from the bundle.
+MODULE_BUNDLE = APP_ROOT / "class_interpreter_modules.zip"
+if MODULE_BUNDLE.is_file() and str(MODULE_BUNDLE) not in sys.path:
+    sys.path.append(str(MODULE_BUNDLE))
+
 try:
     import deepseek_api
 except ModuleNotFoundError:
@@ -79,7 +92,7 @@ import whisper_hub
 ssl_certs.apply()
 whisper_hub.configure()
 
-ROOT = Path(__file__).resolve().parent
+ROOT = APP_ROOT
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.3.3"
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
