@@ -70,6 +70,16 @@
               <button id="install-whisper" class="button" type="button">下载语音模型</button>
               <button id="install-deepseek" class="button" type="button">安装 DeepSeek</button>
             </div>
+            <div id="model-download-progress" class="model-download-progress" hidden>
+              <div class="model-progress-heading">
+                <strong id="model-progress-phase">Preparing model</strong>
+                <span id="model-progress-percent">0%</span>
+              </div>
+              <div class="model-progress-track" role="progressbar" aria-label="Model download progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+                <span id="model-progress-bar"></span>
+              </div>
+              <small id="model-progress-detail">Waiting for download information…</small>
+            </div>
           </section>
 
           <section class="view" id="view-home" hidden>

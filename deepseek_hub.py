@@ -15,6 +15,7 @@ import sys
 import tarfile
 import time
 import zipfile
+from collections.abc import Callable
 from pathlib import Path
 from urllib import error, request
 
@@ -22,6 +23,12 @@ PREFERRED_MODELS = ("deepseek-r1:8b", "deepseek-r1:7b", "deepseek-r1:1.5b")
 DEFAULT_MODEL = "deepseek-r1:1.5b"
 HOST = os.environ.get("CLASS_INTERPRET_OLLAMA", "http://127.0.0.1:11434")
 GITHUB_LATEST = "https://github.com/ollama/ollama/releases/latest/download"
+ProgressCallback = Callable[[int, str, str, int, int], None]
+
+
+def _progress(callback: ProgressCallback | None, percent: int, phase: str, detail: str, downloaded: int = 0, total: int = 0) -> None:
+    if callback:
+        callback(percent, phase, detail, downloaded, total)
 
 
 def support_root() -> Path:
@@ -190,11 +197,20 @@ def _ssl_context():
     return ssl.create_default_context()
 
 
-def _download(url: str, dest: Path) -> None:
+def _download(url: str, dest: Path, progress: ProgressCallback | None = None) -> None:
     dest.parent.mkdir(parents=True, exist_ok=True)
     req = request.Request(url, headers={"User-Agent": "class-interpret"})
     with request.urlopen(req, timeout=600, context=_ssl_context()) as response, dest.open("wb") as out:
-        shutil.copyfileobj(response, out)
+        total = int(response.headers.get("Content-Length") or 0)
+        downloaded = 0
+        while True:
+            block = response.read(1024 * 256)
+            if not block:
+                break
+            out.write(block)
+            downloaded += len(block)
+            percent = min(20, int(downloaded * 20 / total)) if total else 5
+            _progress(progress, percent, "Downloading Ollama", "Downloading the local AI runtime...", downloaded, total)
 
 
 def _try_winget() -> Path | None:
@@ -216,10 +232,12 @@ def _try_winget() -> Path | None:
     return find_binary()
 
 
-def download_ollama() -> Path:
+def download_ollama(progress: ProgressCallback | None = None) -> Path:
     existing = find_binary()
     if existing:
+        _progress(progress, 20, "Ollama ready", "Using the existing local AI runtime.")
         return existing
+    _progress(progress, 3, "Preparing Ollama", "Checking for an existing local AI runtime...")
     winget_binary = _try_winget()
     if winget_binary:
         return winget_binary
@@ -229,7 +247,8 @@ def download_ollama() -> Path:
         archive = dest_dir / Path(url).name.split("?")[0]
         print(f"正在下载 Ollama：{url}")
         try:
-            _download(url, archive)
+            _download(url, archive, progress)
+            _progress(progress, 22, "Installing Ollama", "Unpacking the local AI runtime...")
             binary = extract_archive(archive, dest_dir)
             return binary
         except Exception as exc:
@@ -279,7 +298,7 @@ def try_start() -> None:
         print(f"后台启动 Ollama 失败：{exc}")
 
 
-def pull(name: str) -> None:
+def pull(name: str, progress: ProgressCallback | None = None) -> None:
     payload = json.dumps({"name": name, "stream": True}).encode("utf-8")
     req = request.Request(f"{HOST}/api/pull", data=payload, headers={"Content-Type": "application/json"})
     last = ""
@@ -296,27 +315,33 @@ def pull(name: str) -> None:
             if item.get("error"):
                 raise RuntimeError(item["error"])
             status = str(item.get("status") or "")
+            completed = int(item.get("completed") or 0)
+            total = int(item.get("total") or 0)
+            percent = 28 + (int(completed * 70 / total) if total else 0)
+            _progress(progress, min(98, percent), "Downloading DeepSeek", status or f"Downloading {name}...", completed, total)
             if status.lower() in {"success", "complete"} or "success" in status.lower():
                 return
     if last:
         print(f"Ollama pull: {last}")
 
 
-def install(name: str | None = None) -> str:
+def install(name: str | None = None, progress: ProgressCallback | None = None) -> str:
     model = normalize_model(name)
     current = installed()
     if current == model or (current and name is None):
         return current or model
-    binary = download_ollama()
+    binary = download_ollama(progress)
+    _progress(progress, 25, "Starting Ollama", "Starting the local model service...")
     start_server(binary)
     print(f"正在拉取 DeepSeek 模型 {model}……")
     try:
-        pull(model)
+        pull(model, progress)
     except Exception as exc:
         raise RuntimeError(friendly_error(exc)) from exc
     ready = installed()
     if not ready:
         raise RuntimeError("DeepSeek 模型没有装上。请换手机热点后重试。")
+    _progress(progress, 100, "DeepSeek ready", f"Installed {ready}.")
     return ready
 
 

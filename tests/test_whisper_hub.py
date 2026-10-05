@@ -30,6 +30,9 @@ sys.modules["faster_whisper"] = fake
 
 import whisper_hub
 
+assert whisper_hub.MODEL_SIZE_ESTIMATES["small"] > 400_000_000
+assert whisper_hub.cached_bytes("not-a-model") == 0
+
 whisper_hub.configure()
 assert whisper_hub.cached_models()["small"] is False
 text = whisper_hub.friendly_error(TimeoutError("ConnectTimeout: [Errno 60] Operation timed out on the Hub"))

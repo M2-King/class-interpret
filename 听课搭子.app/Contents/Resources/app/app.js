@@ -17,6 +17,9 @@ const ui = {
   modelBanner: $('model-banner'), modelBannerText: $('model-banner-text'),
   installWhisper: $('install-whisper'), installDeepseek: $('install-deepseek'),
   installDeepseekPage: $('install-deepseek-page'),
+  modelProgress: $('model-download-progress'), modelProgressPhase: $('model-progress-phase'),
+  modelProgressPercent: $('model-progress-percent'), modelProgressBar: $('model-progress-bar'),
+  modelProgressDetail: $('model-progress-detail'),
   deepseekHealth: $('deepseek-health'), deepseekStatusText: $('deepseek-status-text'),
   courseTitleSide: $('course-title-side'), dockRecord: document.querySelector('[data-record-proxy]'),
   subtitleButton: $('subtitle-window-button'), themeToggle: $('theme-toggle'), livePreview: $('live-preview'),
@@ -31,7 +34,54 @@ const RATE = 16000, WINDOW = RATE * 8, OVERLAP = RATE;
 const MODEL_LABELS = { small: 'Small', medium: 'Medium', 'large-v3': 'Large v3' };
 let clockTimer = null;
 let lastStatus = null;
+let modelProgressTimer = null;
 const THEME_KEY = 'class-interpreter-theme';
+
+function formatDownloadBytes(value) {
+  const bytes = Number(value || 0);
+  if (!bytes) return '';
+  if (bytes >= 1024 ** 3) return `${(bytes / 1024 ** 3).toFixed(2)} GB`;
+  return `${(bytes / 1024 ** 2).toFixed(1)} MB`;
+}
+
+function renderModelProgress(item) {
+  if (!ui.modelProgress || !item || item.state === 'idle') return;
+  const percent = Math.max(0, Math.min(100, Number(item.percent || 0)));
+  ui.modelProgress.hidden = false;
+  ui.modelProgress.classList.toggle('failed', item.state === 'failed');
+  if (ui.modelBanner) ui.modelBanner.classList.add('show');
+  if (ui.modelProgressPhase) ui.modelProgressPhase.textContent = item.phase || 'Preparing model';
+  if (ui.modelProgressPercent) ui.modelProgressPercent.textContent = item.state === 'failed' ? 'Failed' : `${Math.round(percent)}%`;
+  if (ui.modelProgressBar) ui.modelProgressBar.style.width = `${percent}%`;
+  const track = ui.modelProgress?.querySelector('[role="progressbar"]');
+  if (track) track.setAttribute('aria-valuenow', String(Math.round(percent)));
+  const sizes = item.downloaded
+    ? `${formatDownloadBytes(item.downloaded)}${item.total ? ` of ${formatDownloadBytes(item.total)}` : ' downloaded'}`
+    : '';
+  if (ui.modelProgressDetail) ui.modelProgressDetail.textContent = [item.detail, sizes].filter(Boolean).join(' · ');
+}
+
+async function refreshModelProgress() {
+  try {
+    const progress = await api('/api/models/progress');
+    renderModelProgress(progress);
+    return progress;
+  } catch {
+    return null;
+  }
+}
+
+function startModelProgressPolling() {
+  if (modelProgressTimer) clearInterval(modelProgressTimer);
+  refreshModelProgress();
+  modelProgressTimer = setInterval(refreshModelProgress, 650);
+}
+
+async function stopModelProgressPolling() {
+  if (modelProgressTimer) clearInterval(modelProgressTimer);
+  modelProgressTimer = null;
+  await refreshModelProgress();
+}
 
 function applyTheme(theme) {
   const selected = theme === 'light' ? 'light' : 'dark';
@@ -953,6 +1003,8 @@ async function init() {
   try {
     const [status] = await Promise.all([api('/api/status'), loadHistory()]);
     applyStatus(status);
+    const installProgress = await refreshModelProgress();
+    if (installProgress?.active) startModelProgressPolling();
     if (!status.translation) {
       notice('中文翻译模型还没装好。请看页面上方的黄色提示，点按钮安装。', 'warn');
     } else if (!(status.whisper_models?.[ui.model?.value || 'small'] ?? status.whisper)) {
@@ -981,6 +1033,7 @@ if (ui.installTranslation) {
     ui.installTranslation.disabled = true;
     if (ui.modelBannerText) ui.modelBannerText.textContent = '正在安装翻译依赖并下载英语 → 中文模型，请保持联网…';
     notice('正在安装翻译依赖并下载英语 → 中文模型，请保持联网…', 'warn');
+    startModelProgressPolling();
     const timeout = fetchTimeout(900000);
     try {
       const body = await api('/api/translation/install', { method: 'POST', signal: timeout.signal });
@@ -999,6 +1052,8 @@ if (ui.installTranslation) {
       if (ui.modelBannerText) ui.modelBannerText.textContent = shown;
       notice(shown, true);
       ui.installTranslation.disabled = false;
+    } finally {
+      await stopModelProgressPolling();
     }
   });
 }
@@ -1011,6 +1066,7 @@ if (ui.installWhisper) {
       ui.modelBannerText.textContent = `正在下载语音模型 ${model}。校园网请改用手机热点，可能要几分钟…`;
     }
     notice(`正在下载语音模型 ${model}…`, 'warn');
+    startModelProgressPolling();
     const timeout = fetchTimeout(600000);
     try {
       const body = await api('/api/whisper/install', {
@@ -1030,6 +1086,8 @@ if (ui.installWhisper) {
       if (ui.modelBannerText) ui.modelBannerText.textContent = `语音模型下载失败：${message}`;
       notice(`语音模型下载失败：${message}`, true);
       ui.installWhisper.disabled = false;
+    } finally {
+      await stopModelProgressPolling();
     }
   });
 }
@@ -1041,6 +1099,7 @@ async function installDeepseek() {
   if (ui.modelBannerText) ui.modelBannerText.textContent = message;
   if (ui.deepseekStatusText) ui.deepseekStatusText.textContent = message;
   notice(message, 'warn');
+  startModelProgressPolling();
   const timeout = fetchTimeout(900000);
   try {
     const body = await api('/api/deepseek/install', {
@@ -1061,6 +1120,8 @@ async function installDeepseek() {
     if (ui.deepseekStatusText) ui.deepseekStatusText.textContent = `DeepSeek 安装失败：${text}`;
     notice(`DeepSeek 安装失败：${text}`, true);
     buttons.forEach(button => { button.disabled = false; });
+  } finally {
+    await stopModelProgressPolling();
   }
 }
 

@@ -21,8 +21,69 @@ from pathlib import Path
 from urllib import error, request
 from urllib.parse import unquote, urlsplit
 
-import deepseek_api
-import deepseek_hub
+# Establish real filesystem locations before importing helpers. This also lets
+# modules loaded from the fallback zip avoid treating the zip itself as a folder.
+APP_ROOT = Path(__file__).resolve().parent
+os.environ.setdefault("CLASS_INTERPRET_HF", str(APP_ROOT / "hf"))
+os.environ.setdefault("CLASS_INTERPRET_DATA", str(APP_ROOT / "data"))
+
+# Fresh Windows installations include a single fallback archive of all local
+# helpers. Loose files remain preferred for development and upgrades; if an
+# antivirus or incomplete repair removes one, Python continues from the bundle.
+MODULE_BUNDLE = APP_ROOT / "class_interpreter_modules.zip"
+if MODULE_BUNDLE.is_file() and str(MODULE_BUNDLE) not in sys.path:
+    sys.path.append(str(MODULE_BUNDLE))
+
+try:
+    import deepseek_api
+except ModuleNotFoundError:
+    class _UnavailableDeepSeekAPI:
+        """Keep core subtitles usable when an optional cloud helper was removed."""
+
+        CLOUD_MODEL = "deepseek-chat"
+
+        @staticmethod
+        def available(*_args, **_kwargs) -> bool:
+            return False
+
+        @staticmethod
+        def chat(*_args, **_kwargs) -> str:
+            raise RuntimeError("DeepSeek cloud support is unavailable; subtitles still work.")
+
+    deepseek_api = _UnavailableDeepSeekAPI()
+try:
+    import deepseek_hub
+except ModuleNotFoundError:
+    class _UnavailableDeepSeekHub:
+        """Local DeepSeek is optional and must never block live subtitles."""
+
+        DEFAULT_MODEL = "deepseek-r1:1.5b"
+
+        @staticmethod
+        def installed() -> None:
+            return None
+
+        @staticmethod
+        def snapshot() -> dict:
+            return {"ready": False, "deepseek": None, "ollama": None}
+
+        @staticmethod
+        def try_start() -> None:
+            return None
+
+        @staticmethod
+        def friendly_error(_exc: BaseException) -> str:
+            return "Local DeepSeek support is unavailable; live subtitles still work."
+
+        @staticmethod
+        def chat(*_args, **_kwargs) -> str:
+            raise RuntimeError("Local DeepSeek support is unavailable.")
+
+        @staticmethod
+        def install(*_args, **_kwargs) -> str:
+            raise RuntimeError("Local DeepSeek support is unavailable in this installation.")
+
+    deepseek_hub = _UnavailableDeepSeekHub()
 import ssl_certs
 import streaming_server
 import translation_hub
@@ -31,7 +92,7 @@ import whisper_hub
 ssl_certs.apply()
 whisper_hub.configure()
 
-ROOT = Path(__file__).resolve().parent
+ROOT = APP_ROOT
 VERSION = (ROOT / "VERSION").read_text(encoding="utf-8").strip() if (ROOT / "VERSION").is_file() else "0.3.3"
 DATA = Path(os.environ.get("CLASS_INTERPRET_DATA", ROOT / "data"))
 DATA.mkdir(parents=True, exist_ok=True)
@@ -46,6 +107,19 @@ TRANSLATE_LOCK = threading.Lock()
 TRANSLATE_INSTALL_LOCK = threading.Lock()
 WHISPER_INSTALL_LOCK = threading.Lock()
 DEEPSEEK_INSTALL_LOCK = threading.Lock()
+INSTALL_PROGRESS_LOCK = threading.Lock()
+INSTALL_PROGRESS = {
+    "active": False,
+    "kind": "",
+    "model": "",
+    "state": "idle",
+    "percent": 0,
+    "phase": "",
+    "detail": "",
+    "downloaded": 0,
+    "total": 0,
+    "updated": 0.0,
+}
 MODEL_CACHE: dict[str, object] = {}
 MODEL_DEVICE: dict[str, str] = {}
 CUDA_DLL_HANDLES: list[object] = []
@@ -77,11 +151,58 @@ def save_session(session: dict) -> None:
     os.replace(temporary, path)
 
 
-def install_translation_model() -> None:
+def set_install_progress(
+    kind: str,
+    percent: int,
+    phase: str,
+    detail: str,
+    downloaded: int = 0,
+    total: int = 0,
+    *,
+    state: str = "working",
+    model: str = "",
+) -> None:
+    with INSTALL_PROGRESS_LOCK:
+        INSTALL_PROGRESS.update({
+            "active": state == "working",
+            "kind": kind,
+            "model": model or INSTALL_PROGRESS.get("model", ""),
+            "state": state,
+            "percent": max(0, min(100, int(percent))),
+            "phase": str(phase),
+            "detail": str(detail),
+            "downloaded": max(0, int(downloaded or 0)),
+            "total": max(0, int(total or 0)),
+            "updated": time.time(),
+        })
+
+
+def install_progress_callback(kind: str, model: str = ""):
+    def update(percent: int, phase: str, detail: str, downloaded: int = 0, total: int = 0) -> None:
+        set_install_progress(kind, percent, phase, detail, downloaded, total, model=model)
+
+    return update
+
+
+def install_progress_snapshot() -> dict:
+    with INSTALL_PROGRESS_LOCK:
+        snapshot = dict(INSTALL_PROGRESS)
+    if snapshot["active"] and snapshot["kind"] == "whisper" and snapshot.get("model"):
+        name = snapshot["model"]
+        downloaded = whisper_hub.cached_bytes(name)
+        total = int(whisper_hub.MODEL_SIZE_ESTIMATES.get(name, 0))
+        if total:
+            snapshot["downloaded"] = downloaded
+            snapshot["total"] = total
+            snapshot["percent"] = max(snapshot["percent"], min(94, 8 + int(downloaded * 84 / total)))
+    return snapshot
+
+
+def install_translation_model(progress=None) -> None:
     import setup_models
 
     try:
-        setup_models.main()
+        setup_models.main(progress=progress)
     except SystemExit as exc:
         if exc.code in (0, None):
             return
@@ -134,8 +255,12 @@ def load_model(name: str):
         return MODEL_CACHE[name]
 
 
-def install_whisper_model(name: str = "small") -> None:
+def install_whisper_model(name: str = "small", progress=None) -> None:
+    if progress:
+        progress(5, "Preparing speech model", f"Checking the {name} model cache...")
     whisper_hub.download(name)
+    if progress:
+        progress(100, "Speech model ready", f"The {name} speech model is ready.")
 
 
 def prepare_cuda_dlls() -> None:
@@ -466,6 +591,8 @@ class Handler(BaseHTTPRequestHandler):
             # Installer readiness must stay fast and must not probe optional AI
             # services. The full /api/status endpoint intentionally does more.
             return self.respond(200, {"ready": True, "version": VERSION})
+        if method == "GET" and path == "/api/models/progress":
+            return self.respond(200, install_progress_snapshot())
         if method == "GET" and path == "/api/status":
             models = whisper_hub.cached_models()
             deepseek = deepseek_hub.snapshot()
@@ -492,17 +619,22 @@ class Handler(BaseHTTPRequestHandler):
             return self.respond(200, config)
         if method == "POST" and path == "/api/translation/install":
             if translation_available():
+                set_install_progress("translation", 100, "Translation ready", "English to Chinese translation is already installed.", state="complete")
                 return self.respond(200, {"translation": True, "message": "英语 → 中文模型已经安装。"})
             if not TRANSLATE_INSTALL_LOCK.acquire(blocking=False):
                 return self.respond(202, {"translation": False, "message": "正在下载翻译模型，请稍候。"})
             try:
-                install_translation_model()
+                set_install_progress("translation", 1, "Preparing translation", "Starting the translation model installation...")
+                install_translation_model(install_progress_callback("translation"))
             except Exception as exc:
+                set_install_progress("translation", 100, "Translation installation failed", str(exc), state="failed")
                 return self.respond(500, {"error": str(exc), "translation": False})
             finally:
                 TRANSLATE_INSTALL_LOCK.release()
             if not translation_available():
+                set_install_progress("translation", 100, "Translation installation failed", "The language pack was not registered.", state="failed")
                 return self.respond(500, {"error": "翻译模型没有装上，请检查网络后重试。", "translation": False})
+            set_install_progress("translation", 100, "Translation ready", "English to Chinese translation is installed.", state="complete")
             return self.respond(200, {"translation": True, "message": "英语 → 中文模型已安装。"})
         if method == "POST" and path == "/api/whisper/install":
             body = {}
@@ -515,17 +647,23 @@ class Handler(BaseHTTPRequestHandler):
             if name not in MODEL_NAMES:
                 raise ValueError("不支持的识别模型")
             if whisper_hub.cached(name):
+                set_install_progress("whisper", 100, "Speech model ready", f"The {name} model is already installed.", state="complete", model=name)
                 return self.respond(200, {"whisper": True, "model": name, "message": f"语音模型 {name} 已在本地。"})
             if not WHISPER_INSTALL_LOCK.acquire(blocking=False):
                 return self.respond(202, {"whisper": False, "message": "正在下载语音模型，请稍候。"})
             try:
-                install_whisper_model(name)
+                set_install_progress("whisper", 1, "Preparing speech model", f"Starting the {name} model download...", model=name)
+                install_whisper_model(name, install_progress_callback("whisper", name))
             except Exception as exc:
-                return self.respond(500, {"error": whisper_hub.friendly_error(exc), "whisper": False})
+                message = whisper_hub.friendly_error(exc)
+                set_install_progress("whisper", 100, "Speech model download failed", message, state="failed", model=name)
+                return self.respond(500, {"error": message, "whisper": False})
             finally:
                 WHISPER_INSTALL_LOCK.release()
             if not whisper_hub.cached(name):
+                set_install_progress("whisper", 100, "Speech model download failed", "The downloaded model was not found in the cache.", state="failed", model=name)
                 return self.respond(500, {"error": "语音模型没有装上。请换手机热点后重试。", "whisper": False})
+            set_install_progress("whisper", 100, "Speech model ready", f"The {name} speech model is installed.", state="complete", model=name)
             return self.respond(200, {"whisper": True, "model": name, "message": f"语音模型 {name} 已下载。"})
         if method == "POST" and path == "/api/deepseek/install":
             body = {}
@@ -537,15 +675,20 @@ class Handler(BaseHTTPRequestHandler):
             name = str(body.get("model") or deepseek_hub.DEFAULT_MODEL)
             current = deepseek_hub.installed()
             if current and (not body.get("model") or current == name):
+                set_install_progress("deepseek", 100, "DeepSeek ready", f"{current} is already installed.", state="complete", model=name)
                 return self.respond(200, {"deepseek": current, "ready": True, "message": f"DeepSeek 已就绪：{current}"})
             if not DEEPSEEK_INSTALL_LOCK.acquire(blocking=False):
                 return self.respond(202, {"deepseek": current, "ready": False, "message": "正在安装 DeepSeek，请稍候。"})
             try:
-                ready = deepseek_hub.install(name)
+                set_install_progress("deepseek", 1, "Preparing DeepSeek", f"Starting installation of {name}...", model=name)
+                ready = deepseek_hub.install(name, progress=install_progress_callback("deepseek", name))
             except Exception as exc:
-                return self.respond(500, {"error": deepseek_hub.friendly_error(exc), "deepseek": None, "ready": False})
+                message = deepseek_hub.friendly_error(exc)
+                set_install_progress("deepseek", 100, "DeepSeek installation failed", message, state="failed", model=name)
+                return self.respond(500, {"error": message, "deepseek": None, "ready": False})
             finally:
                 DEEPSEEK_INSTALL_LOCK.release()
+            set_install_progress("deepseek", 100, "DeepSeek ready", f"Installed {ready}.", state="complete", model=name)
             return self.respond(200, {"deepseek": ready, "ready": True, "message": f"DeepSeek 已安装：{ready}"})
         if method == "POST" and path == "/api/shutdown":
             if STREAMING_SERVICE:

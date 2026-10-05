@@ -10,6 +10,11 @@ REPOS = {
     "medium": "Systran/faster-whisper-medium",
     "large-v3": "Systran/faster-whisper-large-v3",
 }
+MODEL_SIZE_ESTIMATES = {
+    "small": 488_000_000,
+    "medium": 1_530_000_000,
+    "large-v3": 3_100_000_000,
+}
 MIRRORS = ("https://hf-mirror.com", "https://huggingface.co")
 
 
@@ -74,6 +79,30 @@ def cached(name: str) -> bool:
 def cached_models() -> dict[str, bool]:
     configure()
     return {name: cached(name) for name in REPOS}
+
+
+def cached_bytes(name: str) -> int:
+    """Return downloaded bytes, including partial Hugging Face cache files."""
+    if name not in REPOS:
+        return 0
+    folders = [cache_dir(name)]
+    bundled = bundled_model_dir(name)
+    if bundled is not None:
+        folders.append(bundled)
+    total = 0
+    seen: set[Path] = set()
+    for folder in folders:
+        if not folder.exists():
+            continue
+        for path in folder.rglob("*"):
+            if path in seen or not path.is_file():
+                continue
+            seen.add(path)
+            try:
+                total += path.stat().st_size
+            except OSError:
+                pass
+    return total
 
 
 def endpoints() -> list[str]:

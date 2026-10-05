@@ -165,11 +165,22 @@ input, select, textarea { outline: none; }
   border-radius: 10px;
   background: rgba(120,86,25,.14);
   color: #ead5a4;
+  flex-wrap: wrap;
 }
 .model-banner.show { display: flex; }
 .banner-icon { width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: rgba(233,189,103,.16); font-weight: 800; }
 .model-banner p { flex: 1; margin: 0; font-size: 10px; }
 .banner-actions { display: flex; gap: 6px; }
+.model-download-progress { flex: 0 0 100%; display: grid; gap: 6px; padding: 9px 10px 8px; border: 1px solid rgba(255,255,255,.09); border-radius: 8px; background: rgba(7,10,12,.34); }
+.model-download-progress[hidden] { display: none; }
+.model-progress-heading { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--text); font-size: 10px; }
+.model-progress-heading strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.model-progress-heading span { color: #77e5a5; font-variant-numeric: tabular-nums; }
+.model-progress-track { height: 7px; overflow: hidden; border-radius: 999px; background: rgba(255,255,255,.1); box-shadow: inset 0 1px 2px rgba(0,0,0,.3); }
+.model-progress-track span { display: block; width: 0; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#35c77a,#73e6a7); box-shadow: 0 0 12px rgba(70,220,140,.32); transition: width .3s ease; }
+.model-download-progress small { overflow: hidden; color: var(--soft); font-size: 9px; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+.model-download-progress.failed .model-progress-heading span { color: #ff7777; }
+.model-download-progress.failed .model-progress-track span { background: #d94b4b; }
 
 .view { animation: view-in .18s ease both; }
 @keyframes view-in { from { opacity: 0; transform: translateY(2px); } }

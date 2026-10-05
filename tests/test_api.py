@@ -30,6 +30,20 @@ assert "ollama" in data
 assert "whisper" in data
 assert "whisper_models" in data
 
+with urllib.request.urlopen(base + "/api/models/progress") as response:
+    progress = json.loads(response.read().decode())
+assert progress["state"] == "idle"
+assert progress["percent"] == 0
+
+server.set_install_progress("deepseek", 42, "Downloading DeepSeek", "Pulling model layers...", 420, 1000, model="deepseek-r1:1.5b")
+with urllib.request.urlopen(base + "/api/models/progress") as response:
+    progress = json.loads(response.read().decode())
+assert progress["active"] is True
+assert progress["kind"] == "deepseek"
+assert progress["percent"] == 42
+assert progress["downloaded"] == 420
+assert progress["total"] == 1000
+
 with urllib.request.urlopen(base + "/api/stream/config") as response:
     stream = json.loads(response.read().decode())
 assert stream["enabled"] is False
@@ -45,6 +59,8 @@ assert 'id="install-translation"' in html
 assert "下载语音模型" in html
 assert 'id="install-whisper"' in html
 assert 'id="install-deepseek"' in html
+assert 'id="model-download-progress"' in html
+assert 'id="model-progress-bar"' in html
 assert "安装 DeepSeek" in html
 assert 'id="deepseek-health"' in html
 assert 'id="quit-app"' in html
@@ -69,6 +85,8 @@ with urllib.request.urlopen(base + "/app.js?v=0.3.3") as response:
 assert "/api/translation/install" in script
 assert "/api/whisper/install" in script
 assert "/api/deepseek/install" in script
+assert "/api/models/progress" in script
+assert "startModelProgressPolling" in script
 assert "/api/shutdown" in script
 assert "AbortSignal.timeout" not in script
 assert "modelBanner.classList.toggle" in script

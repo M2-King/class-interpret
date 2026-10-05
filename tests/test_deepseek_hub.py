@@ -54,5 +54,9 @@ assert darwin, deepseek_hub.archive_urls("darwin", "arm64")
 windows = [url for url in deepseek_hub.archive_urls("win32", "AMD64") if "ollama-windows-amd64.zip" in url]
 assert windows, deepseek_hub.archive_urls("win32", "AMD64")
 
+events = []
+deepseek_hub._progress(lambda *args: events.append(args), 42, "Downloading", "Testing", 420, 1000)
+assert events == [(42, "Downloading", "Testing", 420, 1000)]
+
 shutil.rmtree(tmp, ignore_errors=True)
 print("deepseek_hub ok")
